@@ -1,0 +1,524 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">n
+    <head>
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>点单大厅 - 光遇陪玩团</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/order.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="nav-logo">
+                <span class="logo-icon">&#9733;</span>
+                <span class="logo-text">光遇陪玩团</span>
+            </a>
+            <ul class="nav-menu">
+                <li><a href="../index.html" class="nav-link">首页</a></li>
+                <li><a href="#order" class="nav-link active">点单大厅</a></li>
+                <li><a href="members.html" class="nav-link">陪玩成员</a></li>
+                <li><a href="vip.html" class="nav-link">会员中心</a></li>
+                <li><a href="recharge.html" class="nav-link">充值中心</a></li>
+                <li><a href="join.html" class="nav-link">加入团队</a></li>
+                <li><a href="profile.html" class="nav-link">个人中心</a></li>
+            </ul>
+            <div class="nav-actions" data-auth-url="auth.html">
+                <button class="btn-login" onclick="window.location.href='../pages/auth.html'">登录 / 注册</button>
+                <button class="hamburger" id="hamburger" onclick="toggleMenu()">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 页面标题 -->
+    <section class="page-header">
+        <div class="container">
+            <h1><i class="fas fa-shopping-cart"></i> 点单大厅</h1>
+            <p>选择你心仪的陪玩伙伴，开启温暖旅程</p>
+        </div>
+    </section>
+
+    <!-- 筛选栏 -->
+    <section class="filter-bar">
+        <div class="container">
+            <div class="filter-row">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="搜索陪玩名称..." oninput="filterWizards()">
+                </div>
+                <div class="filter-tabs">
+                    <button class="filter-tab active" onclick="setFilter('all', this)">全部</button>
+                    <button class="filter-tab" onclick="setFilter('online', this)">在线</button>
+                    <button class="filter-tab" onclick="setFilter('vip', this)">VIP</button>
+                    <button class="filter-tab" onclick="setFilter('master', this)">大师</button>
+                </div>
+                <div class="sort-box">
+                    <select id="sortSelect" onchange="sortWizards()">
+                        <option value="default">默认排序</option>
+                        <option value="price-low">价格从低到高</option>
+                        <option value="price-high">价格从高到低</option>
+                        <option value="rating">评分最高</option>
+                        <option value="orders">订单最多</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 服务分类 -->
+    <section class="service-categories">
+        <div class="container">
+            <div class="categories-grid">
+                <div class="category-card active" onclick="selectCategory(this, 'all')">
+                    <i class="fas fa-th-large"></i>
+                    <span>全部服务</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'tech')">
+                    <i class="fas fa-code"></i>
+                    <span>技术</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'entertain')">
+                    <i class="fas fa-laugh-beam"></i>
+                    <span>娱乐</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'normal')">
+                    <i class="fas fa-handshake"></i>
+                    <span>普陪</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'piano')">
+                    <i class="fas fa-music"></i>
+                    <span>琴陪</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'treehole')">
+                    <i class="fas fa-heart"></i>
+                    <span>树洞</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'three-love')">
+                    <i class="fas fa-heartbeat"></i>
+                    <span>三恋</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'dragon-taming')">
+                    <i class="fas fa-dragon"></i>
+                    <span>驯龙</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'substitute')">
+                    <i class="fas fa-user-friends"></i>
+                    <span>替身</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'checkin')">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>打卡</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'blindbox')">
+                    <i class="fas fa-box-open"></i>
+                    <span>盲盒</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'hang')">
+                    <i class="fas fa-cloud"></i>
+                    <span>挂机陪</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'photo-edit')">
+                    <i class="fas fa-image"></i>
+                    <span>代拍剪</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'send-heart')">
+                    <i class="fas fa-gift"></i>
+                    <span>送心</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'sacrifice')">
+                    <i class="fas fa-pray"></i>
+                    <span>陪献祭</span>
+                </div>
+                <div class="category-card" onclick="selectCategory(this, 'record')">
+                    <i class="fas fa-video"></i>
+                    <span>录琴</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 陪玩列表 -->
+    <section class="wizard-list">
+        <div class="container">
+            <div class="list-grid" id="wizardList">
+                <!-- 陪玩卡片1 -->
+                <div class="wizard-list-card" data-category="run photo teach" data-price="29.9" data-rating="5.0" data-orders="328" data-online="true" data-type="vip">
+                    <div class="card-header">
+                        <div class="card-avatar">
+                            <i class="fas fa-user-circle"></i>
+                            <span class="online-badge"></span>
+                        </div>
+                        <div class="card-info">
+                            <h3>星光旅者</h3>
+                            <div class="card-tags">
+                                <span class="tag tag-vip">VIP</span>
+                                <span class="tag tag-hot">热门</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-rating">
+                            <i class="fas fa-star"></i> 5.0
+                            <span class="card-orders">(328单)</span>
+                        </div>
+                        <div class="card-skills">
+                            <span class="skill">跑图</span>
+                            <span class="skill">拍照</span>
+                            <span class="skill">高飞</span>
+                        </div>
+                        <p class="card-desc">资深跑图达人，全地图解锁，擅长拍照构图。1000+小时游戏经验，带你领略天空王国最美的风景。</p>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-price">
+                            <span class="price-num">29.9</span>
+                            <span class="price-unit">元/小时</span>
+                        </div>
+                        <button class="btn btn-primary btn-small" onclick="showOrderModal('星光旅者', 29.9)">
+                            <i class="fas fa-cart-plus"></i> 立即点单
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 陪玩卡片2 -->
+                <div class="wizard-list-card" data-category="chat collect" data-price="25.0" data-rating="4.8" data-orders="256" data-online="true" data-type="vip">
+                    <div class="card-header">
+                        <div class="card-avatar">
+                            <i class="fas fa-user-circle"></i>
+                            <span class="online-badge"></span>
+                        </div>
+                        <div class="card-info">
+                            <h3>云间漫步</h3>
+                            <div class="card-tags">
+                                <span class="tag tag-vip">VIP</span>
+                                <span class="tag tag-new">推荐</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-rating">
+                            <i class="fas fa-star"></i> 4.8
+                            <span class="card-orders">(256单)</span>
+                        </div>
+                        <div class="card-skills">
+                            <span class="skill">聊天</span>
+                            <span class="skill">收集</span>
+                            <span class="skill">拍照</span>
+                        </div>
+                        <p class="card-desc">温柔小姐姐，聊天解闷，带你收集所有蜡烛。耐心细致，服务态度极佳。</p>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-price">
+                            <span class="price-num">25.0</span>
+                            <span class="price-unit">元/小时</span>
+                        </div>
+                        <button class="btn btn-primary btn-small" onclick="showOrderModal('云间漫步', 25.0)">
+                            <i class="fas fa-cart-plus"></i> 立即点单
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 陪玩卡片3 -->
+                <div class="wizard-list-card" data-category="teach run" data-price="49.9" data-rating="5.0" data-orders="189" data-online="false" data-type="master">
+                    <div class="card-header">
+                        <div class="card-avatar">
+                            <i class="fas fa-user-circle"></i>
+                            <span class="offline-badge"></span>
+                        </div>
+                        <div class="card-info">
+                            <h3>翼之守护者</h3>
+                            <div class="card-tags">
+                                <span class="tag tag-master">大师</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-rating">
+                            <i class="fas fa-star"></i> 5.0
+                            <span class="card-orders">(189单)</span>
+                        </div>
+                        <div class="card-skills">
+                            <span class="skill">教学</span>
+                            <span class="skill">跑图</span>
+                            <span class="skill">技术</span>
+                        </div>
+                        <p class="card-desc">技术流大神，高飞路线教学，极限操作演示。让你从新手变高手。</p>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-price">
+                            <span class="price-num">49.9</span>
+                            <span class="price-unit">元/小时</span>
+                        </div>
+                        <button class="btn btn-primary btn-small" onclick="showOrderModal('翼之守护者', 49.9)">
+                            <i class="fas fa-cart-plus"></i> 立即点单
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 陪玩卡片4 -->
+                <div class="wizard-list-card" data-category="run collect chat" data-price="19.9" data-rating="4.5" data-orders="412" data-online="true" data-type="normal">
+                    <div class="card-header">
+                        <div class="card-avatar">
+                            <i class="fas fa-user-circle"></i>
+                            <span class="online-badge"></span>
+                        </div>
+                        <div class="card-info">
+                            <h3>晨岛小太阳</h3>
+                            <div class="card-tags">
+                                <span class="tag tag-normal">新人</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-rating">
+                            <i class="fas fa-star"></i> 4.5
+                            <span class="card-orders">(412单)</span>
+                        </div>
+                        <div class="card-skills">
+                            <span class="skill">跑图</span>
+                            <span class="skill">收集</span>
+                            <span class="skill">聊天</span>
+                        </div>
+                        <p class="card-desc">元气满满的小太阳，陪你走遍每个地图。价格实惠，服务热情！</p>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-price">
+                            <span class="price-num">19.9</span>
+                            <span class="price-unit">元/小时</span>
+                        </div>
+                        <button class="btn btn-primary btn-small" onclick="showOrderModal('晨岛小太阳', 19.9)">
+                            <i class="fas fa-cart-plus"></i> 立即点单
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 陪玩卡片5 -->
+                <div class="wizard-list-card" data-category="photo chat" data-price="35.0" data-rating="4.9" data-orders="198" data-online="true" data-type="vip">
+                    <div class="card-header">
+                        <div class="card-avatar">
+                            <i class="fas fa-user-circle"></i>
+                            <span class="online-badge"></span>
+                        </div>
+                        <div class="card-info">
+                            <h3>光影诗人</h3>
+                            <div class="card-tags">
+                                <span class="tag tag-vip">VIP</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-rating">
+                            <i class="fas fa-star"></i> 4.9
+                            <span class="card-orders">(198单)</span>
+                        </div>
+                        <div class="card-skills">
+                            <span class="skill">拍照</span>
+                            <span class="skill">聊天</span>
+                            <span class="skill">剪辑</span>
+                        </div>
+                        <p class="card-desc">专业摄影师陪玩，帮你拍出朋友圈爆款照片。附赠视频剪辑服务。</p>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-price">
+                            <span class="price-num">35.0</span>
+                            <span class="price-unit">元/小时</span>
+                        </div>
+                        <button class="btn btn-primary btn-small" onclick="showOrderModal('光影诗人', 35.0)">
+                            <i class="fas fa-cart-plus"></i> 立即点单
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 陪玩卡片6 -->
+                <div class="wizard-list-card" data-category="run teach" data-price="15.0" data-rating="4.3" data-orders="89" data-online="true" data-type="normal">
+                    <div class="card-header">
+                        <div class="card-avatar">
+                            <i class="fas fa-user-circle"></i>
+                            <span class="online-badge"></span>
+                        </div>
+                        <div class="card-info">
+                            <h3>清风小助手</h3>
+                            <div class="card-tags">
+                                <span class="tag tag-normal">新人</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-rating">
+                            <i class="fas fa-star"></i> 4.3
+                            <span class="card-orders">(89单)</span>
+                        </div>
+                        <div class="card-skills">
+                            <span class="skill">跑图</span>
+                            <span class="skill">入门</span>
+                        </div>
+                        <p class="card-desc">新手友好型陪玩，耐心教你基础操作，带你熟悉各个地图。</p>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-price">
+                            <span class="price-num">15.0</span>
+                            <span class="price-unit">元/小时</span>
+                        </div>
+                        <button class="btn btn-primary btn-small" onclick="showOrderModal('清风小助手', 15.0)">
+                            <i class="fas fa-cart-plus"></i> 立即点单
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 加载更多 -->
+            <div class="load-more">
+                <button class="btn btn-outline" onclick="loadMore()">
+                    <i class="fas fa-sync-alt"></i> 加载更多
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 订单弹窗 -->
+    <div class="modal-overlay" id="orderModal">
+        <div class="modal order-modal">
+            <button class="modal-close" onclick="closeOrderModal()">&times;</button>
+            <h2>创建订单</h2>
+            <form id="orderForm" class="order-form">
+                <div class="order-info">
+                    <div class="order-wizard">
+                        <div class="order-wizard-avatar"><i class="fas fa-user-circle"></i></div>
+                        <div>
+                            <h4 id="orderWizardName">陪玩名称</h4>
+                            <span id="orderWizardPrice">￥0.00/小时</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><i class="fas fa-list"></i> 服务类型</label>
+                        <select required>
+                            <option value="">请选择服务类型</option>
+                            <option value="run">跑图服务</option>
+                            <option value="photo">拍照陪玩</option>
+                            <option value="collect">收集陪伴</option>
+                            <option value="chat">聊天交友</option>
+                            <option value="teach">技术教学</option>
+                            <option value="custom">自定义服务</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-server"></i> 游戏服务器</label>
+                        <select required>
+                            <option value="">请选择服务器</option>
+                            <option value="ios">iOS</option>
+                            <option value="android">Android</option>
+                            <option value="pc">PC模拟器</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><i class="fas fa-clock"></i> 预计时长（小时）</label>
+                        <input type="number" min="1" max="12" value="1" required onchange="calcOrderTotal()">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-calendar"></i> 预约时间</label>
+                        <input type="datetime-local" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-comment"></i> 备注信息</label>
+                    <textarea rows="3" placeholder="请描述您的需求（可选）"></textarea>
+                </div>
+                <div class="order-total">
+                    <span>订单总额：</span>
+                    <strong id="orderTotalPrice">￥0.00</strong>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">确认下单</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 登录弹窗 -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal login-modal">
+            <button class="modal-close" onclick="closeLoginModal()">&times;</button>
+            <div class="modal-tabs">
+                <button class="tab active" onclick="switchTab('login')">登录</button>
+                <button class="tab" onclick="switchTab('register')">注册</button>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm" class="auth-form">
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> 用户名 / 手机号</label>
+                        <input type="text" placeholder="请输入用户名或手机号" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> 密码</label>
+                        <input type="password" placeholder="请输入密码" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">登录</button>
+                </form>
+                <form id="registerForm" class="auth-form" style="display:none;">
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> 用户名</label>
+                        <input type="text" placeholder="设置用户名" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-gamepad"></i> 游戏ID</label>
+                        <input type="text" placeholder="请输入游戏内角色ID" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> 密码</label>
+                        <input type="password" placeholder="设置密码（至少6位）" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">注册</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>光遇陪玩团</h3>
+                    <p>温暖相遇，快乐同行。最专业的光遇陪玩服务平台。</p>
+                </div>
+                <div class="footer-section">
+                    <h3>快速链接</h3>
+                    <ul>
+                        <li><a href="../index.html">首页</a></li>
+                        <li><a href="order.html">点单大厅</a></li>
+                        <li><a href="vip.html">会员中心</a></li>
+                        <li><a href="recharge.html">充值中心</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>下载APP</h3>
+                    <ul>
+                        <li><a href="#" onclick="downloadApp('android')"><i class="fab fa-android"></i> Android版</a></li>
+                        <li><a href="#" onclick="downloadApp('ios')"><i class="fab fa-apple"></i> iOS版</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>联系我们</h3>
+                    <ul>
+                        <li><i class="fas fa-envelope"></i> support@skycompanion.com</li>
+                        <li><i class="fas fa-phone"></i> 400-888-8888</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/main.js"></script>
+    <script src="../js/order.js"></script>
+</body>
+</html>
+
+

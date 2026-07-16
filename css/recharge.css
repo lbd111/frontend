@@ -1,0 +1,281 @@
+﻿/* ============================================
+   光遇陪玩团 - 充值中心页面样式
+   ============================================ */
+
+.recharge-header {
+    background: linear-gradient(135deg, #00695C 0%, #00897B 50%, #26A69A 100%);
+}
+
+/* --- 账户余额 --- */
+.account-balance {
+    padding: 40px 0;
+    background: var(--bg-light);
+}
+
+.balance-card {
+    background: linear-gradient(135deg, #1A237E, #283593, #3949AB);
+    border-radius: var(--radius-lg);
+    padding: 40px;
+    text-align: center;
+    color: white;
+    max-width: 500px;
+    margin: 0 auto;
+    box-shadow: 0 10px 40px rgba(26, 35, 126, 0.3);
+}
+
+.balance-label {
+    font-size: 1rem;
+    opacity: 0.8;
+    margin-bottom: 12px;
+}
+
+.balance-amount {
+    margin-bottom: 24px;
+}
+
+.balance-amount .currency {
+    font-size: 1.5rem;
+    vertical-align: super;
+}
+
+.balance-amount #balanceValue {
+    font-size: 3.5rem;
+    font-weight: 800;
+}
+
+.balance-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.btn-outline-light {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* --- 充值方案 --- */
+.recharge-plans {
+    padding: 80px 0;
+    background: var(--bg-white);
+}
+
+.plans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.plan-card {
+    position: relative;
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 30px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.plan-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow);
+    border-color: var(--primary);
+}
+
+.plan-card.popular {
+    border-color: var(--secondary);
+    background: linear-gradient(135deg, #FFFDE7, #FFF9C4);
+}
+
+.plan-card.custom {
+    border: 2px dashed var(--primary);
+    background: var(--bg-light);
+}
+
+.plan-badge {
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #FF8A65, #FF5722);
+}
+
+.plan-amount {
+    margin-bottom: 12px;
+}
+
+.plan-amount .amount {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text-dark);
+}
+
+.plan-amount .unit {
+    font-size: 1rem;
+    color: var(--text-secondary);
+}
+
+.plan-bonus {
+    font-size: 0.9rem;
+    color: #4CAF50;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.plan-real {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.plan-custom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.plan-custom i {
+    font-size: 1.5rem;
+}
+
+/* --- 充值弹窗 --- */
+.recharge-selected {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    padding: 20px;
+    background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+    border-radius: var(--radius-sm);
+    margin-bottom: 24px;
+    font-size: 1.1rem;
+}
+
+.recharge-selected strong {
+    font-size: 2rem;
+    color: #2E7D32;
+}
+
+.payment-options {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.payment-option {
+    flex: 1;
+    cursor: pointer;
+}
+
+.payment-option input {
+    display: none;
+}
+
+.payment-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 12px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.payment-option input:checked + .payment-card {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.payment-card i {
+    font-size: 1.8rem;
+    color: var(--text-secondary);
+}
+
+.payment-option input:checked + .payment-card i {
+    color: var(--primary);
+}
+
+.payment-card span {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* --- 充值记录 --- */
+.records-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.record-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.record-item:last-child {
+    border-bottom: none;
+}
+
+.record-date {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-bottom: 4px;
+}
+
+.record-method {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.record-method i {
+    margin-right: 4px;
+    color: var(--primary);
+}
+
+.record-amount {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #4CAF50;
+}
+
+/* --- 响应式 --- */
+@media (max-width: 768px) {
+    .plans-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .payment-options {
+        flex-direction: column;
+    }
+
+    .balance-card {
+        padding: 30px 20px;
+    }
+
+    .balance-amount #balanceValue {
+        font-size: 2.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .plans-grid {
+        grid-template-columns: 1fr;
+    }
+}

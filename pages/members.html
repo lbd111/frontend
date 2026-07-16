@@ -1,0 +1,351 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">n
+    <head>
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>陪玩成员 - 光遇陪玩团</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/members.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<nav class="navbar">
+<div class="nav-container">
+<a href="../index.html" class="nav-logo"><span class="logo-icon">&#9733;</span><span class="logo-text">光遇陪玩团</span></a>
+<ul class="nav-menu" id="navMenu">
+<li><a href="../index.html" class="nav-link">首页</a></li>
+<li><a href="order.html" class="nav-link">点单大厅</a></li>
+<li><a href="members.html" class="nav-link active">陪玩成员</a></li>
+<li><a href="vip.html" class="nav-link">会员中心</a></li>
+<li><a href="recharge.html" class="nav-link">充值中心</a></li>
+<li><a href="join.html" class="nav-link">加入团队</a></li>
+<li><a href="profile.html" class="nav-link">个人中心</a></li>
+</ul>
+<div class="nav-actions" data-auth-url="auth.html">
+<button class="btn-login" onclick="window.location.href='../pages/auth.html'">登录 / 注册</button>
+<button class="hamburger" id="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></button>
+</div>
+</div>
+</nav>
+<section class="page-header members-header">
+<div class="container">
+<h1><i class="fas fa-users"></i> 陪玩成员</h1>
+<p>寻找你的光之旅伴，一起探索天空王国</p>
+</div>
+</section>
+<section class="members-overview">
+<div class="container">
+<div class="overview-grid">
+<div class="overview-item"><span class="ov-number">528</span><span class="ov-label">认证陪玩</span></div>
+<div class="overview-item"><span class="ov-number online-count">186</span><span class="ov-label">在线人数</span></div>
+<div class="overview-item"><span class="ov-number">12,450</span><span class="ov-label">累计订单</span></div>
+<div class="overview-item"><span class="ov-number">4.9</span><span class="ov-label">平均评分</span></div>
+</div>
+</div>
+</section>
+<section class="members-filter">
+<div class="container">
+<div class="filter-row">
+<div class="search-box"><i class="fas fa-search"></i><input type="text" id="memberSearch" placeholder="搜索陪玩名称..." oninput="filterMembers()"></div>
+<div class="filter-group"><label>状态：</label>
+<button class="filter-btn active" onclick="setMemberFilter('all',this)">全部</button>
+<button class="filter-btn" onclick="setMemberFilter('online',this)">在线</button>
+<button class="filter-btn" onclick="setMemberFilter('offline',this)">离线</button></div>
+<div class="filter-group"><label>等级：</label>
+<button class="filter-btn active" onclick="setMemberLevel('all',this)">全部</button>
+<button class="filter-btn" onclick="setMemberLevel('normal',this)">普通</button>
+<button class="filter-btn" onclick="setMemberLevel('vip',this)">VIP</button>
+<button class="filter-btn" onclick="setMemberLevel('master',this)">大师</button></div>
+<div class="sort-group"><select id="memberSort" onchange="sortMembers()">
+<option value="default">默认排序</option><option value="rating">评分最高</option>
+<option value="orders">订单最多</option><option value="price-low">价格从低到高</option>
+<option value="price-high">价格从高到低</option></select></div>
+</div>
+</div>
+</section><section class="members-list">
+<div class="container">
+<div class="members-grid" id="membersGrid"><div class="member-card" data-name="星光旅者" data-online="true" data-level="vip" data-rating="5.0" data-orders="328" data-price="29.9" data-skills="run,photo,teach">
+<div class="mc-header">
+<div class="mc-avatar"><i class="fas fa-user-circle"></i><span class='mc-status online'></span></div>
+<div class="mc-badge-row"><span class='mc-level-tag vip'>VIP</span><span class='mc-hot-badge'></span></div>
+</div>
+<div class="mc-body">
+<h3>星光旅者</h3>
+<div class="mc-meta">
+<span><i class="fas fa-star"></i> 5.0</span>
+<span><i class="fas fa-clipboard-list"></i> 328单</span>
+<span><i class="fas fa-clock"></i> 3200h+</span>
+</div>
+<div class="mc-skills"><span class='mc-skill'>跑图</span><span class='mc-skill'>拍照</span><span class='mc-skill'>教学</span></div>
+<p class="mc-bio">资深跑图达人，全地图解锁，擅长拍照构图和技巧教学。1000+小时游戏经验，陪你领略天空王国最美风景。</p>
+<div class="mc-specialties"><span class='specialty'><i class='fas fa-check-circle'></i> 全图解锁</span><span class='specialty'><i class='fas fa-check-circle'></i> 拍照指导</span><span class='specialty'><i class='fas fa-check-circle'></i> 高飞教学</span></div>
+</div>
+<div class="mc-footer">
+<div class="mc-price"><span class="mc-price-num">29.9</span><span class="mc-price-unit">元/小时</span></div>
+<div class="mc-actions">
+<button class="btn btn-primary btn-sm" onclick="showOrderModal('星光旅者', 29.9)"><i class="fas fa-cart-plus"></i> 点单</button>
+<button class="btn btn-outline-sm" onclick="showMemberDetail('星光旅者')"><i class="fas fa-eye"></i> 详情</button>
+</div>
+</div>
+</div><div class="member-card" data-name="云间漫步" data-online="true" data-level="vip" data-rating="4.8" data-orders="256" data-price="25.0" data-skills="chat,collect,photo">
+<div class="mc-header">
+<div class="mc-avatar"><i class="fas fa-user-circle"></i><span class='mc-status online'></span></div>
+<div class="mc-badge-row"><span class='mc-level-tag vip'>VIP</span><span class='mc-hot-badge new'></span></div>
+</div>
+<div class="mc-body">
+<h3>云间漫步</h3>
+<div class="mc-meta">
+<span><i class="fas fa-star"></i> 4.8</span>
+<span><i class="fas fa-clipboard-list"></i> 256单</span>
+<span><i class="fas fa-clock"></i> 2500h+</span>
+</div>
+<div class="mc-skills"><span class='mc-skill'>聊天</span><span class='mc-skill'>收集</span><span class='mc-skill'>拍照</span></div>
+<p class="mc-bio">温柔小姐姐，聊天解闷首选。带你收集所有蜡烛，耐心细致，服务态度极佳。</p>
+<div class="mc-specialties"><span class='specialty'><i class='fas fa-check-circle'></i> 声音甜美</span><span class='specialty'><i class='fas fa-check-circle'></i> 收集达人</span><span class='specialty'><i class='fas fa-check-circle'></i> 耐心温柔</span></div>
+</div>
+<div class="mc-footer">
+<div class="mc-price"><span class="mc-price-num">25.0</span><span class="mc-price-unit">元/小时</span></div>
+<div class="mc-actions">
+<button class="btn btn-primary btn-sm" onclick="showOrderModal('云间漫步', 25.0)"><i class="fas fa-cart-plus"></i> 点单</button>
+<button class="btn btn-outline-sm" onclick="showMemberDetail('云间漫步')"><i class="fas fa-eye"></i> 详情</button>
+</div>
+</div>
+</div><div class="member-card" data-name="翼之守护者" data-online="false" data-level="master" data-rating="5.0" data-orders="189" data-price="49.9" data-skills="teach,run">
+<div class="mc-header">
+<div class="mc-avatar"><i class="fas fa-user-circle"></i><span class='mc-status offline'></span></div>
+<div class="mc-badge-row"><span class='mc-level-tag master'>MASTER</span></div>
+</div>
+<div class="mc-body">
+<h3>翼之守护者</h3>
+<div class="mc-meta">
+<span><i class="fas fa-star"></i> 5.0</span>
+<span><i class="fas fa-clipboard-list"></i> 189单</span>
+<span><i class="fas fa-clock"></i> 1800h+</span>
+</div>
+<div class="mc-skills"><span class='mc-skill'>教学</span><span class='mc-skill'>跑图</span></div>
+<p class="mc-bio">技术流大神，高飞路线教学，极限操作演示。从入门到大师，让你快速成长。</p>
+<div class="mc-specialties"><span class='specialty'><i class='fas fa-check-circle'></i> 极限操作</span><span class='specialty'><i class='fas fa-check-circle'></i> 高飞教学</span><span class='specialty'><i class='fas fa-check-circle'></i> 技术流</span></div>
+</div>
+<div class="mc-footer">
+<div class="mc-price"><span class="mc-price-num">49.9</span><span class="mc-price-unit">元/小时</span></div>
+<div class="mc-actions">
+<button class="btn btn-primary btn-sm" onclick="showOrderModal('翼之守护者', 49.9)"><i class="fas fa-cart-plus"></i> 点单</button>
+<button class="btn btn-outline-sm" onclick="showMemberDetail('翼之守护者')"><i class="fas fa-eye"></i> 详情</button>
+</div>
+</div>
+</div><div class="member-card" data-name="晨岛小太阳" data-online="true" data-level="normal" data-rating="4.5" data-orders="412" data-price="19.9" data-skills="run,collect,chat">
+<div class="mc-header">
+<div class="mc-avatar"><i class="fas fa-user-circle"></i><span class='mc-status online'></span></div>
+<div class="mc-badge-row"><span class='mc-level-tag normal'>NORMAL</span></div>
+</div>
+<div class="mc-body">
+<h3>晨岛小太阳</h3>
+<div class="mc-meta">
+<span><i class="fas fa-star"></i> 4.5</span>
+<span><i class="fas fa-clipboard-list"></i> 412单</span>
+<span><i class="fas fa-clock"></i> 4100h+</span>
+</div>
+<div class="mc-skills"><span class='mc-skill'>跑图</span><span class='mc-skill'>收集</span><span class='mc-skill'>聊天</span></div>
+<p class="mc-bio">元气满满的小太阳，陪你走遍每个地图。价格实惠，服务热情，新手友好！</p>
+<div class="mc-specialties"><span class='specialty'><i class='fas fa-check-circle'></i> 性价比高</span><span class='specialty'><i class='fas fa-check-circle'></i> 元气满满</span><span class='specialty'><i class='fas fa-check-circle'></i> 新手友好</span></div>
+</div>
+<div class="mc-footer">
+<div class="mc-price"><span class="mc-price-num">19.9</span><span class="mc-price-unit">元/小时</span></div>
+<div class="mc-actions">
+<button class="btn btn-primary btn-sm" onclick="showOrderModal('晨岛小太阳', 19.9)"><i class="fas fa-cart-plus"></i> 点单</button>
+<button class="btn btn-outline-sm" onclick="showMemberDetail('晨岛小太阳')"><i class="fas fa-eye"></i> 详情</button>
+</div>
+</div>
+</div><div class="member-card" data-name="光影诗人" data-online="true" data-level="vip" data-rating="4.9" data-orders="198" data-price="35.0" data-skills="photo,chat">
+<div class="mc-header">
+<div class="mc-avatar"><i class="fas fa-user-circle"></i><span class='mc-status online'></span></div>
+<div class="mc-badge-row"><span class='mc-level-tag vip'>VIP</span></div>
+</div>
+<div class="mc-body">
+<h3>光影诗人</h3>
+<div class="mc-meta">
+<span><i class="fas fa-star"></i> 4.9</span>
+<span><i class="fas fa-clipboard-list"></i> 198单</span>
+<span><i class="fas fa-clock"></i> 1900h+</span>
+</div>
+<div class="mc-skills"><span class='mc-skill'>拍照</span><span class='mc-skill'>聊天</span></div>
+<p class="mc-bio">专业摄影师陪玩，帮你拍出朋友圈爆款照片。附赠视频剪辑服务。</p>
+<div class="mc-specialties"><span class='specialty'><i class='fas fa-check-circle'></i> 专业摄影</span><span class='specialty'><i class='fas fa-check-circle'></i> 视频剪辑</span><span class='specialty'><i class='fas fa-check-circle'></i> 构图指导</span></div>
+</div>
+<div class="mc-footer">
+<div class="mc-price"><span class="mc-price-num">35.0</span><span class="mc-price-unit">元/小时</span></div>
+<div class="mc-actions">
+<button class="btn btn-primary btn-sm" onclick="showOrderModal('光影诗人', 35.0)"><i class="fas fa-cart-plus"></i> 点单</button>
+<button class="btn btn-outline-sm" onclick="showMemberDetail('光影诗人')"><i class="fas fa-eye"></i> 详情</button>
+</div>
+</div>
+</div><div class="member-card" data-name="清风小助手" data-online="true" data-level="normal" data-rating="4.3" data-orders="89" data-price="15.0" data-skills="run,teach">
+<div class="mc-header">
+<div class="mc-avatar"><i class="fas fa-user-circle"></i><span class='mc-status online'></span></div>
+<div class="mc-badge-row"><span class='mc-level-tag normal'>NORMAL</span></div>
+</div>
+<div class="mc-body">
+<h3>清风小助手</h3>
+<div class="mc-meta">
+<span><i class="fas fa-star"></i> 4.3</span>
+<span><i class="fas fa-clipboard-list"></i> 89单</span>
+<span><i class="fas fa-clock"></i> 8900h+</span>
+</div>
+<div class="mc-skills"><span class='mc-skill'>跑图</span><span class='mc-skill'>入门</span></div>
+<p class="mc-bio">新手友好型陪玩，耐心教你基础操作，带你熟悉各个地图。</p>
+<div class="mc-specialties"><span class='specialty'><i class='fas fa-check-circle'></i> 耐心教学</span><span class='specialty'><i class='fas fa-check-circle'></i> 价格实惠</span><span class='specialty'><i class='fas fa-check-circle'></i> 新手推荐</span></div>
+</div>
+<div class="mc-footer">
+<div class="mc-price"><span class="mc-price-num">15.0</span><span class="mc-price-unit">元/小时</span></div>
+<div class="mc-actions">
+<button class="btn btn-primary btn-sm" onclick="showOrderModal('清风小助手', 15.0)"><i class="fas fa-cart-plus"></i> 点单</button>
+<button class="btn btn-outline-sm" onclick="showMemberDetail('清风小助手')"><i class="fas fa-eye"></i> 详情</button>
+</div>
+</div>
+</div><div class="member-card" data-name="暮光之城" data-online="false" data-level="vip" data-rating="4.7" data-orders="156" data-price="32.0" data-skills="run,photo,collect">
+<div class="mc-header">
+<div class="mc-avatar"><i class="fas fa-user-circle"></i><span class='mc-status offline'></span></div>
+<div class="mc-badge-row"><span class='mc-level-tag vip'>VIP</span></div>
+</div>
+<div class="mc-body">
+<h3>暮光之城</h3>
+<div class="mc-meta">
+<span><i class="fas fa-star"></i> 4.7</span>
+<span><i class="fas fa-clipboard-list"></i> 156单</span>
+<span><i class="fas fa-clock"></i> 1500h+</span>
+</div>
+<div class="mc-skills"><span class='mc-skill'>跑图</span><span class='mc-skill'>拍照</span><span class='mc-skill'>收集</span></div>
+<p class="mc-bio">全能型陪玩，跑图拍照收集样样精通。擅长探索隐藏地图和彩蛋。</p>
+<div class="mc-specialties"><span class='specialty'><i class='fas fa-check-circle'></i> 全能型</span><span class='specialty'><i class='fas fa-check-circle'></i> 探索达人</span><span class='specialty'><i class='fas fa-check-circle'></i> 隐藏彩蛋</span></div>
+</div>
+<div class="mc-footer">
+<div class="mc-price"><span class="mc-price-num">32.0</span><span class="mc-price-unit">元/小时</span></div>
+<div class="mc-actions">
+<button class="btn btn-primary btn-sm" onclick="showOrderModal('暮光之城', 32.0)"><i class="fas fa-cart-plus"></i> 点单</button>
+<button class="btn btn-outline-sm" onclick="showMemberDetail('暮光之城')"><i class="fas fa-eye"></i> 详情</button>
+</div>
+</div>
+</div><div class="member-card" data-name="天空之城" data-online="true" data-level="master" data-rating="5.0" data-orders="275" data-price="55.0" data-skills="teach,run,photo">
+<div class="mc-header">
+<div class="mc-avatar"><i class="fas fa-user-circle"></i><span class='mc-status online'></span></div>
+<div class="mc-badge-row"><span class='mc-level-tag master'>MASTER</span><span class='mc-hot-badge top'></span></div>
+</div>
+<div class="mc-body">
+<h3>天空之城</h3>
+<div class="mc-meta">
+<span><i class="fas fa-star"></i> 5.0</span>
+<span><i class="fas fa-clipboard-list"></i> 275单</span>
+<span><i class="fas fa-clock"></i> 2700h+</span>
+</div>
+<div class="mc-skills"><span class='mc-skill'>教学</span><span class='mc-skill'>跑图</span><span class='mc-skill'>拍照</span></div>
+<p class="mc-bio">平台顶级陪玩，3000+小时游戏经验。技术、服务、态度全面满分。</p>
+<div class="mc-specialties"><span class='specialty'><i class='fas fa-check-circle'></i> 平台TOP</span><span class='specialty'><i class='fas fa-check-circle'></i> 3000h+</span><span class='specialty'><i class='fas fa-check-circle'></i> 全能大师</span></div>
+</div>
+<div class="mc-footer">
+<div class="mc-price"><span class="mc-price-num">55.0</span><span class="mc-price-unit">元/小时</span></div>
+<div class="mc-actions">
+<button class="btn btn-primary btn-sm" onclick="showOrderModal('天空之城', 55.0)"><i class="fas fa-cart-plus"></i> 点单</button>
+<button class="btn btn-outline-sm" onclick="showMemberDetail('天空之城')"><i class="fas fa-eye"></i> 详情</button>
+</div>
+</div>
+</div></div>
+<div class="load-more-wrap">
+<button class="btn btn-outline" onclick="loadMoreMembers()"><i class="fas fa-sync-alt"></i> 加载更多成员</button>
+</div>
+</div>
+</section>
+
+<div class="modal-overlay" id="memberDetailModal">
+<div class="modal member-detail-modal">
+<button class="modal-close" onclick="closeMemberDetail()">&times;</button>
+<h2>成员详情</h2>
+<div class="detail-content" id="memberDetailContent"></div>
+</div>
+</div>
+
+<div class="modal-overlay" id="orderModal">
+<div class="modal order-modal">
+<button class="modal-close" onclick="closeOrderModal()">&times;</button>
+<h2>创建订单</h2>
+<form id="orderForm" class="order-form">
+<div class="order-info">
+<div class="order-wizard">
+<div class="order-wizard-avatar"><i class="fas fa-user-circle"></i></div>
+<div>
+<h4 id="orderWizardName">陪玩名称</h4>
+<span id="orderWizardPrice">￥0.00/小时</span>
+</div>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group"><label><i class="fas fa-list"></i> 服务类型</label>
+<select required><option value="">请选择服务类型</option>
+<option value="run">跑图服务</option><option value="photo">拍照陪玩</option>
+<option value="collect">收集陪伴</option><option value="chat">聊天交友</option>
+<option value="teach">技术教学</option></select></div>
+<div class="form-group"><label><i class="fas fa-server"></i> 游戏服务器</label>
+<select required><option value="">请选择服务器</option>
+<option value="ios">iOS</option><option value="android">Android</option>
+<option value="pc">PC模拟器</option></select></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label><i class="fas fa-clock"></i> 预计时长（小时）</label>
+<input type="number" min="1" max="12" value="1" required onchange="calcOrderTotal()"></div>
+<div class="form-group"><label><i class="fas fa-calendar"></i> 预约时间</label>
+<input type="datetime-local" required></div>
+</div>
+<div class="form-group"><label><i class="fas fa-comment"></i> 备注信息</label>
+<textarea rows="3" placeholder="请描述您的需求（可选）"></textarea></div>
+<div class="order-total"><span>订单总额：</span><strong id="orderTotalPrice">￥0.00</strong></div>
+<button type="submit" class="btn btn-primary btn-block">确认下单</button>
+</form>
+</div>
+</div>
+
+<div class="modal-overlay" id="loginModal">
+<div class="modal login-modal">
+<button class="modal-close" onclick="closeLoginModal()">&times;</button>
+<div class="modal-tabs">
+<button class="tab active" onclick="switchTab('login')">登录</button>
+<button class="tab" onclick="switchTab('register')">注册</button>
+</div>
+<div class="modal-body">
+<form id="loginForm" class="auth-form">
+<div class="form-group"><label><i class="fas fa-user"></i> 用户名 / 手机号</label><input type="text" placeholder="请输入用户名或手机号" required></div>
+<div class="form-group"><label><i class="fas fa-lock"></i> 密码</label><input type="password" placeholder="请输入密码" required></div>
+<button type="submit" class="btn btn-primary btn-block">登录</button>
+</form>
+<form id="registerForm" class="auth-form" style="display:none;">
+<div class="form-group"><label><i class="fas fa-user"></i> 用户名</label><input type="text" placeholder="设置用户名" required></div>
+<div class="form-group"><label><i class="fas fa-gamepad"></i> 游戏ID</label><input type="text" placeholder="请输入游戏内角色ID" required></div>
+<div class="form-group"><label><i class="fas fa-lock"></i> 密码</label><input type="password" placeholder="设置密码（至少6位）" required></div>
+<button type="submit" class="btn btn-primary btn-block">注册</button>
+</form>
+</div>
+</div>
+</div>
+
+<footer class="footer">
+<div class="container">
+<div class="footer-content">
+<div class="footer-section"><h3>光遇陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
+<div class="footer-section"><h3>快速链接</h3><ul>
+<li><a href="../index.html">首页</a></li><li><a href="order.html">点单大厅</a></li>
+<li><a href="members.html">陪玩成员</a></li></ul></div>
+<div class="footer-section"><h3>下载APP</h3><ul>
+<li><a href="download.html"><i class="fab fa-windows"></i> Windows客户端</a></li>
+<li><a href="#"><i class="fab fa-android"></i> Android版</a></li>
+<li><a href="#"><i class="fab fa-apple"></i> iOS版</a></li></ul></div>
+<div class="footer-section"><h3>联系我们</h3><ul>
+<li><i class="fas fa-envelope"></i> support@skycompanion.com</li></ul></div>
+</div>
+<div class="footer-bottom"><p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p></div>
+</div>
+</footer>
+
+<script src="../js/main.js"></script>
+<script src="../js/members.js"></script>
+</body>
+</html>
+
+

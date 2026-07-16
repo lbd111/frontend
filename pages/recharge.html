@@ -1,0 +1,257 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">n
+    <head>
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>充值中心 - 光遇陪玩团</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/recharge.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="nav-logo">
+                <span class="logo-icon">&#9733;</span>
+                <span class="logo-text">光遇陪玩团</span>
+            </a>
+            <ul class="nav-menu">
+                <li><a href="../index.html" class="nav-link">首页</a></li>
+                <li><a href="order.html" class="nav-link">点单大厅</a></li>
+                <li><a href="members.html" class="nav-link">陪玩成员</a></li>
+                <li><a href="vip.html" class="nav-link">会员中心</a></li>
+                <li><a href="recharge.html" class="nav-link active">充值中心</a></li>
+                <li><a href="join.html" class="nav-link">加入团队</a></li>
+                <li><a href="profile.html" class="nav-link">个人中心</a></li>
+            </ul>
+            <div class="nav-actions" data-auth-url="auth.html">
+                <button class="btn-login" onclick="window.location.href='../pages/auth.html'">登录 / 注册</button>
+                <button class="hamburger" id="hamburger" onclick="toggleMenu()">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 页面头部 -->
+    <section class="page-header recharge-header">
+        <div class="container">
+            <h1><i class="fas fa-wallet"></i> 充值中心</h1>
+            <p>为您的账户充值，畅享陪玩服务</p>
+        </div>
+    </section>
+
+    <!-- 账户余额 -->
+    <section class="account-balance">
+        <div class="container">
+            <div class="balance-card">
+                <div class="balance-label">账户余额</div>
+                <div class="balance-amount">
+                    <span class="currency">￥</span>
+                    <span id="balanceValue">0.00</span>
+                </div>
+                <div class="balance-actions">
+                    <button class="btn btn-small btn-outline-light" onclick="showTransferModal()">转账记录</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 充值方案 -->
+    <section class="recharge-plans">
+        <div class="container">
+            <h2 class="section-title">充值方案</h2>
+            <p class="section-subtitle">选择适合的充值金额，充得越多送得越多</p>
+            <div class="plans-grid">
+                <div class="plan-card" onclick="selectPlan(this, 50)">
+                    <div class="plan-amount">
+                        <span class="amount">50</span>
+                        <span class="unit">元</span>
+                    </div>
+                    <div class="plan-bonus">无赠送</div>
+                    <div class="plan-real">实付 ￥50.00</div>
+                </div>
+                <div class="plan-card" onclick="selectPlan(this, 100)">
+                    <div class="plan-amount">
+                        <span class="amount">100</span>
+                        <span class="unit">元</span>
+                    </div>
+                    <div class="plan-bonus">赠送 ￥3</div>
+                    <div class="plan-real">实付 ￥100.00</div>
+                </div>
+                <div class="plan-card popular" onclick="selectPlan(this, 200)">
+                    <div class="plan-badge">推荐</div>
+                    <div class="plan-amount">
+                        <span class="amount">200</span>
+                        <span class="unit">元</span>
+                    </div>
+                    <div class="plan-bonus">赠送 ￥10</div>
+                    <div class="plan-real">实付 ￥200.00</div>
+                </div>
+                <div class="plan-card" onclick="selectPlan(this, 500)">
+                    <div class="plan-badge">超值</div>
+                    <div class="plan-amount">
+                        <span class="amount">500</span>
+                        <span class="unit">元</span>
+                    </div>
+                    <div class="plan-bonus">赠送 ￥40</div>
+                    <div class="plan-real">实付 ￥500.00</div>
+                </div>
+                <div class="plan-card" onclick="selectPlan(this, 1000)">
+                    <div class="plan-badge">至尊</div>
+                    <div class="plan-amount">
+                        <span class="amount">1000</span>
+                        <span class="unit">元</span>
+                    </div>
+                    <div class="plan-bonus">赠送 ￥120</div>
+                    <div class="plan-real">实付 ￥1000.00</div>
+                </div>
+                <div class="plan-card custom" onclick="selectCustomPlan(this)">
+                    <div class="plan-custom">
+                        <i class="fas fa-edit"></i>
+                        <span>自定义金额</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 充值弹窗 -->
+    <div class="modal-overlay" id="rechargeModal">
+        <div class="modal recharge-modal">
+            <button class="modal-close" onclick="closeRechargeModal()">&times;</button>
+            <h2>确认充值</h2>
+            <form id="rechargeForm" class="recharge-form">
+                <div class="recharge-selected">
+                    <span>充值金额：</span>
+                    <strong id="selectedAmount">￥50.00</strong>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-credit-card"></i> 支付方式</label>
+                    <div class="payment-options">
+                        <label class="payment-option">
+                            <input type="radio" name="payment" value="wechat" checked>
+                            <div class="payment-card">
+                                <i class="fab fa-weixin"></i>
+                                <span>微信支付</span>
+                            </div>
+                        </label>
+                        <label class="payment-option">
+                            <input type="radio" name="payment" value="alipay">
+                            <div class="payment-card">
+                                <i class="fab fa-alipay"></i>
+                                <span>支付宝</span>
+                            </div>
+                        </label>
+                        <label class="payment-option">
+                            <input type="radio" name="payment" value="balance">
+                            <div class="payment-card">
+                                <i class="fas fa-wallet"></i>
+                                <span>余额支付</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">确认支付</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 转账记录弹窗 -->
+    <div class="modal-overlay" id="transferModal">
+        <div class="modal transfer-modal">
+            <button class="modal-close" onclick="closeTransferModal()">&times;</button>
+            <h2>充值记录</h2>
+            <div class="records-list">
+                <div class="record-item">
+                    <div class="record-info">
+                        <span class="record-date">2026-07-14 15:30</span>
+                        <span class="record-method"><i class="fab fa-weixin"></i> 微信支付</span>
+                    </div>
+                    <div class="record-amount">+￥50.00</div>
+                </div>
+                <div class="record-item">
+                    <div class="record-info">
+                        <span class="record-date">2026-07-12 10:15</span>
+                        <span class="record-method"><i class="fab fa-alipay"></i> 支付宝</span>
+                    </div>
+                    <div class="record-amount">+￥200.00</div>
+                </div>
+                <div class="record-item">
+                    <div class="record-info">
+                        <span class="record-date">2026-07-10 09:00</span>
+                        <span class="record-method"><i class="fab fa-weixin"></i> 微信支付</span>
+                    </div>
+                    <div class="record-amount">+￥100.00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录弹窗 -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal login-modal">
+            <button class="modal-close" onclick="closeLoginModal()">&times;</button>
+            <div class="modal-tabs">
+                <button class="tab active" onclick="switchTab('login')">登录</button>
+                <button class="tab" onclick="switchTab('register')">注册</button>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm" class="auth-form">
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> 用户名 / 手机号</label>
+                        <input type="text" placeholder="请输入用户名或手机号" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> 密码</label>
+                        <input type="password" placeholder="请输入密码" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">登录</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>光遇陪玩团</h3>
+                    <p>温暖相遇，快乐同行。</p>
+                </div>
+                <div class="footer-section">
+                    <h3>快速链接</h3>
+                    <ul>
+                        <li><a href="../index.html">首页</a></li>
+                        <li><a href="order.html">点单大厅</a></li>
+                        <li><a href="vip.html">会员中心</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>下载APP</h3>
+                    <ul>
+                        <li><a href="#" onclick="downloadApp('android')"><i class="fab fa-android"></i> Android版</a></li>
+                        <li><a href="#" onclick="downloadApp('ios')"><i class="fab fa-apple"></i> iOS版</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>联系我们</h3>
+                    <ul>
+                        <li><i class="fas fa-envelope"></i> support@skycompanion.com</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/main.js"></script>
+    <script src="../js/recharge.js"></script>
+</body>
+</html>
+
+

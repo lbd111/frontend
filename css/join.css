@@ -1,0 +1,340 @@
+﻿/* ============================================
+   光遇陪玩团 - 加入团队页面样式
+   ============================================ */
+
+.join-header {
+    background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 50%, #81C784 100%);
+}
+
+/* --- 团队介绍 --- */
+.team-intro {
+    padding: 80px 0;
+    background: var(--bg-white);
+}
+
+.intro-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+}
+
+.intro-text h2 {
+    font-size: 2rem;
+    color: var(--text-dark);
+    margin-bottom: 20px;
+}
+
+.intro-text p {
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    line-height: 1.8;
+}
+
+.benefits-list {
+    margin-top: 24px;
+}
+
+.benefits-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.benefits-list i {
+    color: var(--secondary);
+    font-size: 1.2rem;
+    width: 24px;
+    text-align: center;
+}
+
+.team-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.team-stat {
+    background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+    border-radius: var(--radius);
+    padding: 30px;
+    text-align: center;
+}
+
+.ts-number {
+    display: block;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #2E7D32;
+}
+
+.ts-label {
+    display: block;
+    font-size: 0.95rem;
+    color: #66BB6A;
+    margin-top: 4px;
+}
+
+/* --- 申请条件 --- */
+.requirements {
+    padding: 80px 0;
+    background: var(--bg-light);
+}
+
+.req-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+}
+
+.req-card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 32px 24px;
+    text-align: center;
+    border: 1px solid var(--border);
+    transition: var(--transition);
+}
+
+.req-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow);
+    border-color: #4CAF50;
+}
+
+.req-icon {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: #4CAF50;
+}
+
+.req-card h4 {
+    font-size: 1.15rem;
+    color: var(--text-dark);
+    margin-bottom: 10px;
+}
+
+.req-card p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* --- 申请流程 --- */
+.process {
+    padding: 80px 0;
+    background: var(--bg-white);
+}
+
+.steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+}
+
+.step {
+    text-align: center;
+    padding: 20px;
+    min-width: 160px;
+}
+
+.step-num {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4CAF50, #66BB6A);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: white;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.step h4 {
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+}
+
+.step p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.step-line {
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, #4CAF50, #81C784);
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+/* --- 申请表单 --- */
+.application-form-section {
+    padding: 80px 0;
+    background: var(--bg-light);
+}
+
+.join-form {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: 40px;
+    box-shadow: var(--shadow);
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 2px solid var(--border);
+    border-radius: 25px;
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 0.9rem;
+}
+
+.checkbox-item:hover {
+    border-color: var(--primary);
+}
+
+.checkbox-item input:checked + span {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+
+.skill-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 12px 0;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 12px 0;
+}
+
+.checkbox-item:has(input:checked) {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.form-agreement {
+    margin: 20px 0;
+}
+
+.form-agreement .checkbox-item {
+    display: inline-flex;
+}
+
+/* --- 上传区域 --- */
+.upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-sm);
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+    background: var(--bg-light);
+}
+
+.upload-area:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.upload-area i {
+    font-size: 3rem;
+    color: var(--primary);
+    margin-bottom: 12px;
+}
+
+.upload-area p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.upload-hint {
+    font-size: 0.8rem !important;
+    color: var(--text-light) !important;
+    margin-top: 8px !important;
+}
+
+.btn-submit {
+    padding: 16px;
+    font-size: 1.1rem;
+    border-radius: 12px;
+}
+
+/* --- 响应式 --- */
+@media (max-width: 768px) {
+    .intro-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .steps {
+        flex-direction: column;
+    }
+
+    .step-line {
+        width: 3px;
+        height: 40px;
+        background: linear-gradient(180deg, #4CAF50, #81C784);
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .join-form {
+        padding: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .team-stats {
+        gap: 12px;
+    }
+
+    .team-stat {
+        padding: 20px;
+    }
+
+    .ts-number {
+        font-size: 2rem;
+    }
+}
+

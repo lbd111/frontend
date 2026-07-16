@@ -1,0 +1,429 @@
+﻿/* ============================================
+   光遇陪玩团 - 个人中心页面样式
+   ============================================ */
+
+/* --- 个人中心头部 --- */
+.profile-header {
+    margin-top: 70px;
+    position: relative;
+}
+
+.profile-cover {
+    height: 200px;
+    background: linear-gradient(135deg, #1A237E 0%, #3949AB 50%, #5C6BC0 100%);
+    border-radius: 0 0 40px 40px;
+    position: relative;
+}
+
+.profile-cover::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 30% 50%, rgba(255, 213, 79, 0.2) 0%, transparent 50%),
+        radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 40%);
+}
+
+.profile-main {
+    max-width: 600px;
+    margin: -60px auto 0;
+    padding: 0 20px;
+    position: relative;
+    z-index: 2;
+}
+
+.profile-avatar {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 16px;
+    position: relative;
+}
+
+.avatar-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.5rem;
+    color: white;
+    border: 5px solid white;
+    box-shadow: var(--shadow-lg);
+}
+
+.avatar-edit {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--secondary);
+    border: 3px solid white;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    transition: var(--transition);
+}
+
+.avatar-edit:hover {
+    transform: scale(1.1);
+}
+
+.profile-info {
+    text-align: center;
+}
+
+.profile-info h2 {
+    font-size: 1.6rem;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+}
+
+.user-id {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+}
+
+.user-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+}
+
+.meta-item {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.meta-item i {
+    margin-right: 4px;
+    color: var(--primary);
+}
+
+/* --- 数据统计 --- */
+.profile-stats {
+    padding: 30px 0;
+    background: var(--bg-white);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.stat-card {
+    text-align: center;
+    padding: 20px 12px;
+    background: var(--bg-light);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow);
+}
+
+.stat-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 6px;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* --- 功能菜单 --- */
+.profile-menu {
+    padding: 40px 0;
+    background: var(--bg-light);
+}
+
+.menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: white;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1px solid var(--border);
+}
+
+.menu-item:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow);
+    border-color: var(--primary);
+}
+
+.menu-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.menu-item:nth-child(1) .menu-icon { background: linear-gradient(135deg, #42A5F5, #1976D2); }
+.menu-item:nth-child(2) .menu-icon { background: linear-gradient(135deg, #EF5350, #E53935); }
+.menu-item:nth-child(3) .menu-icon { background: linear-gradient(135deg, #FFA726, #FB8C00); }
+.menu-item:nth-child(4) .menu-icon { background: linear-gradient(135deg, #66BB6A, #43A047); }
+.menu-item:nth-child(5) .menu-icon { background: linear-gradient(135deg, #AB47BC, #8E24AA); }
+.menu-item:nth-child(6) .menu-icon { background: linear-gradient(135deg, #78909C, #546E7A); }
+.menu-item:nth-child(7) .menu-icon { background: linear-gradient(135deg, #26C6DA, #00ACC1); }
+.menu-item:nth-child(8) .menu-icon { background: linear-gradient(135deg, #8D6E63, #6D4C41); }
+
+.menu-item span {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    flex: 1;
+}
+
+.arrow {
+    color: var(--text-light);
+    font-size: 0.85rem;
+}
+
+/* --- 最近订单 --- */
+.recent-orders {
+    padding: 40px 0 80px;
+    background: var(--bg-white);
+}
+
+.section-title-sm {
+    font-size: 1.3rem;
+    color: var(--text-dark);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-title-sm i {
+    color: var(--primary);
+}
+
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.order-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: var(--bg-light);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.order-item:hover {
+    box-shadow: var(--shadow);
+}
+
+.order-wizard-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.order-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.order-wizard-info h4 {
+    font-size: 1rem;
+    color: var(--text-dark);
+}
+
+.order-wizard-info p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.order-status {
+    padding: 4px 14px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.status-completed {
+    background: #E8F5E9;
+    color: #2E7D32;
+}
+
+.status-pending {
+    background: #E3F2FD;
+    color: #1565C0;
+}
+
+.status-waiting {
+    background: #FFF3E0;
+    color: #E65100;
+}
+
+.order-price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+/* --- 订单弹窗 --- */
+.orders-modal .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 12px;
+}
+
+.orders-modal .tabs .tab {
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 8px;
+    transition: var(--transition);
+}
+
+.orders-modal .tabs .tab.active {
+    background: var(--primary);
+    color: white;
+}
+
+.orders-full-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.full-order {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.fo-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+}
+
+.fo-date {
+    color: var(--text-light);
+}
+
+.fo-status {
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.fo-body {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.fo-wizard {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.fo-wizard i {
+    color: var(--primary);
+}
+
+.fo-service {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.fo-price {
+    font-weight: 700;
+    color: var(--accent);
+}
+
+/* --- 响应式 --- */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .menu-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .order-item {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 480px) {
+    .profile-cover {
+        height: 150px;
+    }
+
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+    }
+
+    .avatar-inner {
+        font-size: 2.8rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .stat-value {
+        font-size: 1.3rem;
+    }
+}

@@ -1,0 +1,387 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">n
+    <head>
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>光遇陪玩团 - 移动端</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/mobile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="mobile-body">
+    <!-- 顶部导航 -->
+    <header class="mobile-header">
+        <div class="header-left">
+            <button class="menu-btn" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <div class="header-center">
+            <a href="../index.html" class="mobile-logo">
+                <span class="logo-icon">&#9733;</span>
+                <span>光遇陪玩团</span>
+            </a>
+        </div>
+        <div class="header-right">
+            <button class="notification-btn" onclick="showNotifications()">
+                <i class="fas fa-bell"></i>
+                <span class="badge">3</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 侧边栏 -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-avatar">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="sidebar-user-info">
+                <h4>追光少年</h4>
+                <p>普通会员</p>
+            </div>
+            <button class="sidebar-close" onclick="toggleSidebar()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="../index.html" class="sidebar-link active">
+                <i class="fas fa-home"></i>
+                <span>首页</span>
+            </a>
+            <a href="order.html" class="sidebar-link">
+                <i class="fas fa-shopping-cart"></i>
+                <span>点单大厅</span>
+            </a>
+            <a href="#" class="sidebar-link">
+                <i class="fas fa-users"></i>
+                <span>陪玩成员</span>
+            </a>
+            <a href="vip.html" class="sidebar-link">
+                <i class="fas fa-crown"></i>
+                <span>会员中心</span>
+            </a>
+            <a href="recharge.html" class="sidebar-link">
+                <i class="fas fa-wallet"></i>
+                <span>充值中心</span>
+            </a>
+            <a href="join.html" class="sidebar-link">
+                <i class="fas fa-user-plus"></i>
+                <span>加入团队</span>
+            </a>
+            <a href="profile.html" class="sidebar-link">
+                <i class="fas fa-user-circle"></i>
+                <span>个人中心</span>
+            </a>
+            <div class="sidebar-divider"></div>
+            <a href="#" class="sidebar-link" onclick="showLoginModal()">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>登录 / 注册</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <p>版本 v1.0.0</p>
+        </div>
+    </aside>
+
+    <!-- 移动端首页内容 -->
+    <main class="mobile-content">
+        <!-- 轮播Banner -->
+        <section class="mobile-banner">
+            <div class="banner-wrapper" id="bannerWrapper">
+                <div class="banner-slide active">
+                    <div class="banner-content">
+                        <h2>光遇陪玩团</h2>
+                        <p>温暖相遇 · 快乐同行</p>
+                        <button class="btn btn-primary btn-small" onclick="location.href='order.html'">立即点单</button>
+                    </div>
+                </div>
+                <div class="banner-slide">
+                    <div class="banner-content">
+                        <h2>VIP会员</h2>
+                        <p>开通尊享专属特权</p>
+                        <button class="btn btn-primary btn-small" onclick="location.href='vip.html'">了解详情</button>
+                    </div>
+                </div>
+                <div class="banner-slide">
+                    <div class="banner-content">
+                        <h2>加入团队</h2>
+                        <p>成为陪玩伙伴</p>
+                        <button class="btn btn-primary btn-small" onclick="location.href='join.html'">立即申请</button>
+                    </div>
+                </div>
+            </div>
+            <div class="banner-dots">
+                <span class="dot active"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+            </div>
+        </section>
+
+        <!-- 快捷功能 -->
+        <section class="mobile-shortcuts">
+            <div class="shortcuts-grid">
+                <a href="order.html" class="shortcut-item">
+                    <div class="shortcut-icon icon-order">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <span>点单大厅</span>
+                </a>
+                <a href="#" class="shortcut-item">
+                    <div class="shortcut-icon icon-members">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <span>陪玩成员</span>
+                </a>
+                <a href="vip.html" class="shortcut-item">
+                    <div class="shortcut-icon icon-vip">
+                        <i class="fas fa-crown"></i>
+                    </div>
+                    <span>会员中心</span>
+                </a>
+                <a href="recharge.html" class="shortcut-item">
+                    <div class="shortcut-icon icon-recharge">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <span>充值中心</span>
+                </a>
+                <a href="join.html" class="shortcut-item">
+                    <div class="shortcut-icon icon-join">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <span>加入团队</span>
+                </a>
+                <a href="profile.html" class="shortcut-item">
+                    <div class="shortcut-icon icon-profile">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <span>个人中心</span>
+                </a>
+            </div>
+        </section>
+
+        <!-- 热门陪玩 -->
+        <section class="mobile-popular">
+            <div class="section-header">
+                <h3><i class="fas fa-fire"></i> 人气陪玩</h3>
+                <a href="order.html" class="more-link">查看全部 <i class="fas fa-chevron-right"></i></a>
+            </div>
+            <div class="popular-scroll">
+                <div class="popular-card">
+                    <div class="pc-avatar"><i class="fas fa-user-circle"></i></div>
+                    <div class="pc-info">
+                        <h4>星光旅者</h4>
+                        <div class="pc-rating">
+                            <i class="fas fa-star"></i> 5.0
+                        </div>
+                        <span class="pc-price">￥29.9/小时</span>
+                    </div>
+                    <button class="btn btn-primary btn-xs" onclick="showOrderModal('星光旅者', 29.9)">点单</button>
+                </div>
+                <div class="popular-card">
+                    <div class="pc-avatar"><i class="fas fa-user-circle"></i></div>
+                    <div class="pc-info">
+                        <h4>云间漫步</h4>
+                        <div class="pc-rating">
+                            <i class="fas fa-star"></i> 4.8
+                        </div>
+                        <span class="pc-price">￥25.0/小时</span>
+                    </div>
+                    <button class="btn btn-primary btn-xs" onclick="showOrderModal('云间漫步', 25.0)">点单</button>
+                </div>
+                <div class="popular-card">
+                    <div class="pc-avatar"><i class="fas fa-user-circle"></i></div>
+                    <div class="pc-info">
+                        <h4>翼之守护者</h4>
+                        <div class="pc-rating">
+                            <i class="fas fa-star"></i> 5.0
+                        </div>
+                        <span class="pc-price">￥49.9/小时</span>
+                    </div>
+                    <button class="btn btn-primary btn-xs" onclick="showOrderModal('翼之守护者', 49.9)">点单</button>
+                </div>
+                <div class="popular-card">
+                    <div class="pc-avatar"><i class="fas fa-user-circle"></i></div>
+                    <div class="pc-info">
+                        <h4>晨岛小太阳</h4>
+                        <div class="pc-rating">
+                            <i class="fas fa-star"></i> 4.5
+                        </div>
+                        <span class="pc-price">￥19.9/小时</span>
+                    </div>
+                    <button class="btn btn-primary btn-xs" onclick="showOrderModal('晨岛小太阳', 19.9)">点单</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 服务分类 -->
+        <section class="mobile-services">
+            <div class="section-header">
+                <h3><i class="fas fa-th-large"></i> 服务分类</h3>
+            </div>
+            <div class="services-grid">
+                <div class="service-item">
+                    <i class="fas fa-running"></i>
+                    <span>跑图</span>
+                </div>
+                <div class="service-item">
+                    <i class="fas fa-camera"></i>
+                    <span>拍照</span>
+                </div>
+                <div class="service-item">
+                    <i class="fas fa-fire"></i>
+                    <span>收集</span>
+                </div>
+                <div class="service-item">
+                    <i class="fas fa-comments"></i>
+                    <span>聊天</span>
+                </div>
+                <div class="service-item">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>教学</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 用户评价 -->
+        <section class="mobile-reviews">
+            <div class="section-header">
+                <h3><i class="fas fa-comments"></i> 用户评价</h3>
+            </div>
+            <div class="review-item">
+                <div class="review-user">
+                    <div class="ru-avatar"><i class="fas fa-user"></i></div>
+                    <div>
+                        <h5>追光少年</h5>
+                        <div class="ru-stars">
+                            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                </div>
+                <p class="review-content">第一次用这个平台，体验非常好！陪玩小姐姐特别温柔，带我跑完了所有地图。</p>
+            </div>
+            <div class="review-item">
+                <div class="review-user">
+                    <div class="ru-avatar"><i class="fas fa-user"></i></div>
+                    <div>
+                        <h5>天空之城</h5>
+                        <div class="ru-stars">
+                            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                </div>
+                <p class="review-content">平台很正规，价格透明，陪玩质量也很高。已经成了我每周必用的平台了！</p>
+            </div>
+        </section>
+
+        <!-- 下载APP -->
+        <section class="mobile-download">
+            <div class="download-inner">
+                <h3>下载移动端APP</h3>
+                <p>随时随地，想点就点</p>
+                <div class="download-btns">
+                    <button class="btn btn-download-app" onclick="downloadApp('android')">
+                        <i class="fab fa-android"></i> Android
+                    </button>
+                    <button class="btn btn-download-app" onclick="downloadApp('ios')">
+                        <i class="fab fa-apple"></i> iOS
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 底部导航栏 -->
+    <nav class="bottom-nav">
+        <a href="../index.html" class="nav-item active">
+            <i class="fas fa-home"></i>
+            <span>首页</span>
+        </a>
+        <a href="order.html" class="nav-item">
+            <i class="fas fa-shopping-cart"></i>
+            <span>点单</span>
+        </a>
+        <a href="#" class="nav-item nav-item-center" onclick="showOrderModal('星光旅者', 29.9)">
+            <div class="center-btn">
+                <i class="fas fa-plus"></i>
+            </div>
+        </a>
+        <a href="profile.html" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>我的</span>
+        </a>
+    </nav>
+
+    <!-- 登录弹窗 -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal login-modal mobile-modal">
+            <button class="modal-close" onclick="closeLoginModal()">&times;</button>
+            <div class="modal-tabs">
+                <button class="tab active" onclick="switchTab('login')">登录</button>
+                <button class="tab" onclick="switchTab('register')">注册</button>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm" class="auth-form">
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> 用户名 / 手机号</label>
+                        <input type="text" placeholder="请输入用户名或手机号" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> 密码</label>
+                        <input type="password" placeholder="请输入密码" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">登录</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 订单弹窗 -->
+    <div class="modal-overlay" id="orderModal">
+        <div class="modal order-modal mobile-modal">
+            <button class="modal-close" onclick="closeOrderModal()">&times;</button>
+            <h2>创建订单</h2>
+            <form id="orderForm" class="order-form">
+                <div class="order-info">
+                    <div class="order-wizard">
+                        <div class="order-wizard-avatar"><i class="fas fa-user-circle"></i></div>
+                        <div>
+                            <h4 id="orderWizardName">陪玩名称</h4>
+                            <span id="orderWizardPrice">￥0.00/小时</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-list"></i> 服务类型</label>
+                    <select required>
+                        <option value="">请选择服务类型</option>
+                        <option value="run">跑图服务</option>
+                        <option value="photo">拍照陪玩</option>
+                        <option value="collect">收集陪伴</option>
+                        <option value="chat">聊天交友</option>
+                        <option value="teach">技术教学</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-clock"></i> 预计时长（小时）</label>
+                    <input type="number" min="1" max="12" value="1" required onchange="calcOrderTotal()">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-calendar"></i> 预约时间</label>
+                    <input type="datetime-local" required>
+                </div>
+                <div class="order-total">
+                    <span>订单总额：</span>
+                    <strong id="orderTotalPrice">￥0.00</strong>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">确认下单</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="../js/main.js"></script>
+    <script src="../js/mobile.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,325 @@
+﻿/* ============================================
+   光遇陪玩团 - 会员中心页面样式
+   ============================================ */
+
+.vip-header {
+    background: linear-gradient(135deg, #FF8F00 0%, #FFB300 50%, #FFD54F 100%);
+}
+
+/* --- 会员状态 --- */
+.member-status {
+    padding: 40px 0;
+    background: var(--bg-light);
+}
+
+.status-card {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 30px;
+    background: linear-gradient(135deg, #FFF8E1, #FFF3E0);
+    border-radius: var(--radius);
+    border: 2px solid var(--secondary);
+}
+
+.status-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.status-info h3 {
+    font-size: 1.2rem;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+}
+
+.status-info p {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.status-actions {
+    margin-left: auto;
+}
+
+/* --- 价格对比 --- */
+.vip-comparison {
+    padding: 80px 0;
+    background: var(--bg-white);
+}
+
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.pricing-card {
+    position: relative;
+    background: white;
+    border-radius: var(--radius);
+    padding: 36px 28px;
+    border: 2px solid var(--border);
+    transition: var(--transition);
+    text-align: center;
+}
+
+.pricing-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-lg);
+}
+
+.pricing-card.featured {
+    border-color: var(--secondary);
+    box-shadow: 0 8px 30px rgba(255, 213, 79, 0.2);
+}
+
+.pricing-card.premium {
+    border-color: #9C27B0;
+    background: linear-gradient(135deg, #fff, #F3E5F5);
+}
+
+.pricing-badge {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 20px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: white;
+    white-space: nowrap;
+}
+
+.pricing-card.featured .pricing-badge {
+    background: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
+}
+
+.pricing-card.premium .pricing-badge {
+    background: linear-gradient(135deg, #BA68C8, #9C27B0);
+}
+
+.pricing-header h3 {
+    font-size: 1.4rem;
+    color: var(--text-dark);
+    margin-bottom: 16px;
+}
+
+.price {
+    margin-bottom: 24px;
+}
+
+.currency {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    vertical-align: super;
+}
+
+.amount {
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--text-dark);
+}
+
+.period {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-top: 4px;
+}
+
+.pricing-features {
+    text-align: left;
+    margin-bottom: 30px;
+}
+
+.pricing-features li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.pricing-features li:last-child {
+    border-bottom: none;
+}
+
+.pricing-features .included {
+    color: #4CAF50;
+}
+
+.pricing-features .excluded {
+    color: var(--text-light);
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.pricing-features i {
+    width: 20px;
+    text-align: center;
+}
+
+.pricing-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+/* --- 会员特权 --- */
+.vip-perks {
+    padding: 80px 0;
+    background: var(--bg-light);
+}
+
+.perks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+}
+
+.perk-card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 32px 24px;
+    text-align: center;
+    border: 1px solid var(--border);
+    transition: var(--transition);
+}
+
+.perk-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow);
+    border-color: var(--primary-light);
+}
+
+.perk-icon {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FFF8E1, #FFECB3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: var(--secondary-dark);
+}
+
+.perk-card h4 {
+    font-size: 1.15rem;
+    color: var(--text-dark);
+    margin-bottom: 10px;
+}
+
+.perk-card p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* --- 会员弹窗 --- */
+.plan-options {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.plan-option {
+    flex: 1;
+    cursor: pointer;
+}
+
+.plan-option input {
+    display: none;
+}
+
+.plan-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 12px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.plan-option input:checked + .plan-card {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.plan-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+}
+
+.plan-price {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.plan-save {
+    font-size: 0.75rem;
+    color: #4CAF50;
+    margin-top: 4px;
+}
+
+.vip-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: linear-gradient(135deg, #FFF8E1, #FFF3E0);
+    border-radius: var(--radius-sm);
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+}
+
+.vip-total strong {
+    font-size: 1.5rem;
+    color: var(--accent);
+}
+
+/* --- 响应式 --- */
+@media (max-width: 768px) {
+    .status-card {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .status-actions {
+        margin-left: 0;
+    }
+
+    .pricing-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .plan-options {
+        flex-direction: column;
+    }
+
+    .perks-grid {
+        grid-template-columns: 1fr;
+    }
+}

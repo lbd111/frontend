@@ -1,0 +1,271 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">n
+    <head>
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>下载客户端 - 光遇陪玩团</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/download.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<nav class="navbar">
+<div class="nav-container">
+<a href="../index.html" class="nav-logo"><span class="logo-icon">&#9733;</span><span class="logo-text">光遇陪玩团</span></a>
+<ul class="nav-menu" id="navMenu">
+<li><a href="../index.html" class="nav-link">首页</a></li>
+<li><a href="order.html" class="nav-link">点单大厅</a></li>
+<li><a href="members.html" class="nav-link">陪玩成员</a></li>
+<li><a href="vip.html" class="nav-link">会员中心</a></li>
+<li><a href="recharge.html" class="nav-link">充值中心</a></li>
+<li><a href="join.html" class="nav-link">加入团队</a></li>
+<li><a href="profile.html" class="nav-link">个人中心</a></li>
+</ul>
+<div class="nav-actions" data-auth-url="auth.html">
+<button class="btn-login" onclick="window.location.href='../pages/auth.html'">登录 / 注册</button>
+<button class="hamburger" id="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></button>
+</div>
+</div>
+</nav>
+
+<section class="page-header download-header">
+<div class="container">
+<h1><i class="fas fa-download"></i> 下载客户端</h1>
+<p>选择适合你的平台，享受完整功能体验</p>
+</div>
+</section>
+
+<!-- 下载卡片 -->
+<section class="download-cards">
+<div class="container">
+<div class="download-grid">
+
+<!-- Windows客户端 -->
+<div class="download-card featured">
+<div class="download-card-badge">推荐</div>
+<div class="download-card-icon win">
+<i class="fab fa-windows"></i>
+</div>
+<div class="download-card-info">
+<h3>Windows 客户端</h3>
+<p class="dc-version">v1.0.0 | 64位 | 45.2 MB</p>
+<p class="dc-desc">完整功能体验，支持桌面通知、后台运行、快捷键操作</p>
+</div>
+<div class="download-card-features">
+<ul>
+<li><i class="fas fa-check"></i> 完整点单功能</li>
+<li><i class="fas fa-check"></i> 桌面通知提醒</li>
+<li><i class="fas fa-check"></i> 后台运行</li>
+<li><i class="fas fa-check"></i> 快捷键操作</li>
+<li><i class="fas fa-check"></i> 离线消息缓存</li>
+</ul>
+</div>
+<div class="download-card-actions">
+<button class="btn btn-primary btn-download-btn" onclick="startDownload('windows')">
+<i class="fas fa-download"></i> 立即下载
+</button>
+<a href="#" class="btn btn-outline-sm">
+<i class="fas fa-code"></i> 开源代码
+</a>
+</div>
+<div class="download-card-system">
+<small><i class="fas fa-info-circle"></i> 支持 Windows 10/11 64位</small>
+</div>
+</div>
+
+<!-- Android -->
+<div class="download-card">
+<div class="download-card-icon android">
+<i class="fab fa-android"></i>
+</div>
+<div class="download-card-info">
+<h3>Android 客户端</h3>
+<p class="dc-version">v1.0.0 | APK | 38.6 MB</p>
+<p class="dc-desc">移动端便捷体验，随时随地点单聊天</p>
+</div>
+<div class="download-card-features">
+<ul>
+<li><i class="fas fa-check"></i> 移动端优化</li>
+<li><i class="fas fa-check"></i> 推送通知</li>
+<li><i class="fas fa-check"></i> 一键匹配</li>
+<li><i class="fas fa-check"></i> 语音通话</li>
+<li><i class="fas fa-check"></i> 扫码登录</li>
+</ul>
+</div>
+<div class="download-card-actions">
+<button class="btn btn-primary btn-download-btn" onclick="startDownload('android')">
+<i class="fas fa-download"></i> 立即下载
+</button>
+<a href="#" class="btn btn-outline-sm">
+<i class="fas fa-qrcode"></i> 扫码下载
+</a>
+</div>
+<div class="download-card-system">
+<small><i class="fas fa-info-circle"></i> 支持 Android 8.0 及以上</small>
+</div>
+</div>
+
+<!-- iOS -->
+<div class="download-card">
+<div class="download-card-icon ios">
+<i class="fab fa-apple"></i>
+</div>
+<div class="download-card-info">
+<h3>iOS 客户端</h3>
+<p class="dc-version">v1.0.0 | IPA | 42.1 MB</p>
+<p class="dc-desc">苹果设备专属体验，流畅安全</p>
+</div>
+<div class="download-card-features">
+<ul>
+<li><i class="fas fa-check"></i> Apple 原生体验</li>
+<li><i class="fas fa-check"></i> Face ID 登录</li>
+<li><i class="fas fa-check"></i> 推送通知</li>
+<li><i class="fas fa-check"></i> 语音通话</li>
+<li><i class="fas fa-check"></i> 小组件支持</li>
+</ul>
+</div>
+<div class="download-card-actions">
+<button class="btn btn-primary btn-download-btn" onclick="startDownload('ios')">
+<i class="fab fa-app-store-ios"></i> App Store
+</button>
+<a href="#" class="btn btn-outline-sm">
+<i class="fas fa-qrcode"></i> 扫码下载
+</a>
+</div>
+<div class="download-card-system">
+<small><i class="fas fa-info-circle"></i> 支持 iOS 14.0 及以上</small>
+</div>
+</div>
+
+<!-- Web端 -->
+<div class="download-card">
+<div class="download-card-icon web">
+<i class="fas fa-globe"></i>
+</div>
+<div class="download-card-info">
+<h3>网页端</h3>
+<p class="dc-version">无需安装 | 即开即用</p>
+<p class="dc-desc">浏览器直接访问，无需下载安装</p>
+</div>
+<div class="download-card-features">
+<ul>
+<li><i class="fas fa-check"></i> 无需安装</li>
+<li><i class="fas fa-check"></i> 全平台兼容</li>
+<li><i class="fas fa-check"></i> 自动更新</li>
+<li><i class="fas fa-check"></i> 基础功能齐全</li>
+<li><i class="fas fa-check"></i> 响应式设计</li>
+</ul>
+</div>
+<div class="download-card-actions">
+<a href="../index.html" class="btn btn-primary btn-download-btn">
+<i class="fas fa-external-link-alt"></i> 立即访问
+</a>
+</div>
+<div class="download-card-system">
+<small><i class="fas fa-info-circle"></i> 推荐 Chrome / Edge 浏览器</small>
+</div>
+</div>
+
+</div>
+</div>
+</section>
+
+<!-- 版本更新日志 -->
+<section class="changelog">
+<div class="container">
+<h2 class="section-title">更新日志</h2>
+<p class="section-subtitle">最新版本 v1.0.0 (2026-07-15)</p>
+<div class="changelog-content">
+<div class="changelog-entry">
+<div class="cl-header">
+<span class="cl-version">v1.0.0</span>
+<span class="cl-date">2026-07-15</span>
+</div>
+<div class="cl-body">
+<h4>🎉 首次发布</h4>
+<ul>
+<li>新增 PC 客户端（Windows）</li>
+<li>新增 点单大厅功能</li>
+<li>新增 会员中心功能</li>
+<li>新增 充值中心功能</li>
+<li>新增 个人中心功能</li>
+<li>新增 加入团队功能</li>
+<li>新增 陪玩成员展示</li>
+<li>新增 登录注册功能</li>
+<li>新增 移动端适配</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- FAQ -->
+<section class="faq-section">
+<div class="container">
+<h2 class="section-title">常见问题</h2>
+<div class="faq-list">
+<div class="faq-item">
+<button class="faq-question" onclick="toggleFaq(this)">
+<span>Windows客户端需要什么系统版本？</span>
+<i class="fas fa-chevron-down"></i>
+</button>
+<div class="faq-answer">
+<p>支持 Windows 10/11 64位操作系统，需要 .NET Framework 4.8 运行时环境（安装程序会自动检测并提示安装）。</p>
+</div>
+</div>
+<div class="faq-item">
+<button class="faq-question" onclick="toggleFaq(this)">
+<span>下载后如何安装？</span>
+<i class="fas fa-chevron-down"></i>
+</button>
+<div class="faq-answer">
+<p>下载完成后双击安装包，按照安装向导提示操作即可。Windows客户端支持自定义安装路径。</p>
+</div>
+</div>
+<div class="faq-item">
+<button class="faq-question" onclick="toggleFaq(this)">
+<span>客户端和网页端数据同步吗？</span>
+<i class="fas fa-chevron-down"></i>
+</button>
+<div class="faq-answer">
+<p>是的，所有平台数据实时同步。你在任何一个平台上的订单、余额、会员信息都会在所有设备上保持一致。</p>
+</div>
+</div>
+<div class="faq-item">
+<button class="faq-question" onclick="toggleFaq(this)">
+<span>为什么下载速度很慢？</span>
+<i class="fas fa-chevron-down"></i>
+</button>
+<div class="faq-answer">
+<p>建议使用国内镜像源下载，或在网页端使用「扫码下载」功能，通过手机扫码后在手机上下载通常速度更快。</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- 页脚 -->
+<footer class="footer">
+<div class="container">
+<div class="footer-content">
+<div class="footer-section"><h3>光遇陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
+<div class="footer-section"><h3>快速链接</h3><ul>
+<li><a href="../index.html">首页</a></li><li><a href="order.html">点单大厅</a></li>
+<li><a href="members.html">陪玩成员</a></li></ul></div>
+<div class="footer-section"><h3>下载</h3><ul>
+<li><a href="#">Windows客户端</a></li><li><a href="#">Android版</a></li>
+<li><a href="#">iOS版</a></li></ul></div>
+<div class="footer-section"><h3>联系我们</h3><ul>
+<li><i class="fas fa-envelope"></i> support@skycompanion.com</li></ul></div>
+</div>
+<div class="footer-bottom"><p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p></div>
+</div>
+</footer>
+
+<script src="../js/main.js"></script>
+<script src="../js/download.js"></script>
+</body>
+</html>
+
+

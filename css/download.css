@@ -1,0 +1,85 @@
+﻿.download-header { background: linear-gradient(135deg, #FF6F00 0%, #FF8F00 50%, #FFA726 100%); }
+
+.download-cards { padding: 60px 0; background: var(--bg-light); }
+.download-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+
+.download-card {
+    background: white; border-radius: var(--radius); padding: 32px 24px;
+    text-align: center; border: 2px solid var(--border); transition: var(--transition);
+    position: relative;
+}
+.download-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); }
+.download-card.featured { border-color: var(--primary); box-shadow: 0 8px 30px rgba(79,195,247,0.2); }
+
+.download-card-badge {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    padding: 4px 16px; border-radius: 16px; font-size: 0.8rem; font-weight: 700;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+}
+
+.download-card-icon {
+    width: 80px; height: 80px; margin: 0 auto 20px;
+    border-radius: 20px; display: flex; align-items: center; justify-content: center;
+    font-size: 2.5rem; color: white;
+}
+.download-card-icon.win { background: linear-gradient(135deg, #1A73E8, #1557B0); }
+.download-card-icon.android { background: linear-gradient(135deg, #3DDC84, #079755); }
+.download-card-icon.ios { background: linear-gradient(135deg, #333, #000); }
+.download-card-icon.web { background: linear-gradient(135deg, #FF6F00, #FF8F00); }
+
+.download-card-info h3 { font-size: 1.3rem; color: var(--text-dark); margin-bottom: 8px; }
+.dc-version { font-size: 0.85rem; color: var(--text-light); margin-bottom: 8px; }
+.dc-desc { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px; }
+
+.download-card-features { text-align: left; margin-bottom: 20px; }
+.download-card-features li {
+    display: flex; align-items: center; gap: 8px; padding: 5px 0;
+    font-size: 0.85rem; color: var(--text-secondary);
+}
+.download-card-features i { color: #4CAF50; width: 16px; }
+
+.download-card-actions { display: flex; gap: 10px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap; }
+.btn-download-btn { flex: 1; min-width: 120px; padding: 12px 20px; border-radius: 12px; }
+.btn-outline-sm {
+    padding: 10px 16px; border: 2px solid var(--border); border-radius: 12px;
+    background: white; color: var(--text-secondary); font-size: 0.85rem;
+    cursor: pointer; transition: var(--transition);
+}
+.btn-outline-sm:hover { border-color: var(--primary); color: var(--primary); }
+
+.download-card-system { font-size: 0.78rem; color: var(--text-light); }
+
+/* 更新日志 */
+.changelog { padding: 60px 0; background: var(--bg-white); }
+.changelog-content { max-width: 700px; margin: 0 auto; }
+.changelog-entry { background: var(--bg-light); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+.cl-header { display: flex; justify-content: space-between; padding: 20px 24px; background: linear-gradient(135deg, #FFF8E1, #FFF3E0); }
+.cl-version { font-size: 1.2rem; font-weight: 700; color: var(--text-dark); }
+.cl-date { font-size: 0.85rem; color: var(--text-secondary); }
+.cl-body { padding: 20px 24px; }
+.cl-body h4 { margin-bottom: 12px; color: var(--text-dark); }
+.cl-body ul { padding-left: 20px; }
+.cl-body li { padding: 4px 0; font-size: 0.9rem; color: var(--text-secondary); list-style-type: disc; }
+
+/* FAQ */
+.faq-section { padding: 60px 0; background: var(--bg-light); }
+.faq-list { max-width: 750px; margin: 0 auto; }
+.faq-item { background: white; border-radius: var(--radius-sm); margin-bottom: 12px; border: 1px solid var(--border); overflow: hidden; }
+.faq-question {
+    width: 100%; display: flex; justify-content: space-between; align-items: center;
+    padding: 18px 24px; background: none; border: none; cursor: pointer;
+    font-size: 1rem; font-weight: 600; color: var(--text-dark); text-align: left;
+    transition: var(--transition);
+}
+.faq-question:hover { background: var(--bg-light); }
+.faq-question i { transition: var(--transition); color: var(--text-light); }
+.faq-question.active i { transform: rotate(180deg); color: var(--primary); }
+.faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+.faq-answer p { padding: 0 24px 18px; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.7; }
+.faq-question.active + .faq-answer { max-height: 200px; }
+
+@media (max-width: 768px) {
+    .download-grid { grid-template-columns: 1fr; }
+    .download-card-actions { flex-direction: column; }
+}

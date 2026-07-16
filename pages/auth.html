@@ -1,0 +1,152 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">n
+    <head>
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录注册 - 光遇陪玩团</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/auth.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="auth-page">
+<nav class="navbar">
+<div class="nav-container">
+<a href="../index.html" class="nav-logo"><span class="logo-icon">&#9733;</span><span class="logo-text">光遇陪玩团</span></a>
+<ul class="nav-menu" id="navMenu">
+<li><a href="../index.html" class="nav-link">首页</a></li>
+<li><a href="order.html" class="nav-link">点单大厅</a></li>
+<li><a href="members.html" class="nav-link">陪玩成员</a></li>
+<li><a href="vip.html" class="nav-link">会员中心</a></li>
+<li><a href="recharge.html" class="nav-link">充值中心</a></li>
+<li><a href="join.html" class="nav-link">加入团队</a></li>
+<li><a href="profile.html" class="nav-link">个人中心</a></li>
+</ul>
+<div class="nav-actions data-auth-url="auth.html">
+<button class="btn-login" onclick="window.location.href='../pages/auth.html'">登录 / 注册</button>
+<button class="hamburger" id="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></button>
+</div>
+</div>
+</nav>
+
+<section class="auth-hero">
+<div class="auth-hero-bg"></div>
+<div class="auth-hero-content">
+<h1>欢迎回来</h1>
+<p>登录或注册账号，开启你的光之旅程</p>
+</div>
+</section>
+
+<section class="auth-section">
+<div class="container">
+<div class="auth-container">
+<!-- 左侧装饰 -->
+<div class="auth-decoration">
+<div class="deco-stars">
+<span class="star"></span><span class="star"></span><span class="star"></span>
+<span class="star"></span><span class="star"></span><span class="star"></span>
+<span class="star"></span><span class="star"></span><span class="star"></span>
+<span class="star"></span><span class="star"></span><span class="star"></span>
+</div>
+<div class="deco-content">
+<h2>光遇陪玩团</h2>
+<p>温暖相遇 · 快乐同行</p>
+<ul class="deco-features">
+<li><i class="fas fa-shield-alt"></i> 实名认证，安全可靠</li>
+<li><i class="fas fa-star"></i> 优质陪玩，专业服务</li>
+<li><i class="fas fa-clock"></i> 在线秒接单，快速匹配</li>
+<li><i class="fas fa-gem"></i> 价格透明，无隐形消费</li>
+</ul>
+</div>
+</div>
+
+<!-- 右侧表单 -->
+<div class="auth-forms">
+<div class="auth-tabs">
+<button class="auth-tab active" onclick="switchAuthTab('login')" id="loginTab">登录</button>
+<button class="auth-tab" onclick="switchAuthTab('register')" id="registerTab">注册</button>
+</div>
+
+<!-- 登录表单 -->
+<div class="auth-panel active" id="loginPanel">
+<form id="loginForm" onsubmit="handleLogin(event)">
+<div class="form-group">
+<label><i class="fas fa-user"></i> 用户名 / 手机号</label>
+<input type="text" id="loginUsername" placeholder="请输入用户名或手机号" required>
+</div>
+<div class="form-group">
+<label><i class="fas fa-lock"></i> 密码</label>
+<div class="password-input">
+<input type="password" id="loginPassword" placeholder="请输入密码" required>
+<button type="button" class="pwd-toggle" onclick="togglePassword('loginPassword', this)"><i class="fas fa-eye"></i></button>
+</div>
+</div>
+<div class="form-options">
+<label class="checkbox-item"><input type="checkbox" checked><span>记住我</span></label>
+<a href="#" class="forgot-link">忘记密码？</a>
+</div>
+<button type="submit" class="btn btn-primary btn-block btn-auth">登 录</button>
+
+</form>
+</div>
+
+<!-- 注册表单 -->
+<div class="auth-panel" id="registerPanel">
+<form id="registerForm" onsubmit="handleRegister(event)">
+<div class="form-group">
+<label><i class="fas fa-user"></i> 用户名</label>
+<input type="text" id="regUsername" placeholder="设置用户名（4-16位字符）" required minlength="4" maxlength="16">
+</div>
+<div class="form-group">
+<label><i class="fas fa-gamepad"></i> 游戏ID</label>
+<input type="text" id="regGameId" placeholder="请输入游戏内角色ID" required>
+</div>
+<div class="form-group">
+<label><i class="fas fa-lock"></i> 密码</label>
+<div class="password-input">
+<input type="password" id="regPassword" placeholder="设置密码（至少6位）" required minlength="6">
+<button type="button" class="pwd-toggle" onclick="togglePassword('regPassword', this)"><i class="fas fa-eye"></i></button>
+</div>
+</div>
+<div class="form-group">
+<label><i class="fas fa-lock"></i> 确认密码</label>
+<div class="password-input">
+<input type="password" id="regConfirmPassword" placeholder="再次输入密码" required minlength="6">
+<button type="button" class="pwd-toggle" onclick="togglePassword('regConfirmPassword', this)"><i class="fas fa-eye"></i></button>
+</div>
+</div>
+<div class="form-agreement">
+<label class="checkbox-item"><input type="checkbox" id="agreeTerms" required><span>我已阅读并同意 <a href="#">《用户服务协议》</a> 和 <a href="#">《隐私政策》</a></span></label>
+</div>
+<button type="submit" class="btn btn-primary btn-block btn-auth">注 册</button>
+</form>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<footer class="footer">
+<div class="container">
+<div class="footer-content">
+<div class="footer-section"><h3>光遇陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
+<div class="footer-section"><h3>快速链接</h3><ul>
+<li><a href="../index.html">首页</a></li><li><a href="order.html">点单大厅</a></li>
+<li><a href="members.html">陪玩成员</a></li></ul></div>
+<div class="footer-section"><h3>下载APP</h3><ul>
+<li><a href="download.html"><i class="fab fa-windows"></i> Windows客户端</a></li>
+<li><a href="#"><i class="fab fa-android"></i> Android版</a></li>
+<li><a href="#"><i class="fab fa-apple"></i> iOS版</a></li></ul></div>
+<div class="footer-section"><h3>联系我们</h3><ul>
+<li><i class="fas fa-envelope"></i> support@skycompanion.com</li></ul></div>
+</div>
+<div class="footer-bottom"><p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p></div>
+</div>
+</footer>
+
+<script src="../js/main.js"></script>
+<script src="../js/auth.js"></script>
+</body>
+</html>
+
+
+
