@@ -1,0 +1,9 @@
+﻿{
+    "private":  true,
+    "description":  "光遇陪玩团前端静态站点",
+    "name":  "sky-companion-frontend",
+    "version":  "1.0.0",
+    "scripts":  {
+                    "build":  "echo \u0027No build needed, serving static files\u0027"
+                }
+}
