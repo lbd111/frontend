@@ -1,5 +1,5 @@
 ﻿// ============================================
-// 光遇陪玩团 - 加入团队交互
+// 光遇陪玩团 - 加入团队 (Supabase)
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -42,9 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 提交申请
     const joinForm = document.getElementById('joinForm');
     if (joinForm) {
-    // 提交申请
-    const joinForm = document.getElementById('joinForm');
-    if (joinForm) {
         joinForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -58,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // 检查协议是否勾选
             const agreeCheckbox = document.getElementById('agreeTerms');
             if (!agreeCheckbox || !agreeCheckbox.checked) {
-                alert('请先阅读并同意用户服务协议和隐私政策');
                 return;
             }
 
@@ -77,40 +73,42 @@ document.addEventListener('DOMContentLoaded', () => {
             data.skills = checkedSkills;
 
             // 附加用户名
-            data.username = userObj.name;
+            data.username = userObj.email ? userObj.email.split('@')[0] : 'user';
+            data.applyTime = new Date().toLocaleString('zh-CN');
 
-            // 第一步：先提交表单数据到后端
+            const fileInput = document.getElementById('fileInput');
+            let screenshotUrl = '';
+
             try {
-                const response = await fetch('http://localhost:3000/api/join-application', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
+                // 第一步：上传截图到 Supabase Storage
+                if (fileInput && fileInput.files.length > 0) {
+                    const file = fileInput.files[0];
+                    const fileName = data.username + '_' + data.gameId + '_' + Date.now() + '_' + file.name;
+                    const { error: uploadError } = await window.supabaseClient.storage
+                        .from('screenshots')
+                        .upload(fileName, file);
+                    
+                    if (!uploadError) {
+                        const { data: urlData } = window.supabaseClient.storage
+                            .from('screenshots')
+                            .getPublicUrl(fileName);
+                        screenshotUrl = urlData.publicUrl;
+                        data.screenshot = screenshotUrl;
+                        console.log('截图已上传:', screenshotUrl);
+                    }
+                }
 
-                const result = await response.json();
+                // 第二步：保存申请数据到 Supabase
+                const { error: dbError } = await supabase
+                    .from('applications')
+                    .insert([data]);
 
-                if (!result.success) {
-                    alert('提交失败：' + result.message);
+                if (dbError) {
+                    console.error('数据库错误:', dbError);
                     return;
                 }
 
-                // 第二步：如果有截图，单独上传到 gameimage 文件夹
-                const fileInput = document.getElementById('fileInput');
-                if (fileInput && fileInput.files.length > 0) {
-                    const fileFormData = new FormData();
-                    fileFormData.append('screenshot', fileInput.files[0]);
-                    fileFormData.append('username', data.username);
-                    fileFormData.append('gameId', data.gameId);
-
-                    await fetch('http://localhost:3000/api/upload-screenshot', {
-                        method: 'POST',
-                        body: fileFormData
-                    }).catch(err => console.error('上传截图失败:', err));
-                }
-
-                alert('申请已提交！管理员将在24小时内审核您的资料，请耐心等待。审核结果将通过微信通知您。');
                 joinForm.reset();
-                const uploadArea = document.querySelector('.upload-area-inline');
                 if (uploadArea) {
                     const hint = uploadArea.querySelector('.upload-hint');
                     if (hint) {
@@ -119,11 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } catch (err) {
-                alert('网络错误，请确保后端服务已启动');
-                console.error(err);
-            }
+                console.error('提交失败:', err);
+                }
         });
-    }
     }
 
     // 点击弹窗外部关闭

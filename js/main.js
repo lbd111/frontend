@@ -113,10 +113,8 @@ function calcOrderTotal() {
 // --- 下载APP ---
 function downloadApp(platform) {
     if (platform === 'android') {
-        alert('正在准备Android安装包...\n\n请使用HBuilderX编译生成APK文件');
-    } else if (platform === 'ios') {
-        alert('正在准备iOS安装包...\n\n请使用HBuilderX编译生成IPA文件');
-    } else {
+        } else if (platform === 'ios') {
+        } else {
         // 显示下载选择
         const choice = confirm('您想下载哪个平台的APP？\\n\\n确定 = Android\\n取消 = iOS');
         if (choice) {
@@ -134,7 +132,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loginForm) {
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            alert('登录成功！欢迎回来~');
             closeLoginModal();
         });
     }
@@ -144,7 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (registerForm) {
         registerForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            alert('注册成功！欢迎加入光遇陪玩团~');
             closeLoginModal();
         });
     }
@@ -154,7 +150,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (orderForm) {
         orderForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            alert('订单已提交！陪玩伙伴将尽快与您联系~');
             closeOrderModal();
             orderForm.reset();
         });
@@ -331,7 +326,7 @@ function updateNavUser() {
 
         if (user) {
             var userData = JSON.parse(user);
-            var userName = userData.name || '玩家';
+            var userName = userData.username || userData.name || '玩家';
             var displayName = userName.length > 6 ? userName.substring(0, 6) + '...' : userName;
             var authUrl = navActions.getAttribute('data-auth-url') || basePath + 'auth.html';
 
@@ -364,13 +359,22 @@ function toggleUserMenu() {
     }
 }
 
-function handleLogout(e) {
+async function handleLogout(e) {
     e.preventDefault();
+    try { await window.supabaseClient.auth.signOut(); } catch(err) {}
     localStorage.removeItem('skyUser');
-    showNotification('已退出登录', 'info');
+    localStorage.removeItem('skyUserList');
+    var keys = Object.keys(localStorage);
+    for (var i = 0; i < keys.length; i++) {
+        if (keys[i].startsWith('sb-') || keys[i].indexOf('supabase') !== -1) {
+            localStorage.removeItem(keys[i]);
+        }
+    }
+    showNotification('已退出登录', 'success');
     updateNavUser();
     var dd = document.getElementById('userDropdown');
     if (dd) dd.classList.remove('show');
+    setTimeout(function() { window.location.reload(); }, 500);
 }
 
 document.addEventListener('click', function(e) {
@@ -445,4 +449,8 @@ document.addEventListener('DOMContentLoaded', () => {
         startInterval();
     }
 });
+
+
+
+
 

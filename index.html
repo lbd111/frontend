@@ -4,10 +4,17 @@
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>光遇陪玩团 - 点单系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
+<body><script>
+// API BASE URL - auto detect environment
+(function() {
+    var h = window.location.hostname;
+    window.API_BASE = (h === "localhost" || h === "127.0.0.1") ? "http://localhost:3000" : "http://192.168.1.8:3000";
+})();
+</script>
     <!-- 导航栏 -->
     <nav class="navbar">
         <div class="nav-container">
@@ -265,17 +272,7 @@
 </div>
 <div class="footer-bottom"><p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p></div>
 </div>
-</footer>
-
-    <!-- 登录弹窗 -->
-    <div class="modal-overlay" id="loginModal">
-        <div class="modal login-modal">
-            <button class="modal-close" onclick="closeLoginModal()">&times;</button>
-            <div class="modal-tabs">
-                <button class="tab active" onclick="switchTab('login')">登录</button>
-                <button class="tab" onclick="switchTab('register')">注册</button>
-            </div>
-            <div class="modal-body">
+</footer><div class="modal-body">
                 <form id="loginForm" class="auth-form">
                     <div class="form-group">
                         <label><i class="fas fa-user"></i> 用户名 / 手机号</label>
@@ -378,9 +375,12 @@
         </div>
     </div>
 
-    <script src="js/main.js"></script>
+    <script src="js/supabase-config.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
+
+
 
 
 

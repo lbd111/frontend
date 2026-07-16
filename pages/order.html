@@ -1,6 +1,7 @@
 ﻿<!DOCTYPE html>
 <html lang="zh-CN">n
     <head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>点单大厅 - 光遇陪玩团</title>
@@ -8,7 +9,13 @@
     <link rel="stylesheet" href="../css/order.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
+<body><script>
+// API BASE URL - auto detect environment
+(function() {
+    var h = window.location.hostname;
+    window.API_BASE = (h === "localhost" || h === "127.0.0.1") ? "http://localhost:3000" : "http://192.168.1.8:3000";
+})();
+</script>
     <!-- 导航栏 -->
     <nav class="navbar">
         <div class="nav-container">
@@ -497,10 +504,14 @@
 </div>
 </footer>
 
-    <script src="../js/main.js"></script>
+    
+
+<script src="../js/main.js"></script>
     <script src="../js/order.js"></script>
 </body>
 </html>
+
+
 
 
 

@@ -1,6 +1,7 @@
 ﻿<!DOCTYPE html>
 <html lang="zh-CN">n
     <head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>个人中心 - 光遇陪玩团</title>
@@ -8,7 +9,13 @@
     <link rel="stylesheet" href="../css/profile.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
+<body><script>
+// API BASE URL - auto detect environment
+(function() {
+    var h = window.location.hostname;
+    window.API_BASE = (h === "localhost" || h === "127.0.0.1") ? "http://localhost:3000" : "http://192.168.1.8:3000";
+})();
+</script>
     <!-- 导航栏 -->
     <nav class="navbar">
         <div class="nav-container">
@@ -46,12 +53,12 @@
                     <button class="avatar-edit"><i class="fas fa-camera"></i></button>
                 </div>
                 <div class="profile-info">
-                    <h2 id="userName">追光少年</h2>
+                    <h2 id="userName">玩家</h2>
                     <p class="user-id"><i class="fas fa-id-badge"></i> ID: SKY20260001</p>
                     <div class="user-meta">
-                        <span class="meta-item"><i class="fas fa-gamepad"></i> 游戏ID: 星尘旅人</span>
-                        <span class="meta-item"><i class="fas fa-award"></i> <span id="userLevel">普通会员</span></span>
-                        <span class="meta-item"><i class="fas fa-calendar"></i> 注册时间: 2026-01-15</span>
+                        <span class="meta-item" id="metaGameId"><i class="fas fa-gamepad"></i> 游戏ID: <span id="gameIdValue">未设置</span></span>
+                        <span class="meta-item" id="metaLevel"><i class="fas fa-award"></i> <span id="levelValue">普通会员</span></span>
+                        <span class="meta-item" id="metaRegTime"><i class="fas fa-calendar"></i> 注册时间: <span id="regTimeValue">--</span></span>
                     </div>
                 </div>
             </div>
@@ -259,10 +266,14 @@
 </div>
 </footer>
 
-    <script src="../js/main.js"></script>
+    
+
+<script src="../js/main.js"></script>
     <script src="../js/profile.js"></script>
 </body>
 </html>
+
+
 
 
 

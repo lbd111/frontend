@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // 光遇陪玩团 - 个人中心交互
 // ============================================
 
@@ -12,32 +12,26 @@ function showMyOrders() {
 }
 
 function showFavorites() {
-    alert('我的收藏功能\\n\\n这里将展示您收藏的陪玩伙伴列表。');
-}
+    }
 
 function showCoupons() {
-    alert('优惠券中心\\n\\n您有 5 张可用优惠券。');
-}
+    }
 
 function showAddress() {
-    alert('游戏区服管理\\n\\n管理您的游戏服务器信息。');
-}
+    }
 
 function showWallet() {
     window.location.href = 'recharge.html';
 }
 
 function showSettings() {
-    alert('设置\\n\\n修改密码、通知设置等功能。');
-}
+    }
 
 function showHelp() {
-    alert('帮助与反馈\\n\\n常见问题解答、意见反馈。');
-}
+    }
 
 function showAbout() {
-    alert('关于光遇陪玩团\\n\\n版本: v1.0.0\\n温暖相遇，快乐同行');
-}
+    }
 
 // --- 关闭弹窗 ---
 function closeModal(id) {
@@ -52,25 +46,34 @@ function closeModal(id) {
 function loadUserProfile() {
     try {
         const userStr = localStorage.getItem('skyUser');
-        if (!userStr) return;
+        if (!userStr) {
+            console.log('localStorage 中没有 skyUser');
+            return;
+        }
 
         const user = JSON.parse(userStr);
-        if (!user || !user.name) return;
+        console.log('加载用户数据:', user);
 
         // 填充用户名
         const nameEl = document.getElementById('userName');
-        if (nameEl) nameEl.textContent = user.name;
+        if (nameEl) {
+            nameEl.textContent = user.username || user.name || '玩家';
+        }
 
         // 填充游戏ID
-        const metaItems = document.querySelectorAll('.user-meta .meta-item');
-        if (metaItems.length >= 1 && user.gameId) {
-            metaItems[0].innerHTML = '<i class="fas fa-gamepad"></i> 游戏ID: ' + user.gameId;
+        const gameIdEl = document.getElementById('gameIdValue');
+        if (gameIdEl) {
+            gameIdEl.textContent = user.game_id || user.gameId || '未设置';
         }
 
         // 填充注册时间
-        if (metaItems.length >= 3 && user.registerTime) {
-            metaItems[2].innerHTML = '<i class="fas fa-calendar"></i> 注册时间: ' + user.registerTime;
+        const regTimeEl = document.getElementById('regTimeValue');
+        if (regTimeEl) {
+            const regTime = user.register_time || user.registerTime || new Date().toLocaleDateString('zh-CN');
+            regTimeEl.textContent = regTime;
         }
+
+        console.log('用户信息加载完成');
     } catch (err) {
         console.error('[加载用户信息失败]', err);
     }
@@ -98,4 +101,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
-

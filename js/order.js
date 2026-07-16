@@ -107,3 +107,7 @@ function loadMore() {
 document.addEventListener('DOMContentLoaded', () => {
     filterWizards();
 });
+
+
+
+

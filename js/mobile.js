@@ -69,8 +69,7 @@ function updateBanner() {
 
 // --- 通知 ---
 function showNotifications() {
-    alert('📬 通知\\n\\n1. 您的订单 #20260714 已完成\\n2. 新优惠券已到账\\n3. 系统维护通知：7月16日');
-}
+    }
 
 // --- 底部导航激活 ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -101,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loginForm) {
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            alert('登录成功！欢迎回来~');
             closeLoginModal();
         });
     }
@@ -110,8 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (orderForm) {
         orderForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            alert('订单已提交！陪玩伙伴将尽快与您联系~');
             closeOrderModal();
         });
     }
 });
+
+
+
+

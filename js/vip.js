@@ -46,8 +46,11 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const plan = document.querySelector('input[name=\"plan\"]:checked').value;
             const planNames = { month: '月度', quarter: '季度', year: '年度' };
-            alert('会员开通成功！\\n' + planNames[plan] + '会员已生效~');
             closeVipModal();
         });
     }
 });
+
+
+
+

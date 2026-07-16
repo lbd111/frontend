@@ -1,156 +1,172 @@
-﻿// 登录注册页面交互
+// ============================================
+// 光遇陪玩团 - Supabase 认证模块（邮箱注册登录）
+// ============================================
 
-function switchAuthTab(tab) {
-    const loginTab = document.getElementById('loginTab');
-    const registerTab = document.getElementById('registerTab');
-    const loginPanel = document.getElementById('loginPanel');
-    const registerPanel = document.getElementById('registerPanel');
-
-    if (tab === 'login') {
-        loginTab.classList.add('active');
-        registerTab.classList.remove('active');
-        loginPanel.classList.add('active');
-        registerPanel.classList.remove('active');
-    } else {
-        registerTab.classList.add('active');
-        loginTab.classList.remove('active');
-        registerPanel.classList.add('active');
-        loginPanel.classList.remove('active');
-    }
+// 生成光之子编号
+function generateGuangZhiZiName() {
+    let maxNum = 0;
+    const users = JSON.parse(localStorage.getItem('skyUserList') || '[]');
+    users.forEach(u => {
+        const match = u.username.match(/^光之子(\d+)$/);
+        if (match) {
+            const num = parseInt(match[1]);
+            if (num > maxNum) maxNum = num;
+        }
+    });
+    return '光之子' + (maxNum + 1);
 }
 
-function togglePassword(inputId, btn) {
-    const input = document.getElementById(inputId);
-    const icon = btn.querySelector('i');
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'fas fa-eye-slash';
-    } else {
-        input.type = 'password';
-        icon.className = 'fas fa-eye';
-    }
+// 保存用户名到用户列表
+function saveUserName(username) {
+    const users = JSON.parse(localStorage.getItem('skyUserList') || '[]');
+    users.push({ username: username, time: new Date().toISOString() });
+    localStorage.setItem('skyUserList', JSON.stringify(users));
 }
 
-function handleLogin(e) {
-    e.preventDefault();
-    const username = document.getElementById('loginUsername').value;
-    const password = document.getElementById('loginPassword').value;
-    
-    if (!username || !password) {
-        showNotification('请填写完整信息', 'error');
-        return;
-    }
-    
-    console.log('[登录] 发送请求到 http://localhost:3000/api/login');
-    
-    fetch('http://localhost:3000/api/login', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ username: username, password: password })
-    })
-    .then(res => {
-        console.log('[登录] 收到响应, status:', res.status);
-        return res.json();
-    })
-    .then(data => {
-        console.log('[登录] 响应数据:', data);
-        if (data.success) {
-            localStorage.setItem('skyUser', JSON.stringify(data.user));
-            showNotification(data.message, 'success');
+// 检查登录状态
+async function checkAuthStatus() {
+    try {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        if (session) {
+            const user = {
+                id: session.user.id,
+                email: session.user.email,
+                username: session.user.user_metadata?.username || generateGuangZhiZiName(),
+                game_id: session.user.user_metadata?.game_id || ''
+            };
+            localStorage.setItem('skyUser', JSON.stringify(user));
             updateNavUser();
+        } else {
+            localStorage.removeItem('skyUser');
+            updateNavUser();
+        }
+    } catch (err) {
+        console.error('检查登录状态失败:', err);
+    }
+}
+
+// 登录
+async function handleLogin(email, password) {
+    try {
+        console.log("尝试登录邮箱:", email);
+        const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (error) {
+            showNotification('登录失败：' + error.message, 'error');
+            return false;
+        }
+        
+        if (data.user) {
+            // 生成光之子用户名
+            const gzName = generateGuangZhiZiName();
+            saveUserName(gzName);
+            
+            const user = {
+                id: data.user.id,
+                email: data.user.email,
+                username: gzName,
+                game_id: data.user.user_metadata?.game_id || '',
+                register_time: new Date().toISOString()
+            };
+            localStorage.setItem('skyUser', JSON.stringify(user));
+            updateNavUser();
+            showNotification('登录成功！欢迎回来 ~', 'success');
             setTimeout(() => {
                 window.location.href = '../index.html';
             }, 1000);
-        } else {
-            showNotification(data.message, 'error');
+            return true;
         }
-    })
-    .catch(err => {
-        console.error('[登录] 错误:', err);
-        showNotification('后端服务未运行，请先启动 G:\\Skypw\\server.js', 'error');
-    });
+        return false;
+    } catch (err) {
+        console.error('登录错误:', err);
+        showNotification('登录失败，请重试', 'error');
+        return false;
+    }
 }
 
-function handleRegister(e) {
-    e.preventDefault();
-    const username = document.getElementById('regUsername').value;
-    const gameId = document.getElementById('regGameId').value;
-    const password = document.getElementById('regPassword').value;
-    const confirmPassword = document.getElementById('regConfirmPassword').value;
-    const agreed = document.getElementById('agreeTerms').checked;
-
-    if (password !== confirmPassword) {
-        showNotification('两次输入的密码不一致', 'error');
-        return;
-    }
-    if (!agreed) {
-        showNotification('请先同意用户协议', 'error');
-        return;
-    }
-
-    console.log('[注册] 发送请求到 http://localhost:3000/api/register');
-    
-    fetch('http://localhost:3000/api/register', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            username: username,
-            gameId: gameId,
-            password: password
-        })
-    })
-    .then(res => {
-        console.log('[注册] 收到响应, status:', res.status);
-        return res.json();
-    })
-    .then(data => {
-        console.log('[注册] 响应数据:', data);
-        if (data.success) {
-            showNotification(data.message, 'success');
-            updateNavUser();
+// 注册（使用真实邮箱，注册后跳转回登录页）
+async function handleRegister(email, gameId, password) {
+    try {
+        console.log("尝试注册邮箱:", email);
+        const { data, error } = await window.supabaseClient.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: {
+                    game_id: gameId
+                }
+            }
+        });
+        
+        if (error) {
+            showNotification('注册失败：' + error.message, 'error');
+            return false;
+        }
+        
+        if (data.user) {
+            showNotification('注册成功！请使用邮箱和密码登录', 'success');
             setTimeout(() => {
                 switchAuthTab('login');
-                document.getElementById('loginUsername').value = username;
-            }, 1500);
-        } else {
-            showNotification(data.message, 'error');
+            }, 2000);
+            return true;
         }
-    })
-    .catch(err => {
-        console.error('[注册] 错误:', err);
-        showNotification('后端服务未运行，请先启动 G:\\Skypw\\server.js', 'error');
-    });
+        return false;
+    } catch (err) {
+        console.error('注册错误:', err);
+        showNotification('注册失败，请重试', 'error');
+        return false;
+    }
 }
 
+// 退出登录
+async function handleLogoutAction() {
+    try {
+        await window.supabaseClient.auth.signOut();
+        localStorage.removeItem('skyUser');
+        updateNavUser();
+        showNotification('已退出登录', 'success');
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    } catch (err) {
+        console.error('退出登录错误:', err);
+    }
+}
+
+// 显示通知
 function showNotification(message, type) {
-    const colors = { success: '#4CAF50', error: '#f44336', info: '#2196F3' };
-    const bgColor = colors[type] || '#4FC3F7';
-    const notification = document.createElement('div');
-    notification.style.position = 'fixed';
-    notification.style.top = '90px';
-    notification.style.right = '20px';
-    notification.style.zIndex = '9999';
-    notification.style.padding = '16px 24px';
-    notification.style.borderRadius = '12px';
-    notification.style.color = 'white';
-    notification.style.fontSize = '0.95rem';
-    notification.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
-    notification.style.background = bgColor;
-    notification.style.animation = 'slideInRight 0.3s ease';
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    setTimeout(function() {
-        notification.style.opacity = '0';
-        notification.style.transform = 'translateX(100px)';
-        notification.style.transition = 'all 0.3s ease';
-        setTimeout(function() { notification.remove(); }, 300);
+    const old = document.querySelector('.notification-toast');
+    if (old) old.remove();
+    
+    const notif = document.createElement('div');
+    notif.className = 'notification-toast notification-' + type;
+    notif.innerHTML = '<div class="notification-content">' + message + '</div>';
+    notif.style.cssText = 'position:fixed;top:80px;right:20px;padding:16px 24px;border-radius:12px;color:white;font-weight:600;z-index:10000;animation:slideInRight 0.3s ease;box-shadow:0 4px 20px rgba(0,0,0,0.15);';
+    
+    if (type === 'success') {
+        notif.style.background = 'linear-gradient(135deg, #4CAF50, #66BB6A)';
+    } else {
+        notif.style.background = 'linear-gradient(135deg, #f44336, #e57373)';
+    }
+    
+    document.body.appendChild(notif);
+    setTimeout(() => {
+        notif.style.opacity = '0';
+        notif.style.transition = 'opacity 0.3s';
+        setTimeout(() => notif.remove(), 3000);
     }, 3000);
 }
 
+// 页面加载时检查登录状态
 document.addEventListener('DOMContentLoaded', () => {
-    const user = localStorage.getItem('skyUser');
-    if (user) {
-        const userData = JSON.parse(user);
-        showNotification('欢迎回来, ' + userData.name, 'success');
-    }
+    checkAuthStatus();
 });
+
+// 暴露全局函数
+window.handleLogin = handleLogin;
+window.handleRegister = handleRegister;
+window.handleLogoutAction = handleLogoutAction;
+window.generateGuangZhiZiName = generateGuangZhiZiName;

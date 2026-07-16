@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rechargeForm) {
         rechargeForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            alert('充值成功！\\n账户余额：￥' + (parseFloat(document.getElementById('balanceValue').textContent) + selectedRechargeAmount).toFixed(2));
+            .textContent) + selectedRechargeAmount).toFixed(2));
             closeRechargeModal();
         });
     }
@@ -90,3 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+
+
+
