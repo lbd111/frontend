@@ -393,3 +393,56 @@ console.log('%c光遇陪玩团 %c前端系统已加载', 'color: #4FC3F7; font-s
 
 
 
+// ============================================
+// 轮播图
+// ============================================
+let currentSlide = 0;
+let slideInterval;
+
+function goToSlide(index) {
+    const slides = document.querySelectorAll('.carousel-slide');
+    const dots = document.querySelectorAll('.carousel-dots .dot');
+    if (!slides.length) return;
+    
+    currentSlide = index;
+    if (currentSlide >= slides.length) currentSlide = 0;
+    if (currentSlide < 0) currentSlide = slides.length - 1;
+    
+    const track = document.querySelector('.carousel-track');
+    if (track) {
+        track.style.transform = 'translateX(-' + (currentSlide * 100) + '%)';
+    }
+    
+    dots.forEach((d, i) => {
+        d.classList.toggle('active', i === currentSlide);
+    });
+}
+
+function nextSlide() {
+    goToSlide(currentSlide + 1);
+    resetInterval();
+}
+
+function prevSlide() {
+    goToSlide(currentSlide - 1);
+    resetInterval();
+}
+
+function startInterval() {
+    slideInterval = setInterval(() => {
+        goToSlide(currentSlide + 1);
+    }, 5000);
+}
+
+function resetInterval() {
+    clearInterval(slideInterval);
+    startInterval();
+}
+
+// 初始化轮播
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.querySelector('.carousel-track')) {
+        startInterval();
+    }
+});
+

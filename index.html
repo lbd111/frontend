@@ -113,124 +113,41 @@
     </section>
 
     <!-- 热门陪玩展示 -->
-    <section class="popular-wizards">
-        <div class="container">
-            <h2 class="section-title">人气陪玩</h2>
-            <p class="section-subtitle">选择最受欢迎的陪玩伙伴</p>
-            <div class="wizards-grid">
-                <div class="wizard-card" data-wizard="1">
-                    <div class="wizard-avatar">
-                        <div class="avatar-placeholder">
-                            <i class="fas fa-user-circle"></i>
-                        </div>
-                        <span class="online-dot"></span>
-                    </div>
-                    <div class="wizard-info">
-                        <h4>星光旅者</h4>
-                        <div class="wizard-tags">
-                            <span class="tag tag-vip">VIP</span>
-                            <span class="tag tag-hot">热门</span>
-                        </div>
-                        <div class="wizard-rating">
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <span class="rating-num">5.0</span>
-                        </div>
-                        <p class="wizard-desc">资深跑图达人，全地图解锁，擅长拍照构图</p>
-                        <div class="wizard-footer">
-                            <span class="price">￥29.9/小时</span>
-                            <button class="btn-order" onclick="showOrderModal('星光旅者', 29.9)">立即点单</button>
-                        </div>
+    <!-- 轮播图 -->
+    <section class="banner-carousel">
+        <div class="carousel-container">
+            <div class="carousel-track">
+                <div class="carousel-slide active">
+                    <div class="slide-bg slide-bg-1"></div>
+                    <div class="slide-content">
+                        <h2>温暖相遇，快乐同行</h2>
+                        <p>专业陪玩团队，让你的光遇之旅不再孤单</p>
+                        <a href="pages/order.html" class="btn btn-primary">立即点单</a>
                     </div>
                 </div>
-                <div class="wizard-card" data-wizard="2">
-                    <div class="wizard-avatar">
-                        <div class="avatar-placeholder">
-                            <i class="fas fa-user-circle"></i>
-                        </div>
-                        <span class="online-dot"></span>
-                    </div>
-                    <div class="wizard-info">
-                        <h4>云间漫步</h4>
-                        <div class="wizard-tags">
-                            <span class="tag tag-vip">VIP</span>
-                            <span class="tag tag-new">推荐</span>
-                        </div>
-                        <div class="wizard-rating">
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star-half-alt"></i>
-                            <span class="rating-num">4.8</span>
-                        </div>
-                        <p class="wizard-desc">温柔小姐姐，聊天解闷，带你收集所有蜡烛</p>
-                        <div class="wizard-footer">
-                            <span class="price">￥25.0/小时</span>
-                            <button class="btn-order" onclick="showOrderModal('云间漫步', 25.0)">立即点单</button>
-                        </div>
+                <div class="carousel-slide">
+                    <div class="slide-bg slide-bg-2"></div>
+                    <div class="slide-content">
+                        <h2>15种专业服务</h2>
+                        <p>技术陪玩、树洞倾听、琴陪录歌、三恋陪伴</p>
+                        <a href="pages/members.html" class="btn btn-primary">查看成员</a>
                     </div>
                 </div>
-                <div class="wizard-card" data-wizard="3">
-                    <div class="wizard-avatar">
-                        <div class="avatar-placeholder">
-                            <i class="fas fa-user-circle"></i>
-                        </div>
-                        <span class="online-dot offline"></span>
-                    </div>
-                    <div class="wizard-info">
-                        <h4>翼之守护者</h3>
-                        <div class="wizard-tags">
-                            <span class="tag tag-master">大师</span>
-                        </div>
-                        <div class="wizard-rating">
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <span class="rating-num">5.0</span>
-                        </div>
-                        <p class="wizard-desc">技术流大神，高飞路线教学，极限操作演示</p>
-                        <div class="wizard-footer">
-                            <span class="price">￥49.9/小时</span>
-                            <button class="btn-order" onclick="showOrderModal('翼之守护者', 49.9)">立即点单</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="wizard-card" data-wizard="4">
-                    <div class="wizard-avatar">
-                        <div class="avatar-placeholder">
-                            <i class="fas fa-user-circle"></i>
-                        </div>
-                        <span class="online-dot"></span>
-                    </div>
-                    <div class="wizard-info">
-                        <h4>晨岛小太阳</h4>
-                        <div class="wizard-tags">
-                            <span class="tag tag-vip">VIP</span>
-                        </div>
-                        <div class="wizard-rating">
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="fas fa-star"></i>
-                            <i class="far fa-star"></i>
-                            <span class="rating-num">4.5</span>
-                        </div>
-                        <p class="wizard-desc">元气满满的小太阳，陪你走遍每个地图</p>
-                        <div class="wizard-footer">
-                            <span class="price">￥19.9/小时</span>
-                            <button class="btn-order" onclick="showOrderModal('晨岛小太阳', 19.9)">立即点单</button>
-                        </div>
+                <div class="carousel-slide">
+                    <div class="slide-bg slide-bg-3"></div>
+                    <div class="slide-content">
+                        <h2>加入我们的团队</h2>
+                        <p>成为陪玩伙伴，用温暖照亮他人的天空</p>
+                        <a href="pages/join.html" class="btn btn-primary">加入团队</a>
                     </div>
                 </div>
             </div>
-            <div class="more-btn-wrap">
-                <a href="pages/members.html" class="btn btn-outline">查看更多陪玩 <i class="fas fa-arrow-right"></i></a>
+            <button class="carousel-btn carousel-prev" onclick="prevSlide()">&#10094;</button>
+            <button class="carousel-btn carousel-next" onclick="nextSlide()">&#10095;</button>
+            <div class="carousel-dots">
+                <span class="dot active" onclick="goToSlide(0)"></span>
+                <span class="dot" onclick="goToSlide(1)"></span>
+                <span class="dot" onclick="goToSlide(2)"></span>
             </div>
         </div>
     </section>
@@ -333,50 +250,22 @@
 
     <!-- 页脚 -->
     <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>光遇陪玩团</h3>
-                    <p>温暖相遇，快乐同行。最专业的光遇陪玩服务平台。</p>
-                    <div class="social-links">
-                        <a href="#" title="QQ群"><i class="fab fa-qq"></i></a>
-                        <a href="#" title="微信"><i class="fab fa-weixin"></i></a>
-                        <a href="#" title="微博"><i class="fab fa-weibo"></i></a>
-                        <a href="#" title="抖音"><i class="fab fa-tiktok"></i></a>
-                    </div>
-                </div>
-                <div class="footer-section">
-                    <h3>快速链接</h3>
-                    <ul>
-                        <li><a href="pages/order.html">点单大厅</a></li>
-                        <li><a href="pages/members.html">陪玩成员</a></li>
-                        <li><a href="pages/vip.html">会员中心</a></li>
-                        <li><a href="pages/join.html">加入团队</a></li>
-                    </ul>
-                </div>
-                <div class="footer-section">
-                    <h3>帮助中心</h3>
-                    <ul>
-                        <li><a href="#">常见问题</a></li>
-                        <li><a href="#">服务协议</a></li>
-                        <li><a href="#">隐私政策</a></li>
-                        <li><a href="#">投诉建议</a></li>
-                    </ul>
-                </div>
-                <div class="footer-section">
-                    <h3>联系我们</h3>
-                    <ul>
-                        <li><a href="pages/download.html"><i class="fab fa-windows"></i> Windows客户端下载</a></li>n<li><i class="fas fa-envelope"></i> support@skycompanion.com</li>
-                        <li><i class="fas fa-phone"></i> 400-888-8888</li>
-                        <li><i class="fas fa-clock"></i> 全天候在线</li>
-                    </ul>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2026 光遇陪玩团 All Rights Reserved. 本系统与光遇官方无关。</p>
-            </div>
-        </div>
-    </footer>
+<div class="container">
+<div class="footer-content">
+<div class="footer-section"><h3>光遇陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
+<div class="footer-section"><h3>快速链接</h3><ul>
+<li><a href="../index.html">首页</a></li><li><a href="order.html">点单大厅</a></li>
+<li><a href="members.html">陪玩成员</a></li></ul></div>
+<div class="footer-section"><h3>下载APP</h3><ul>
+<li><a href="download.html"><i class="fab fa-windows"></i> Windows客户端</a></li>
+<li><a href="#"><i class="fab fa-android"></i> Android版</a></li>
+<li><a href="#"><i class="fab fa-apple"></i> iOS版</a></li></ul></div>
+<div class="footer-section"><h3>联系我们</h3><ul>
+<li><i class="fas fa-envelope"></i> support@skycompanion.com</li></ul></div>
+</div>
+<div class="footer-bottom"><p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p></div>
+</div>
+</footer>
 
     <!-- 登录弹窗 -->
     <div class="modal-overlay" id="loginModal">
@@ -492,5 +381,6 @@
     <script src="js/main.js"></script>
 </body>
 </html>
+
 
 
