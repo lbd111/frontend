@@ -25,7 +25,44 @@ function showWallet() {
 }
 
 function showSettings() {
+    const modal = document.getElementById('settingsModal');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
     }
+}
+
+function closeSettingsModal() {
+    const modal = document.getElementById('settingsModal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function showCoupons() {
+    const modal = document.getElementById('couponsModal');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeCouponsModal() {
+    const modal = document.getElementById('couponsModal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function showHelp() {
+    alert('📖 帮助与反馈\n\n常见问题：\n1. 如何下单？\n2. 如何退款？\n3. 支付方式有哪些？\n\n意见反馈：\n如有问题请联系客服 QQ：123456789');
+}
+
+function showAbout() {
+    alert('ℹ️ 关于我们\n\n光遇陪玩团\n温暖相遇 · 快乐同行\n\n客服邮箱：support@skycompanion.com\n客服QQ：123456789\n版本号：v1.0.0');
+}
 
 function showHelp() {
     }

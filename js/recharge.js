@@ -75,7 +75,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rechargeForm) {
         rechargeForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            .textContent) + selectedRechargeAmount).toFixed(2));
+            const balanceEl = document.getElementById('balanceValue');
+            if (balanceEl) {
+                const current = parseFloat(balanceEl.textContent.replace('¥','').trim()) || 0;
+                balanceEl.textContent = '¥' + (current + selectedRechargeAmount).toFixed(2);
+            }
             closeRechargeModal();
         });
     }

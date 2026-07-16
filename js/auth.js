@@ -35,10 +35,10 @@ async function checkAuthStatus() {
                 game_id: session.user.user_metadata?.game_id || ''
             };
             localStorage.setItem('skyUser', JSON.stringify(user));
-            updateNavUser();
+            if (typeof updateNavUser === 'function') updateNavUser();
         } else {
             localStorage.removeItem('skyUser');
-            updateNavUser();
+            if (typeof updateNavUser === 'function') updateNavUser();
         }
     } catch (err) {
         console.error('检查登录状态失败:', err);
@@ -49,13 +49,22 @@ async function checkAuthStatus() {
 async function handleLogin(email, password) {
     try {
         console.log("尝试登录邮箱:", email);
+        
+        // 先尝试登录
         const { data, error } = await window.supabaseClient.auth.signInWithPassword({
             email: email,
             password: password
         });
         
         if (error) {
-            showNotification('登录失败：' + error.message, 'error');
+            // Supabase 返回的错误码判断
+            if (error.message.includes('Invalid login credentials') || error.message.includes('Invalid password')) {
+                showNotification('密码错误，请重试', 'error');
+            } else if (error.message.includes('User not found') || error.message.includes('email') && !error.message.includes('password')) {
+                showNotification('账号不存在，请先注册', 'error');
+            } else {
+                showNotification('登录失败：' + error.message, 'error');
+            }
             return false;
         }
         
@@ -72,7 +81,7 @@ async function handleLogin(email, password) {
                 register_time: new Date().toISOString()
             };
             localStorage.setItem('skyUser', JSON.stringify(user));
-            updateNavUser();
+            if (typeof updateNavUser === 'function') updateNavUser();
             showNotification('登录成功！欢迎回来 ~', 'success');
             setTimeout(() => {
                 window.location.href = '../index.html';
@@ -91,12 +100,33 @@ async function handleLogin(email, password) {
 async function handleRegister(email, gameId, password) {
     try {
         console.log("尝试注册邮箱:", email);
+        
+        // 第一步：先尝试用这个邮箱登录（密码随便填），判断邮箱是否已注册
+        const { data: probeData, error: probeError } = await window.supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: 'test'
+        });
+        
+        // 如果返回 "Invalid login credentials" = 邮箱已注册但密码不对 = 不能注册
+        // 如果返回 "User not found" = 邮箱没注册 = 可以注册
+        if (probeError) {
+            const errMsg = probeError.message.toLowerCase();
+            // 只要不是 "User not found"，就说明邮箱已存在
+            if (!errMsg.includes('user not found') && !errMsg.includes('not found')) {
+                showNotification('该邮箱已注册账号，请直接登录', 'error');
+                return false;
+            }
+            // 如果是 "User not found"，继续往下执行注册
+        }
+        
+        // 第二步：执行正式注册
         const { data, error } = await window.supabaseClient.auth.signUp({
             email: email,
             password: password,
             options: {
                 data: {
-                    game_id: gameId
+                    game_id: gameId,
+                    username: email.split('@')[0]
                 }
             }
         });
@@ -126,7 +156,7 @@ async function handleLogoutAction() {
     try {
         await window.supabaseClient.auth.signOut();
         localStorage.removeItem('skyUser');
-        updateNavUser();
+        if (typeof updateNavUser === 'function') updateNavUser();
         showNotification('已退出登录', 'success');
         setTimeout(() => {
             window.location.reload();

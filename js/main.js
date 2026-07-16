@@ -336,7 +336,7 @@ function updateNavUser() {
                     '<span class="user-name">' + displayName + '</span>' +
                     '<div class="user-dropdown" id="userDropdown">' +
                         '<a href="' + basePath + 'profile.html" class="dropdown-item"><i class="fas fa-user"></i> 个人中心</a>' +
-                        '<a href="' + basePath + 'javascript:void(0)" class="dropdown-item" onclick="showMyOrders()"><i class="fas fa-list"></i> 我的订单</a>' +
+                        '<a href="' + basePath + 'settings.html" class="dropdown-item"><i class="fas fa-cog"></i> 设置</a>' +
                         '<a href="' + basePath + 'recharge.html" class="dropdown-item"><i class="fas fa-wallet"></i> 充值中心</a>' +
                         '<div class="dropdown-divider"></div>' +
                         '<a href="#" class="dropdown-item logout-btn" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> 退出登录</a>' +
@@ -450,7 +450,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// 优惠券弹窗
+function showCoupons() {
+    var modal = document.getElementById('couponsModal');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
 
+function closeCouponsModal() {
+    var modal = document.getElementById('couponsModal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
 
+// 设置弹窗
+function showSettings() {
+    var modal = document.getElementById('settingsModal');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
 
-
+function closeSettingsModal() {
+    var modal = document.getElementById('settingsModal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
