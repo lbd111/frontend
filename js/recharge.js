@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // 光遇陪玩团 - 充值中心交互
 // ============================================
 
@@ -70,17 +70,25 @@ document.addEventListener('DOMContentLoaded', () => {
         firstCard.style.borderColor = 'var(--primary)';
     }
 
+    // 从数据库加载余额并更新页面
+    syncBalanceFromDB();
+
     // 充值表单
     const rechargeForm = document.getElementById('rechargeForm');
     if (rechargeForm) {
-        rechargeForm.addEventListener('submit', (e) => {
+        rechargeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const balanceEl = document.getElementById('balanceValue');
-            if (balanceEl) {
-                const current = parseFloat(balanceEl.textContent.replace('¥','').trim()) || 0;
-                balanceEl.textContent = '¥' + (current + selectedRechargeAmount).toFixed(2);
+            
+            const success = await updateBalance(selectedRechargeAmount);
+            
+            if (success) {
+                // 重新同步余额
+                await syncBalanceFromDB();
+                closeRechargeModal();
+                showNotification('充值成功！账户余额已更新', 'success');
+            } else {
+                showNotification('充值失败，请重试', 'error');
             }
-            closeRechargeModal();
         });
     }
 
@@ -94,7 +102,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
-
-
-
-

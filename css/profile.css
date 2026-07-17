@@ -621,3 +621,109 @@ input:checked + .slider:before {
     margin: 0;
     font-size: 0.9rem;
 }
+
+
+/* ===== 服务器选择弹窗 ===== */
+.server-modal {
+    max-width: 450px;
+    width: 90%;
+}
+
+.server-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.server-option {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    background: var(--bg-light);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.server-option:hover {
+    border-color: var(--primary);
+    background: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(79, 172, 254, 0.15);
+}
+
+.server-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-right: 15px;
+    flex-shrink: 0;
+    color: white;
+}
+
+.server-option:nth-child(1) .server-icon { background: linear-gradient(135deg, #667eea, #764ba2); }
+.server-option:nth-child(2) .server-icon { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+.server-option:nth-child(3) .server-icon { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+
+.server-info h4 {
+    margin: 0 0 4px 0;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.server-info p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+
+/* ===== 编辑个人资料弹窗 ===== */
+.edit-profile-modal {
+    max-width: 500px;
+    width: 90%;
+}
+
+.edit-form .form-group {
+    margin-bottom: 16px;
+}
+
+.edit-form textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    resize: vertical;
+    font-family: inherit;
+    transition: var(--transition);
+}
+
+.edit-form textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+}
+
+.edit-form input[type="text"],
+.edit-form select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    transition: var(--transition);
+    background: white;
+}
+
+.edit-form input:focus,
+.edit-form select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+}

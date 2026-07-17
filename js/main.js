@@ -113,8 +113,8 @@ function calcOrderTotal() {
 // --- 下载APP ---
 function downloadApp(platform) {
     if (platform === 'android') {
-        } else if (platform === 'ios') {
-        } else {
+    } else if (platform === 'ios') {
+    } else {
         // 显示下载选择
         const choice = confirm('您想下载哪个平台的APP？\\n\\n确定 = Android\\n取消 = iOS');
         if (choice) {
@@ -125,6 +125,15 @@ function downloadApp(platform) {
     }
 }
 
+
+// --- 通知系统（全局） ---
+function showNotification(message, type) {
+    const toast = document.createElement('div');
+    toast.className = 'notification-toast notification-' + type;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
 // --- 表单提交 ---
 document.addEventListener('DOMContentLoaded', () => {
     // 登录表单
@@ -165,150 +174,147 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 滚动动画
-    updateNavUser();
-    initScrollAnimations();
-
-    // 生成星星粒子
+    // --- 星星粒子效果 ---
+    function createParticles() {
+        const heroSection = document.querySelector('.hero-section');
+        if (!heroSection) return;
+        const particleContainer = document.createElement('div');
+        particleContainer.className = 'particles';
+        particleContainer.style.cssText = 'position:absolute;width:100%;height:100%;top:0;left:0;overflow:hidden;pointer-events:none;';
+        for (let i = 0; i < 30; i++) {
+            const star = document.createElement('div');
+            star.style.cssText = 'position:absolute;width:' + (Math.random() * 4 + 2) + 'px;height:' + (Math.random() * 4 + 2) + 'px;background:white;border-radius:50%;left:' + (Math.random() * 100) + '%;top:' + (Math.random() * 100) + '%;opacity:' + (Math.random() * 0.7 + 0.3) + ';animation:twinkle ' + (Math.random() * 3 + 2) + 's infinite alternate;';
+            particleContainer.appendChild(star);
+        }
+        heroSection.appendChild(particleContainer);
+    }
     createParticles();
-});
 
-// --- 滚动动画 ---
-function initScrollAnimations() {
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('visible');
+    // --- 平滑滚动到锚点 ---
+    document.querySelectorAll('a[href^=\"#\"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         });
-    }, { threshold: 0.1 });
-
-    document.querySelectorAll('.fade-in').forEach(el => {
-        observer.observe(el);
     });
-}
 
-// --- 星星粒子效果 ---
-function createParticles() {
-    const hero = document.querySelector('.hero');
-    if (!hero) return;
+    // --- 当英雄区域可见时启动数字动画 ---
+    const heroObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                animateNumbers();
+            }
+        });
+    }, { threshold: 0.5 });
+    const heroSection2 = document.querySelector('.hero-section');
+    if (heroSection2) heroObserver.observe(heroSection2);
 
-    const particlesContainer = document.createElement('div');
-    particlesContainer.className = 'particles';
-    hero.appendChild(particlesContainer);
-
-    for (let i = 0; i < 20; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.width = (Math.random() * 6 + 2) + 'px';
-        particle.style.height = particle.style.width;
-        particle.style.animationDuration = (Math.random() * 10 + 8) + 's';
-        particle.style.animationDelay = (Math.random() * 5) + 's';
-        particlesContainer.appendChild(particle);
+    // --- 搜索功能（预留） ---
+    function searchWizards(keyword) {
+        console.log('搜索陪玩师:', keyword);
     }
-}
 
-// --- 平滑滚动到锚点 ---
-document.querySelectorAll('a[href^=\"#\"]').forEach(anchor => {
-    anchor.addEventListener('click', function(e) {
-        const href = this.getAttribute('href');
-        if (href === '#') return;
+    // showNotification moved to global scope (see top of file)
 
+    // --- 本地存储工具 ---
+    const Storage = {
+        get(key) {
+            try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+        },
+        set(key, value) {
+            localStorage.setItem(key, JSON.stringify(value));
+        },
+        remove(key) {
+            localStorage.removeItem(key);
+        }
+    };
+    window.Storage = Storage;
+
+    // --- 移动端菜单 ---
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', toggleMenu);
+    }
+
+    // --- 用户菜单 ---
+    function toggleUserMenu() {
+        var dropdown = document.getElementById('userDropdown');
+        if (dropdown) {
+            dropdown.classList.toggle('show');
+        }
+    }
+    window.toggleUserMenu = toggleUserMenu;
+
+    async function handleLogout(e) {
         e.preventDefault();
-        const target = document.querySelector(href);
-        if (target) {
-            const offsetTop = target.offsetTop - 70;
-            window.scrollTo({
-                top: offsetTop,
-                behavior: 'smooth'
-            });
+        try { await window.supabaseClient.auth.signOut(); } catch(err) {}
+        localStorage.removeItem('skyUser');
+        localStorage.removeItem('skyUserList');
+        var keys = Object.keys(localStorage);
+        for (var i = 0; i < keys.length; i++) {
+            if (keys[i].startsWith('sb-') || keys[i].indexOf('supabase') !== -1) {
+                localStorage.removeItem(keys[i]);
+            }
+        }
+        showNotification('已退出登录', 'success');
+        updateNavUser();
+        var dd = document.getElementById('userDropdown');
+        if (dd) dd.classList.remove('show');
+        setTimeout(function() { window.location.reload(); }, 500);
+    }
+    window.handleLogout = handleLogout;
+
+    document.addEventListener('click', function(e) {
+        var avatar = document.querySelector('.user-avatar');
+        var dropdown = document.getElementById('userDropdown');
+        if (avatar && dropdown && !avatar.contains(e.target)) {
+            dropdown.classList.remove('show');
         }
     });
+
+    // --- 轮播图 ---
+    let currentSlide = 0;
+    function goToSlide(index) {
+        const slides = document.querySelectorAll('.carousel-slide');
+        const dots = document.querySelectorAll('.carousel-dots .dot');
+        if (!slides.length) return;
+        currentSlide = (index + slides.length) % slides.length;
+        slides.forEach((s, i) => s.style.display = i === currentSlide ? 'block' : 'none');
+        dots.forEach((d, i) => d.classList.toggle('active', i === currentSlide));
+    }
+    function nextSlide() { goToSlide(currentSlide + 1); }
+    function prevSlide() { goToSlide(currentSlide - 1); }
+    function startInterval() { slideInterval = setInterval(nextSlide, 5000); }
+    function resetInterval() { clearInterval(slideInterval); startInterval(); }
+    let slideInterval;
+    startInterval();
+    // 初始化轮播
+    goToSlide(0);
+
+    // --- 优惠券弹窗 ---
+    function closeCouponsModal() {
+        var modal = document.getElementById('couponsModal');
+        if (modal) { modal.classList.remove('active'); document.body.style.overflow = ''; }
+    }
+
+    // 设置弹窗
+    function showSettings() {
+        var modal = document.getElementById('settingsModal');
+        if (modal) { modal.classList.add('active'); document.body.style.overflow = 'hidden'; }
+    }
+    function closeSettingsModal() {
+        var modal = document.getElementById('settingsModal');
+        if (modal) { modal.classList.remove('active'); document.body.style.overflow = ''; }
+    }
+
+    // 更新导航栏用户信息
+    updateNavUser();
 });
 
-// --- 数字动画 ---
-function animateNumbers() {
-    const stats = document.querySelectorAll('.stat-number');
-    stats.forEach(stat => {
-        const text = stat.textContent;
-        const num = parseInt(text.replace(/[^0-9]/g, ''));
-        const suffix = text.replace(/[0-9]/g, '');
-        let current = 0;
-        const increment = num / 60;
-        const timer = setInterval(() => {
-            current += increment;
-            if (current >= num) {
-                current = num;
-                clearInterval(timer);
-            }
-            stat.textContent = Math.floor(current) + suffix;
-        }, 20);
-    });
-}
-
-// --- 当英雄区域可见时启动数字动画 ---
-const heroObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            setTimeout(animateNumbers, 800);
-            heroObserver.unobserve(entry.target);
-        }
-    });
-}, { threshold: 0.3 });
-
-const heroSection = document.querySelector('.hero');
-if (heroSection) {
-    heroObserver.observe(heroSection);
-}
-
-// --- 搜索功能（预留） ---
-function searchWizards(keyword) {
-    console.log('搜索:', keyword);
-    // TODO: 实现搜索逻辑
-}
-
-// --- 通知系统（预留） ---
-function showNotification(message, type) {
-    const colors = { success: '#4CAF50', error: '#f44336', info: '#2196F3' };
-    const bgColor = colors[type] || '#4FC3F7';
-    const notification = document.createElement('div');
-    notification.textContent = message;
-    notification.style.position = 'fixed';
-    notification.style.top = '90px';
-    notification.style.right = '20px';
-    notification.style.padding = '16px 24px';
-    notification.style.background = bgColor;
-    notification.style.color = 'white';
-    notification.style.borderRadius = '12px';
-    notification.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
-    notification.style.zIndex = '3000';
-    notification.style.animation = 'slideInRight 0.3s ease';
-    document.body.appendChild(notification);
-    setTimeout(function() {
-        notification.style.opacity = '0';
-        notification.style.transform = 'translateX(100px)';
-        notification.style.transition = 'all 0.3s ease';
-        setTimeout(function() { notification.remove(); }, 300);
-    }, 3000);
-}
-
-// --- 本地存储工具 ---
-const Storage = {
-    get(key) {
-        try {
-            return JSON.parse(localStorage.getItem(key));
-        } catch { return null; }
-    },
-    set(key, value) {
-        localStorage.setItem(key, JSON.stringify(value));
-    },
-    remove(key) {
-        localStorage.removeItem(key);
-    }
-};
-
-// --- 导航栏用户状态更新 ---
+// 全局函数
 function updateNavUser() {
     try {
         var user = localStorage.getItem('skyUser');
@@ -351,135 +357,252 @@ function updateNavUser() {
         console.error('[更新导航栏失败]', err);
     }
 }
+window.updateNavUser = updateNavUser;
 
-function toggleUserMenu() {
-    var dropdown = document.getElementById('userDropdown');
-    if (dropdown) {
-        dropdown.classList.toggle('show');
+// ==================== 订单功能 ====================
+async function loadOrders() {
+    try {
+        const userStr = localStorage.getItem('skyUser');
+        if (!userStr) return [];
+        const user = JSON.parse(userStr);
+        
+        const { data, error } = await window.supabaseClient
+            .from('orders')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+        
+        return data || [];
+    } catch (err) {
+        console.error('加载订单失败:', err);
+        return [];
     }
 }
 
-async function handleLogout(e) {
-    e.preventDefault();
-    try { await window.supabaseClient.auth.signOut(); } catch(err) {}
-    localStorage.removeItem('skyUser');
-    localStorage.removeItem('skyUserList');
-    var keys = Object.keys(localStorage);
-    for (var i = 0; i < keys.length; i++) {
-        if (keys[i].startsWith('sb-') || keys[i].indexOf('supabase') !== -1) {
-            localStorage.removeItem(keys[i]);
+async function createOrder(orderData) {
+    try {
+        const userStr = localStorage.getItem('skyUser');
+        if (!userStr) return false;
+        const user = JSON.parse(userStr);
+        
+        const { data, error } = await window.supabaseClient
+            .from('orders')
+            .insert({
+                user_id: user.id,
+                wizard_id: orderData.wizardId,
+                wizard_name: orderData.wizardName,
+                hours: orderData.hours,
+                total_price: orderData.totalPrice,
+                status: '待支付'
+            })
+            .select()
+            .single();
+        
+        if (error) {
+            showNotification('下单失败：' + error.message, 'error');
+            return false;
         }
-    }
-    showNotification('已退出登录', 'success');
-    updateNavUser();
-    var dd = document.getElementById('userDropdown');
-    if (dd) dd.classList.remove('show');
-    setTimeout(function() { window.location.reload(); }, 500);
-}
-
-document.addEventListener('click', function(e) {
-    var avatar = document.querySelector('.user-avatar');
-    var dropdown = document.getElementById('userDropdown');
-    if (avatar && dropdown && !avatar.contains(e.target)) {
-        dropdown.classList.remove('show');
-    }
-});
-// --- 添加滑入动画样式 ---
-const style = document.createElement('style');
-style.textContent = '@keyframes slideInRight { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }';
-document.head.appendChild(style);
-
-console.log('%c光遇陪玩团 %c前端系统已加载', 'color: #4FC3F7; font-size: 20px; font-weight: bold;', 'color: #FFD54F; font-size: 14px;');
-
-
-
-
-
-
-
-// ============================================
-// 轮播图
-// ============================================
-let currentSlide = 0;
-let slideInterval;
-
-function goToSlide(index) {
-    const slides = document.querySelectorAll('.carousel-slide');
-    const dots = document.querySelectorAll('.carousel-dots .dot');
-    if (!slides.length) return;
-    
-    currentSlide = index;
-    if (currentSlide >= slides.length) currentSlide = 0;
-    if (currentSlide < 0) currentSlide = slides.length - 1;
-    
-    const track = document.querySelector('.carousel-track');
-    if (track) {
-        track.style.transform = 'translateX(-' + (currentSlide * 100) + '%)';
-    }
-    
-    dots.forEach((d, i) => {
-        d.classList.toggle('active', i === currentSlide);
-    });
-}
-
-function nextSlide() {
-    goToSlide(currentSlide + 1);
-    resetInterval();
-}
-
-function prevSlide() {
-    goToSlide(currentSlide - 1);
-    resetInterval();
-}
-
-function startInterval() {
-    slideInterval = setInterval(() => {
-        goToSlide(currentSlide + 1);
-    }, 5000);
-}
-
-function resetInterval() {
-    clearInterval(slideInterval);
-    startInterval();
-}
-
-// 初始化轮播
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.querySelector('.carousel-track')) {
-        startInterval();
-    }
-});
-
-// 优惠券弹窗
-function showCoupons() {
-    var modal = document.getElementById('couponsModal');
-    if (modal) {
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
+        
+        showNotification('订单创建成功！', 'success');
+        return true;
+    } catch (err) {
+        console.error('创建订单错误:', err);
+        showNotification('下单失败，请重试', 'error');
+        return false;
     }
 }
 
-function closeCouponsModal() {
-    var modal = document.getElementById('couponsModal');
-    if (modal) {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
+// ==================== 优惠券功能 ====================
+async function loadCoupons() {
+    try {
+        const userStr = localStorage.getItem('skyUser');
+        if (!userStr) return [];
+        const user = JSON.parse(userStr);
+        
+        const { data, error } = await window.supabaseClient
+            .from('coupons')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('used', false)
+            .order('expire_date', { ascending: true });
+        
+        return data || [];
+    } catch (err) {
+        console.error('加载优惠券失败:', err);
+        return [];
     }
 }
 
-// 设置弹窗
-function showSettings() {
-    var modal = document.getElementById('settingsModal');
-    if (modal) {
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
+async function grantWeeklyCoupon(userId) {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const { data, error } = await window.supabaseClient
+            .from('coupons')
+            .insert({
+                user_id: userId,
+                amount: 5.00,
+                condition: '满20元可用',
+                expire_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                used: false
+            });
+        return !error;
+    } catch (err) {
+        console.error('发放优惠券失败:', err);
+        return false;
     }
 }
 
-function closeSettingsModal() {
-    var modal = document.getElementById('settingsModal');
-    if (modal) {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
+// ==================== 收藏功能 ====================
+async function loadFavorites() {
+    try {
+        const userStr = localStorage.getItem('skyUser');
+        if (!userStr) return [];
+        const user = JSON.parse(userStr);
+        
+        const { data, error } = await window.supabaseClient
+            .from('favorites')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+        
+        return data || [];
+    } catch (err) {
+        console.error('加载收藏失败:', err);
+        return [];
     }
 }
+
+async function addFavorite(wizardId, wizardName) {
+    try {
+        const userStr = localStorage.getItem('skyUser');
+        if (!userStr) return false;
+        const user = JSON.parse(userStr);
+        
+        const { error } = await window.supabaseClient
+            .from('favorites')
+            .insert({
+                user_id: user.id,
+                wizard_id: wizardId,
+                wizard_name: wizardName
+            });
+        
+        if (error) {
+            showNotification('收藏失败', 'error');
+            return false;
+        }
+        
+        showNotification('收藏成功！', 'success');
+        return true;
+    } catch (err) {
+        console.error('收藏错误:', err);
+        return false;
+    }
+}
+
+async function removeFavorite(favoriteId) {
+    try {
+        const { error } = await window.supabaseClient
+            .from('favorites')
+            .delete()
+            .eq('id', favoriteId);
+        
+        if (error) {
+            showNotification('取消收藏失败', 'error');
+            return false;
+        }
+        
+        showNotification('已取消收藏', 'success');
+        return true;
+    } catch (err) {
+        console.error('取消收藏错误:', err);
+        return false;
+    }
+}
+
+// ==================== 账户余额 ====================
+async function updateBalance(amount) {
+    try {
+        const userStr = localStorage.getItem('skyUser');
+        if (!userStr) return false;
+        const user = JSON.parse(userStr);
+        
+
+        const { data: profiles, error } = await window.supabaseClient
+            .from('profiles')
+            .select('balance')
+            .eq('id', user.id)
+            .limit(1);
+
+        const profile = profiles && profiles.length > 0 ? profiles[0] : null;
+        const newBalance = (parseFloat(profile.balance) + parseFloat(amount)).toFixed(2);
+        
+        const { error: updateError } = await window.supabaseClient
+            .from('profiles')
+            .update({ balance: newBalance })
+            .eq('id', user.id);
+        
+        if (updateError) return false;
+        
+        // 同步到 localStorage
+        user.balance = newBalance;
+        localStorage.setItem('skyUser', JSON.stringify(user));
+        
+        return true;
+    } catch (err) {
+        console.error('更新余额失败:', err);
+        return false;
+    }
+}
+
+// 暴露全局函数
+window.loadOrders = loadOrders;
+window.createOrder = createOrder;
+window.loadCoupons = loadCoupons;
+window.grantWeeklyCoupon = grantWeeklyCoupon;
+window.loadFavorites = loadFavorites;
+window.addFavorite = addFavorite;
+window.removeFavorite = removeFavorite;
+window.updateBalance = updateBalance;
+
+// ==================== 全局同步余额 ====================
+async function syncBalanceFromDB() {
+    try {
+        const userStr = localStorage.getItem('skyUser');
+        if (!userStr) return null;
+        const user = JSON.parse(userStr);
+
+        const { data: profiles, error } = await window.supabaseClient
+            .from('profiles')
+            .select('balance')
+            .eq('id', user.id)
+            .limit(1);
+
+        const profile = profiles && profiles.length > 0 ? profiles[0] : null;
+
+        const balance = profile ? parseFloat(profile.balance) || 0 : 0;
+
+        // 更新 localStorage
+        user.balance = balance;
+        localStorage.setItem('skyUser', JSON.stringify(user));
+
+        // 更新充值中心余额显示
+        const rechargeEl = document.getElementById('balanceValue');
+        if (rechargeEl) {
+            rechargeEl.textContent = balance.toFixed(2);
+        }
+
+        // 更新个人中心余额显示
+        const statCards = document.querySelectorAll('.stat-card');
+        if (statCards && statCards[3]) {
+            const v = statCards[3].querySelector('.stat-value');
+            if (v) v.textContent = '\uffe5' + balance.toFixed(2);
+        }
+
+        return balance;
+    } catch (err) {
+        console.error('同步余额失败:', err);
+        return null;
+    }
+}
+
+window.syncBalanceFromDB = syncBalanceFromDB;

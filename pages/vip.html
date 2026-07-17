@@ -60,7 +60,7 @@
                     <p id="memberLevel">普通会员（未开通）</p>
                 </div>
                 <div class="status-actions">
-                    <button class="btn btn-primary" onclick="showVipModal()">立即开通</button>
+                    <button class="btn btn-primary" onclick="showVipModal()" id="activateVipBtn">立即开通</button>
                 </div>
             </div>
         </div>
@@ -72,7 +72,7 @@
             <h2 class="section-title">会员等级</h2>
             <p class="section-subtitle">选择最适合您的会员方案</p>
             <div class="pricing-grid">
-                <!-- 普通会员 -->
+                <!-- 普通玩家 -->
                 <div class="pricing-card">
                     <div class="pricing-header">
                         <h3>普通玩家</h3>
@@ -86,11 +86,6 @@
                         <li class="included"><i class="fas fa-check"></i> 基础点单功能</li>
                         <li class="included"><i class="fas fa-check"></i> 查看陪玩信息</li>
                         <li class="included"><i class="fas fa-check"></i> 标准客服支持</li>
-                        <li class="excluded"><i class="fas fa-times"></i> 专属陪玩推荐</li>
-                        <li class="excluded"><i class="fas fa-times"></i> 订单优先匹配</li>
-                        <li class="excluded"><i class="fas fa-times"></i> 会员专属折扣</li>
-                        <li class="excluded"><i class="fas fa-times"></i> 个性化头像框</li>
-                        <li class="excluded"><i class="fas fa-times"></i> VIP专属客服</li>
                     </ul>
                     <button class="btn btn-outline pricing-btn">当前方案</button>
                 </div>
@@ -102,86 +97,17 @@
                         <h3>VIP会员</h3>
                         <div class="price">
                             <span class="currency">￥</span>
-                            <span class="amount">29.9</span>
+                            <span class="amount">9.9</span>
                             <span class="period">/月</span>
                         </div>
                     </div>
                     <ul class="pricing-features">
                         <li class="included"><i class="fas fa-check"></i> 全部基础功能</li>
-                        <li class="included"><i class="fas fa-check"></i> 专属陪玩推荐</li>
-                        <li class="included"><i class="fas fa-check"></i> 订单优先匹配</li>
-                        <li class="included"><i class="fas fa-check"></i> 9折优惠券每月</li>
-                        <li class="included"><i class="fas fa-check"></i> 个性化头像框</li>
-                        <li class="included"><i class="fas fa-check"></i> 专属VIP标识</li>
-                        <li class="excluded"><i class="fas fa-times"></i> 专属客服经理</li>
-                        <li class="excluded"><i class="fas fa-times"></i> 无限次免费取消</li>
+                        <li class="included"><i class="fas fa-check"></i> 9折优惠券每周</li>
                     </ul>
-                    <button class="btn btn-primary pricing-btn" onclick="showVipModal('vip')">立即开通</button>
-                </div>
-
-                <!-- SVIP会员 -->
-                <div class="pricing-card premium">
-                    <div class="pricing-badge">至尊推荐</div>
-                    <div class="pricing-header">
-                        <h3>SVIP会员</h3>
-                        <div class="price">
-                            <span class="currency">￥</span>
-                            <span class="amount">99.9</span>
-                            <span class="period">/月</span>
-                        </div>
-                    </div>
-                    <ul class="pricing-features">
-                        <li class="included"><i class="fas fa-check"></i> 全部VIP功能</li>
-                        <li class="included"><i class="fas fa-check"></i> 7折优惠券每月</li>
-                        <li class="included"><i class="fas fa-check"></i> 无限次免费取消</li>
-                        <li class="included"><i class="fas fa-check"></i> 专属客服经理</li>
-                        <li class="included"><i class="fas fa-check"></i> 优先接单权</li>
-                        <li class="included"><i class="fas fa-check"></i> 限定头像特效</li>
-                        <li class="included"><i class="fas fa-check"></i> 生日专属礼包</li>
-                        <li class="included"><i class="fas fa-check"></i> 线下活动优先</li>
-                    </ul>
-                    <button class="btn btn-primary pricing-btn" onclick="showVipModal('svip')">立即开通</button>
+                    <button class="btn btn-primary pricing-btn" onclick="showVipModal()" id="activateVipBtn">立即开通</button>
                 </div>
             </div>
-        </div>
-    </section>
-
-    <!-- 会员特权 -->
-    <section class="vip-perks">
-        <div class="container">
-            <h2 class="section-title">会员特权</h2>
-            <p class="section-subtitle">成为会员，享受超多专属福利</p>
-            <div class="perks-grid">
-                <div class="perk-card">
-                    <div class="perk-icon"><i class="fas fa-ticket-alt"></i></div>
-                    <h4>专属优惠券</h4>
-                    <p>每月领取专属折扣券，点单立享优惠</p>
-                </div>
-                <div class="perk-card">
-                    <div class="perk-icon"><i class="fas fa-bolt"></i></div>
-                    <h4>优先匹配</h4>
-                    <p>下单后优先分配优质陪玩伙伴</p>
-                </div>
-                <div class="perk-card">
-                    <div class="perk-icon"><i class="fas fa-user-tie"></i></div>
-                    <h4>专属客服</h4>
-                    <p>SVIP配备专属客服经理，问题秒解决</p>
-                </div>
-                <div class="perk-card">
-                    <div class="perk-icon"><i class="fas fa-gift"></i></div>
-                    <h4>生日礼包</h4>
-                    <p>生日当月领取限定头像框和优惠券</p>
-                </div>
-                <div class="perk-card">
-                    <div class="perk-icon"><i class="fas fa-star"></i></div>
-                    <h4>限定标识</h4>
-                    <p>专属VIP/SVIP标识，彰显尊贵身份</p>
-                </div>
-                <div class="perk-card">
-                    <div class="perk-icon"><i class="fas fa-calendar-check"></i></div>
-                    <h4>免费取消</h4>
-                    <p>SVIP享受无限次免费取消订单特权</p>
-                </div>
             </div>
         </div>
     </section>
@@ -197,40 +123,17 @@
                         <input type="radio" name="plan" value="month" checked>
                         <div class="plan-card">
                             <span class="plan-name">月度会员</span>
-                            <span class="plan-price">￥29.9</span>
-                        </div>
-                    </label>
-                    <label class="plan-option">
-                        <input type="radio" name="plan" value="quarter">
-                        <div class="plan-card">
-                            <span class="plan-name">季度会员</span>
-                            <span class="plan-price">￥79.9</span>
-                            <span class="plan-save">省￥10</span>
-                        </div>
-                    </label>
-                    <label class="plan-option">
-                        <input type="radio" name="plan" value="year">
-                        <div class="plan-card">
-                            <span class="plan-name">年度会员</span>
-                            <span class="plan-price">￥259.9</span>
-                            <span class="plan-save">省￥100</span>
+                            <span class="plan-price">￥9.9</span>
                         </div>
                     </label>
                 </div>
-                <div class="form-group">
-                    <label><i class="fas fa-credit-card"></i> 支付方式</label>
-                    <select required>
-                        <option value="">请选择支付方式</option>
-                        <option value="balance">账户余额</option>
-                        <option value="wechat">微信支付</option>
-                        <option value="alipay">支付宝</option>
-                    </select>
-                </div>
-                <div class="vip-total">
+                
+                <div class="payment-hint" style="text-align:center;color:#999;font-size:13px;margin-bottom:8px;"><i class="fas fa-wallet"></i> 支付方式：余额支付</div>
+<div class="vip-total">
                     <span>应付金额：</span>
-                    <strong id="vipTotalPrice">￥29.9</strong>
+                    <strong id="vipTotalPrice">￥9.9</strong>
                 </div>
-                <button type="submit" class="btn btn-primary btn-block">确认支付</button>
+                <button type="submit" class="btn btn-primary btn-block">确认开通</button>
             </form>
         </div>
     </div>
@@ -272,31 +175,46 @@
 
     <!-- 页脚 -->
     <footer class="footer">
-<div class="container">
-<div class="footer-content">
-<div class="footer-section"><h3>光遇陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
-<div class="footer-section"><h3>快速链接</h3><ul>
-<li><a href="../index.html">首页</a></li><li><a href="order.html">点单大厅</a></li>
-<li><a href="members.html">陪玩成员</a></li></ul></div>
-<div class="footer-section"><h3>下载APP</h3><ul>
-<li><a href="download.html"><i class="fab fa-windows"></i> Windows客户端</a></li>
-<li><a href="#"><i class="fab fa-android"></i> Android版</a></li>
-<li><a href="#"><i class="fab fa-apple"></i> iOS版</a></li></ul></div>
-<div class="footer-section"><h3>联系我们</h3><ul>
-<li><i class="fas fa-envelope"></i> support@skycompanion.com</li></ul></div>
-</div>
-<div class="footer-bottom"><p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p></div>
-</div>
-</footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>光遇陪玩团</h3>
+                    <p>温暖相遇，快乐同行。</p>
+                </div>
+                <div class="footer-section">
+                    <h3>快速链接</h3>
+                    <ul>
+                        <li><a href="../index.html">首页</a></li>
+                        <li><a href="order.html">点单大厅</a></li>
+                        <li><a href="members.html">陪玩成员</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>下载APP</h3>
+                    <ul>
+                        <li><a href="download.html"><i class="fab fa-windows"></i> Windows客户端</a></li>
+                        <li><a href="#"><i class="fab fa-android"></i> Android版</a></li>
+                        <li><a href="#"><i class="fab fa-apple"></i> iOS版</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>联系我们</h3>
+                    <ul>
+                        <li><i class="fas fa-envelope"></i> support@skycompanion.com</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p>
+            </div>
+        </div>
+    </footer>
 
     
 
-<script src="../js/main.js"></script>
+<script src="../js/supabase-config.js"></script>
+    <script src="../js/main.js"></script>
     <script src="../js/vip.js"></script>
 </body>
 </html>
-
-
-
-
 
