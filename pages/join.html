@@ -4,7 +4,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加入团队 - 光遇陪玩团</title>
+<title>加入团队 - BJ陪玩团</title>
     <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="../css/profile.css">
     <link rel="stylesheet" href="../css/join.css">
@@ -176,7 +176,44 @@
     text-align: center;`n    margin-top: 16px;
     text-align: center;
 }
-</style>
+        .game-type-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 28px;
+            justify-content: center;
+        }
+        .tab-btn {
+            padding: 14px 36px;
+            border: none;
+            border-radius: 14px;
+            background: #f0f4ff;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            letter-spacing: 0.5px;
+        }
+        .tab-btn:hover {
+            background: linear-gradient(135deg, #e8f0ff, #f0f4ff);
+            color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(79, 172, 254, 0.15);
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            box-shadow: 0 4px 20px rgba(79, 172, 254, 0.35);
+            transform: translateY(-2px);
+        }
+        .tab-btn i {
+            font-size: 1.2rem;
+        }
+    </style>
 </head>
 <body><script>
 // API BASE URL - auto detect environment
@@ -190,7 +227,7 @@
         <div class="nav-container">
             <a href="../index.html" class="nav-logo">
                 <span class="logo-icon">&#9733;</span>
-                <span class="logo-text">光遇陪玩团</span>
+                <span class="logo-text">BJ陪玩团</span>
             </a>
             <ul class="nav-menu">
                 <li><a href="../index.html" class="nav-link">首页</a></li>
@@ -217,44 +254,7 @@
             <p>成为我们的陪玩伙伴，用温暖照亮他人的天空</p>
         </div>
     </section>
-
-    <!-- 团队介绍 -->
-    <section class="team-intro">
-        <div class="container">
-            <div class="intro-grid">
-                <div class="intro-text">
-                    <h2>关于光遇陪玩团</h2>
-                    <p>光遇陪玩团是一个专业的《光·遇》游戏陪玩服务平台。我们汇聚了众多经验丰富的资深玩家，致力于为玩家提供最优质的陪玩服务。</p>
-                    <p>加入我们，您可以获得稳定的收入来源、专业的培训支持、以及一群志同道合的朋友。</p>
-                    <ul class="benefits-list">
-                        <li><i class="fas fa-coins"></i> 丰厚佣金，周结月结灵活选择</li>
-                        <li><i class="fas fa-chalkboard-teacher"></i> 专业培训，快速提升陪玩技能</li>
-                        <li><i class="fas fa-shield-alt"></i> 平台保障，收入安全稳定</li>
-                        <li><i class="fas fa-clock"></i> 时间自由，随时上线接单</li>
-                        <li><i class="fas fa-trophy"></i> 等级体系，优秀陪玩可获得晋升</li>
-                    </ul>
-                </div>
-                <div class="intro-visual">
-                    <div class="team-stats">
-                        <div class="team-stat">
-                            <span class="ts-number">500+</span>
-                            <span class="ts-label">认证陪玩</span>
-                        </div>
-                        <div class="team-stat">
-                            <span class="ts-number">10000+</span>
-                            <span class="ts-label">完成订单</span>
-                        </div>
-                        <div class="team-stat">
-                            <span class="ts-number">98%</span>
-                            <span class="ts-label">好评率</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 申请条件 -->
+<!-- 申请条件 -->
     <section class="requirements">
         <div class="container">
             <h2 class="section-title">申请条件</h2>
@@ -322,12 +322,23 @@
         <div class="container">
             <h2 class="section-title">在线申请</h2>
             <p class="section-subtitle">请填写以下信息完成申请</p>
+
+            <!-- 游戏类型切换 -->
+            <div class="game-type-tabs">
+                <button class="tab-btn active" data-type="sky" onclick="switchGameType('sky')">
+                    <i class="fas fa-cloud"></i> 光遇陪玩申请
+                </button>
+                <button class="tab-btn" data-type="wangzhe" onclick="switchGameType('wangzhe')">
+                    <i class="fas fa-chess-knight"></i> 王者陪玩申请
+                </button>
+            </div>
+
             <form id="joinForm" class="join-form">
                 <!-- 基本信息 -->
                 <div class="form-grid">
                     <div class="form-group">
-                        <label><i class="fas fa-user"></i> 光遇名字 *</label>
-                        <input type="text" name="gyname" placeholder="请输入您的光遇游戏名字" required>
+                        <label><i class="fas fa-user"></i> 游戏名字 *</label>
+                        <input type="text" name="gyname" placeholder="请输入您的游戏名字" required>
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-gamepad"></i> 游戏ID *</label>
@@ -407,7 +418,88 @@
                     </div>
 
                     <button type="submit" class="btn btn-primary btn-submit-inline">提交申请</button>
-            </form>
+                </form>
+
+                <!-- 王者陪玩申请表单 -->
+                <form id="wangzheJoinForm" class="join-form" style="display:none;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> 王者名字 *</label>
+                            <input type="text" name="wz_name" placeholder="请输入您的王者游戏名字" required>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-gamepad"></i> 王者ID *</label>
+                            <input type="text" name="wz_game_id" placeholder="请输入王者游戏ID" required>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-server"></i> 游戏服务器 *</label>
+                            <select name="wz_server" required>
+                                <option value="">请选择服务器</option>
+                                <option value="ios-wechat">iOS 微信区</option>
+                                <option value="ios-qq">iOS QQ区</option>
+                                <option value="android-wechat">Android 微信区</option>
+                                <option value="android-qq">Android QQ区</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-at"></i> 微信号 *</label>
+                            <input type="text" name="wz_wechat" placeholder="请输入微信号" required>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-medal"></i> 段位 *</label>
+                            <select name="wz_rank" required>
+                                <option value="">请选择段位</option>
+                                <option value="青铜">青铜</option>
+                                <option value="白银">白银</option>
+                                <option value="黄金">黄金</option>
+                                <option value="铂金">铂金</option>
+                                <option value="钻石">钻石</option>
+                                <option value="星耀">星耀</option>
+                                <option value="最强王者">最强王者</option>
+                                <option value="荣耀王者">荣耀王者</option>
+                                <option value="无双王者">无双王者</option>
+                                <option value="传奇王者">传奇王者</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-bolt"></i> 战力</label>
+                            <input type="text" name="wz_power" placeholder="请输入英雄战力">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-star"></i> 擅长领域 *</label>
+                        <div class="skills-row">
+                            <label class="checkbox-item"><input type="checkbox" name="wz_skills" value="entertain"><span>娱乐</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="wz_skills" value="tech"><span>技术</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="wz_skills" value="soothe"><span>哄睡</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="wz_skills" value="couple-avatar"><span>换情头</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="wz_skills" value="record-song"><span>录歌</span></label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-comment-dots"></i> 个人简介</label>
+                        <textarea name="wz_bio" placeholder="介绍一下你自己吧，比如游戏经验、陪玩风格等"></textarea>
+                    </div>
+
+                    <div class="upload-area-inline" onclick="document.getElementById('wzFileInput').click()">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>点击上传游戏数据截图</p>
+                        <p class="upload-hint">支持 JPG、PNG 格式，不超过 5MB</p>
+                        <input type="file" id="wzFileInput" accept="image/*" multiple style="display:none">
+                    </div>
+
+                    <div class="form-agreement-inline">
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="wzAgreeTerms" required>
+                            <span>我已阅读并同意 <a href="#">《用户服务协议》</a> 和 <a href="#">《隐私政策》</a></span>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-submit-inline">提交申请</button>
+                </form>
+            </div>
         </div>
     </section>
 
@@ -416,7 +508,7 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <h3>光遇陪玩团</h3>
+                    <h3>BJ陪玩团</h3>
                     <p>温暖相遇，快乐同行。</p>
                 </div>
                 <div class="footer-section">
@@ -443,7 +535,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p>
+                <p>&copy; 2026 BJ陪玩团 All Rights Reserved.</p>
             </div>
         </div>
     </footer>
@@ -452,5 +544,54 @@
 
 <script src="../js/supabase-config.js"></script><script src="../js/main.js"></script>
     <script src="../js/supabase-config.js"></script><script src="../js/join.js"></script>
-</body>
+
+    <script>
+        function switchGameType(type) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.tab-btn[data-type="' + type + '"]').classList.add('active');
+            
+            var skyForm = document.getElementById('joinForm');
+            var wzForm = document.getElementById('wangzheJoinForm');
+            
+            if (type === 'sky') {
+                skyForm.style.display = 'block';
+                wzForm.style.display = 'none';
+            } else {
+                skyForm.style.display = 'none';
+                wzForm.style.display = 'block';
+            }
+        }
+    </script>
+
+    <!-- 移动端底部 Dock 栏 -->
+    <nav class="mobile-fab-nav">
+        <div class="dock-bar">
+            <a href="../index.html" class="dock-item"><i class="fas fa-home"></i><span>首页</span></a>
+            <a href="order.html" class="dock-item"><i class="fas fa-shopping-cart"></i><span>点单</span></a>
+            <a href="members.html" class="dock-item"><i class="fas fa-users"></i><span>成员</span></a>
+            <a href="vip.html" class="dock-item"><i class="fas fa-crown"></i><span>会员</span></a>
+            <a href="recharge.html" class="dock-item"><i class="fas fa-wallet"></i><span>充值</span></a>
+            <a href="join.html" class="dock-item"><i class="fas fa-user-plus"></i><span>加入</span></a>
+            <a href="profile.html" class="dock-item"><i class="fas fa-user-circle"></i><span>我的</span></a>
+        </div>
+    </nav>
+    <script>
+    (function(){
+        var p=window.location.pathname.split('/');
+        var isInPages=p.length>=3 && p[p.length-2]==='pages';
+        var links=document.querySelectorAll('.dock-item');
+        links.forEach(function(l){
+            var h=l.getAttribute('href');
+            if(isInPages){
+                if(h==='index.html'){
+                    l.href='../index.html';
+                }
+            }else{
+                if(h!=='index.html'){
+                    l.href='pages/'+h;
+                }
+            }
+        });
+    })();
+    </script>
 </html>

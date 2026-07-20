@@ -1,5 +1,5 @@
 ﻿// ============================================
-// 光遇陪玩团 - 主交互脚本
+// BJ陪玩团 - 主交互脚本
 // ============================================
 
 // --- 导航栏滚动效果 ---
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
+            if (e && e.preventDefault) e.preventDefault();
             closeLoginModal();
         });
     }
@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerForm = document.getElementById('registerForm');
     if (registerForm) {
         registerForm.addEventListener('submit', (e) => {
-            e.preventDefault();
+            if (e && e.preventDefault) e.preventDefault();
             closeLoginModal();
         });
     }
@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const orderForm = document.getElementById('orderForm');
     if (orderForm) {
         orderForm.addEventListener('submit', (e) => {
-            e.preventDefault();
+            if (e && e.preventDefault) e.preventDefault();
             closeOrderModal();
             orderForm.reset();
         });
@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 平滑滚动到锚点 ---
     document.querySelectorAll('a[href^=\"#\"]').forEach(anchor => {
         anchor.addEventListener('click', function(e) {
-            e.preventDefault();
+            if (e && e.preventDefault) e.preventDefault();
             const target = document.querySelector(this.getAttribute('href'));
             if (target) {
                 target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.toggleUserMenu = toggleUserMenu;
 
     async function handleLogout(e) {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
         try { await window.supabaseClient.auth.signOut(); } catch(err) {}
         localStorage.removeItem('skyUser');
         localStorage.removeItem('skyUserList');
@@ -332,13 +332,19 @@ function updateNavUser() {
 
         if (user) {
             var userData = JSON.parse(user);
-            var userName = userData.username || userData.name || '玩家';
+            var userName = userData.username || userData.nickname || userData.name || '玩家';
             var displayName = userName.length > 6 ? userName.substring(0, 6) + '...' : userName;
             var authUrl = navActions.getAttribute('data-auth-url') || basePath + 'auth.html';
 
+            var avatarHtml = '';
+            if (userData.avatar) {
+                avatarHtml = '<img src="' + userData.avatar + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+            } else {
+                avatarHtml = '<i class="fas fa-user-circle"></i>';
+            }
             navActions.innerHTML =
                 '<div class="user-avatar" onclick="toggleUserMenu()" title="' + userName + '">' +
-                    '<i class="fas fa-user-circle"></i>' +
+                    '<div class="nav-avatar-img" style="width:32px;height:32px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#4facfe,#00f2fe);vertical-align:middle;margin-right:6px;">' + avatarHtml + '</div>' +
                     '<span class="user-name">' + displayName + '</span>' +
                     '<div class="user-dropdown" id="userDropdown">' +
                         '<a href="' + basePath + 'profile.html" class="dropdown-item"><i class="fas fa-user"></i> 个人中心</a>' +

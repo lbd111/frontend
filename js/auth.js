@@ -1,5 +1,5 @@
 ﻿// ============================================
-// 光遇陪玩团 - Supabase 认证模块
+// BJ陪玩团 - Supabase 认证模块
 // ============================================
 
 function generateGuangZhiZiName() {
@@ -41,12 +41,19 @@ async function checkAuthStatus() {
         if (session) {
             // 默认使用邮箱前缀作为显示名称
             const displayName = session.user.email?.split('@')[0] || '玩家';
+
+            let avatar = '';
+            try {
+                const pr = await window.supabaseClient.from('profiles').select('avatar_url').eq('id', session.user.id).single();
+                if (pr.data?.avatar_url) avatar = pr.data.avatar_url;
+            } catch(e) {}
             
             const user = {
                 id: session.user.id,
                 email: session.user.email,
                 username: displayName,
-                game_id: session.user.user_metadata?.game_id || ''
+                game_id: session.user.user_metadata?.game_id || '',
+                avatar: avatar
             };
             localStorage.setItem('skyUser', JSON.stringify(user));
             if (typeof updateNavUser === 'function') updateNavUser();
@@ -83,15 +90,21 @@ async function handleLogin(email, password) {
         if (data.user) {
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // 默认使用邮箱前缀作为显示名称
-            const displayName = data.user.email?.split('@')[0] || '玩家';
+            // 先从数据库查最新的 nickname
+            var displayName = data.user.email?.split('@')[0] || '玩家';
+            try {
+                var profileRes = await window.supabaseClient.from("profiles").select("nickname,avatar_url").eq("id", data.user.id).single();
+                if (profileRes.data && profileRes.data.nickname) {
+                    displayName = profileRes.data.nickname;
+                }
+            } catch(e) {}
             
             const user = {
                 id: data.user.id,
                 email: data.user.email,
                 username: displayName,
                 game_id: data.user.user_metadata?.game_id || '',
-                register_time: new Date().toISOString()
+                avatar: profileRes.data?.avatar_url || ''
             };
             localStorage.setItem('skyUser', JSON.stringify(user));
             if (typeof updateNavUser === 'function') updateNavUser();

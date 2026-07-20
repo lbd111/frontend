@@ -1,9 +1,9 @@
 ﻿<!DOCTYPE html>
-<html lang="zh-CN">n
+<html lang="zh-CN">
     <head>
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>光遇陪玩团 - 移动端</title>
+<title>BJ陪玩团 - 移动端</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/mobile.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -19,7 +19,7 @@
         <div class="header-center">
             <a href="../index.html" class="mobile-logo">
                 <span class="logo-icon">&#9733;</span>
-                <span>光遇陪玩团</span>
+                <span>BJ陪玩团</span>
             </a>
         </div>
         <div class="header-right">
@@ -92,7 +92,7 @@
             <div class="banner-wrapper" id="bannerWrapper">
                 <div class="banner-slide active">
                     <div class="banner-content">
-                        <h2>光遇陪玩团</h2>
+                        <h2>BJ陪玩团</h2>
                         <p>温暖相遇 · 快乐同行</p>
                         <button class="btn btn-primary btn-small" onclick="location.href='order.html'">立即点单</button>
                     </div>
@@ -382,8 +382,68 @@
 
     <script src="../js/main.js"></script>
     <script src="../js/mobile.js"></script>
+
+    <!-- 移动端底部 Dock 栏 -->
+    
+    <!-- 移动端底部 Dock 栏 -->
+    <nav class="mobile-fab-nav">
+        <div class="dock-bar">
+            <a href="index.html" class="dock-item" data-page="index"><i class="fas fa-home"></i><span>首页</span></a>
+            <a href="order.html" class="dock-item" data-page="order"><i class="fas fa-shopping-cart"></i><span>点单</span></a>
+            <a href="members.html" class="dock-item" data-page="members"><i class="fas fa-users"></i><span>成员</span></a>
+            <a href="vip.html" class="dock-item" data-page="vip"><i class="fas fa-crown"></i><span>会员</span></a>
+            <a href="recharge.html" class="dock-item" data-page="recharge"><i class="fas fa-wallet"></i><span>充值</span></a>
+            <a href="join.html" class="dock-item" data-page="join"><i class="fas fa-user-plus"></i><span>加入</span></a>
+            <a href="profile.html" class="dock-item" data-page="profile"><i class="fas fa-user-circle"></i><span>我的</span></a>
+        </div>
+    </nav>
+    <script>
+    (function(){
+        var p=window.location.pathname.split('/');
+        var isInPages=p.length>=3 && p[p.length-2]==='pages';
+        var links=document.querySelectorAll('.dock-item');
+        links.forEach(function(l){
+            var h=l.getAttribute('href');
+            if(isInPages){
+                // Already in pages/, href="order.html" -> pages/order.html ✅
+                // href="index.html" -> pages/index.html (wrong!), fix to ../index.html
+                if(h==='index.html'){
+                    l.href='../index.html';
+                }
+            }else{
+                // At root, href="order.html" -> root/order.html (wrong!)
+                // Fix: prepend pages/
+                if(h!=='index.html'){
+                    l.href='pages/'+h;
+                }
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

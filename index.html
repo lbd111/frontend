@@ -1,11 +1,11 @@
 ﻿<!DOCTYPE html>
-<html lang="zh-CN">n
+<html lang="zh-CN">
     <head>
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>光遇陪玩团 - 点单系统</title>
+<title>BJ陪玩团 - 点单系统</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=18">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body><script>
@@ -20,7 +20,7 @@
         <div class="nav-container">
             <div class="nav-logo">
                 <span class="logo-icon">&#9733;</span>
-                <span class="logo-text">光遇陪玩团</span>
+                <span class="logo-text">BJ陪玩团</span>
             </div>
             <ul class="nav-menu" id="navMenu">
                 <li><a href="index.html" class="nav-link active">首页</a></li>
@@ -43,10 +43,11 @@
     <!-- 英雄区域 - 宣传画面 -->
     <section class="hero" id="home">
         <div class="hero-bg"></div>
+<canvas id="particleCanvas"></canvas>
         <div class="hero-content">
-            <h1 class="hero-title">光遇陪玩团</h1>
-            <p class="hero-subtitle">温暖相遇 · 快乐同行 · 专业陪玩</p>
-            <p class="hero-desc">在这里，找到你的光之伴侣，一起探索天空王国的每一处美好。资深陪玩带你飞，地图全开不迷路！</p>
+            <h1 class="hero-title">BJ陪玩团</h1>
+            <p class="hero-subtitle">专注光遇 · 辅战王者 · 专业陪玩</p>
+            <p class="hero-desc">专注光遇，辅战王者。资深陪玩带你飞，温暖相遇，快乐同行！</p>
             <div class="hero-buttons">
                 <a href="pages/order.html" class="btn btn-primary">立即点单</a>
                 <a href="pages/join.html" class="btn btn-outline">加入团队</a>
@@ -54,24 +55,7 @@
                     <i class="fas fa-mobile-alt"></i> 下载APP
                 </a>
             </div>
-            <div class="hero-stats">
-                <div class="stat-item">
-                    <span class="stat-number">500+</span>
-                    <span class="stat-label">认证陪玩</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number">10000+</span>
-                    <span class="stat-label">服务次数</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number">98%</span>
-                    <span class="stat-label">好评率</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number">50000+</span>
-                    <span class="stat-label">注册用户</span>
-                </div>
-            </div>
+
         </div>
         <div class="scroll-indicator">
             <span>向下滚动</span>
@@ -83,23 +67,8 @@
     <section class="features">
         <div class="container">
             <h2 class="section-title">平台特色</h2>
-            <p class="section-subtitle">为您提供最优质的光遇陪玩服务</p>
+            <p class="section-subtitle">为您提供最专业的BJ陪玩服务</p>
             <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
-                    <h3>实名认证</h3>
-                    <p>所有陪玩成员均通过实名认证和游戏内身份验证，安全可靠</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-star"></i></div>
-                    <h3>等级分明</h3>
-                    <p>从入门到高阶，不同等级的陪玩满足不同需求</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-clock"></i></div>
-                    <h3>在线秒接单</h3>
-                    <p>智能匹配系统，快速找到合适的陪玩伙伴</p>
-                </div>
                 <div class="feature-card">
                     <div class="feature-icon"><i class="fas fa-gem"></i></div>
                     <h3>丰富玩法</h3>
@@ -169,7 +138,6 @@
                     <ul class="download-features">
                         <li><i class="fas fa-check-circle"></i> 更流畅的下单体验</li>
                         <li><i class="fas fa-check-circle"></i> 实时语音通话</li>
-                        <li><i class="fas fa-check-circle"></i> 游戏内一键匹配</li>
                         <li><i class="fas fa-check-circle"></i> 推送通知，不错过任何消息</li>
                     </ul>
                     <div class="download-buttons">
@@ -186,7 +154,7 @@
                         <div class="phone-screen">
                             <div class="screen-header">
                                 <span class="logo-icon">&#9733;</span>
-                                <span>光遇陪玩团</span>
+                                <span>BJ陪玩团</span>
                             </div>
                             <div class="screen-content">
                                 <div class="screen-card"></div>
@@ -200,66 +168,11 @@
         </div>
     </section>
 
-    <!-- 用户评价 -->
-    <section class="reviews">
-        <div class="container">
-            <h2 class="section-title">用户评价</h2>
-            <p class="section-subtitle">听听他们怎么说</p>
-            <div class="reviews-slider">
-                <div class="review-card">
-                    <div class="review-header">
-                        <div class="review-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div>
-                            <h4>追光少年</h4>
-                            <div class="review-stars">
-                                <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="review-text">第一次用这个平台，体验非常好！陪玩小姐姐特别温柔，带我跑完了所有地图，还教了我很多拍照技巧。强烈推荐！</p>
-                    <span class="review-date">2026-07-10</span>
-                </div>
-                <div class="review-card">
-                    <div class="review-header">
-                        <div class="review-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div>
-                            <h4>天空之城</h4>
-                            <div class="review-stars">
-                                <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="review-text">平台很正规，价格透明，陪玩质量也很高。已经成了我每周必用的平台了，希望能出更多活动！</p>
-                    <span class="review-date">2026-07-08</span>
-                </div>
-                <div class="review-card">
-                    <div class="review-header">
-                        <div class="review-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div>
-                            <h4>风之子</h4>
-                            <div class="review-stars">
-                                <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="review-text">作为陪玩加入团队后，收入非常稳定。平台审核严格但保障了大家的质量，推荐给想兼职的朋友们！</p>
-                    <span class="review-date">2026-07-05</span>
-                </div>
-            </div>
-        </div>
-    </section>
 
-    <!-- 页脚 -->
     <footer class="footer">
 <div class="container">
 <div class="footer-content">
-<div class="footer-section"><h3>光遇陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
+<div class="footer-section"><h3>BJ陪玩团</h3><p>专注光遇，辅战王者。</p></div>
 <div class="footer-section"><h3>快速链接</h3><ul>
 <li><a href="../index.html">首页</a></li><li><a href="order.html">点单大厅</a></li>
 <li><a href="members.html">陪玩成员</a></li></ul></div>
@@ -270,7 +183,7 @@
 <div class="footer-section"><h3>联系我们</h3><ul>
 <li><i class="fas fa-envelope"></i> support@skycompanion.com</li></ul></div>
 </div>
-<div class="footer-bottom"><p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p></div>
+<div class="footer-bottom"><p>&copy; 2026 BJ陪玩团 All Rights Reserved.</p></div>
 </div>
 </footer>
 
@@ -337,8 +250,119 @@
 
     <script src="js/supabase-config.js"></script>
 <script src="js/main.js"></script>
-</body>
+
+    <!-- 移动端底部 Dock 栏 -->
+    
+    <!-- 移动端底部 Dock 栏 -->
+    <nav class="mobile-fab-nav">
+        <div class="dock-bar">
+            <a href="index.html" class="dock-item" data-page="index"><i class="fas fa-home"></i><span>首页</span></a>
+            <a href="order.html" class="dock-item" data-page="order"><i class="fas fa-shopping-cart"></i><span>点单</span></a>
+            <a href="members.html" class="dock-item" data-page="members"><i class="fas fa-users"></i><span>成员</span></a>
+            <a href="vip.html" class="dock-item" data-page="vip"><i class="fas fa-crown"></i><span>会员</span></a>
+            <a href="recharge.html" class="dock-item" data-page="recharge"><i class="fas fa-wallet"></i><span>充值</span></a>
+            <a href="join.html" class="dock-item" data-page="join"><i class="fas fa-user-plus"></i><span>加入</span></a>
+            <a href="profile.html" class="dock-item" data-page="profile"><i class="fas fa-user-circle"></i><span>我的</span></a>
+        </div>
+    </nav>
+    <script>
+    (function(){
+        var p=window.location.pathname.split('/');
+        var isInPages=p.length>=3 && p[p.length-2]==='pages';
+        var links=document.querySelectorAll('.dock-item');
+        links.forEach(function(l){
+            var h=l.getAttribute('href');
+            if(isInPages){
+                // Already in pages/, href="order.html" -> pages/order.html ✅
+                // href="index.html" -> pages/index.html (wrong!), fix to ../index.html
+                if(h==='index.html'){
+                    l.href='../index.html';
+                }
+            }else{
+                // At root, href="order.html" -> root/order.html (wrong!)
+                // Fix: prepend pages/
+                if(h!=='index.html'){
+                    l.href='pages/'+h;
+                }
+            }
+        });
+    })();
+    </script>
+
+    <script>
+    (function(){
+        var canvas = document.getElementById('particleCanvas');
+        if(!canvas) return;
+        var ctx = canvas.getContext('2d');
+        var particles = [];
+        var count = 50;
+
+        function resize(){
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        for(var i=0;i<count;i++){
+            particles.push({
+                x: Math.random()*canvas.width,
+                y: Math.random()*canvas.height,
+                r: Math.random()*2+0.5,
+                dy: -(Math.random()*0.5+0.2),
+                dx: (Math.random()-0.5)*0.3,
+                o: Math.random()*0.5+0.3,
+                pulse: Math.random()*Math.PI*2
+            });
+        }
+
+        function draw(){
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            for(var i=0;i<particles.length;i++){
+                var p = particles[i];
+                p.y += p.dy;
+                p.x += p.dx;
+                p.pulse += 0.02;
+                if(p.y < -10) { p.y = canvas.height+10; p.x = Math.random()*canvas.width; }
+                if(p.x < -10) p.x = canvas.width+10;
+                if(p.x > canvas.width+10) p.x = -10;
+                var alpha = p.o * (0.6 + 0.4*Math.sin(p.pulse));
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+                ctx.fillStyle = 'rgba(255,255,255,'+alpha+')';
+                ctx.fill();
+            }
+            requestAnimationFrame(draw);
+        }
+        draw();
+    })();
+    </script></body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,10 +1,10 @@
 ﻿<!DOCTYPE html>
-<html lang="zh-CN">n
+<html lang="zh-CN">
     <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>充值中心 - 光遇陪玩团</title>
+<title>充值中心 - BJ陪玩团</title>
     <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="../css/profile.css">
     <link rel="stylesheet" href="../css/recharge.css">
@@ -22,7 +22,7 @@
         <div class="nav-container">
             <a href="../index.html" class="nav-logo">
                 <span class="logo-icon">&#9733;</span>
-                <span class="logo-text">光遇陪玩团</span>
+                <span class="logo-text">BJ陪玩团</span>
             </a>
             <ul class="nav-menu">
                 <li><a href="../index.html" class="nav-link">首页</a></li>
@@ -225,7 +225,7 @@
     <footer class="footer">
 <div class="container">
 <div class="footer-content">
-<div class="footer-section"><h3>光遇陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
+<div class="footer-section"><h3>BJ陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
 <div class="footer-section"><h3>快速链接</h3><ul>
 <li><a href="../index.html">首页</a></li><li><a href="order.html">点单大厅</a></li>
 <li><a href="members.html">陪玩成员</a></li></ul></div>
@@ -236,7 +236,7 @@
 <div class="footer-section"><h3>联系我们</h3><ul>
 <li><i class="fas fa-envelope"></i> support@skycompanion.com</li></ul></div>
 </div>
-<div class="footer-bottom"><p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p></div>
+<div class="footer-bottom"><p>&copy; 2026 BJ陪玩团 All Rights Reserved.</p></div>
 </div>
 </footer>
 
@@ -244,5 +244,64 @@
 
 <script src="../js/supabase-config.js"></script><script src="../js/main.js"></script>
     <script src="../js/supabase-config.js"></script><script src="../js/recharge.js"></script>
+
+    <!-- 移动端底部 Dock 栏 -->
+    
+    <!-- 移动端底部 Dock 栏 -->
+    <nav class="mobile-fab-nav">
+        <div class="dock-bar">
+            <a href="index.html" class="dock-item" data-page="index"><i class="fas fa-home"></i><span>首页</span></a>
+            <a href="order.html" class="dock-item" data-page="order"><i class="fas fa-shopping-cart"></i><span>点单</span></a>
+            <a href="members.html" class="dock-item" data-page="members"><i class="fas fa-users"></i><span>成员</span></a>
+            <a href="vip.html" class="dock-item" data-page="vip"><i class="fas fa-crown"></i><span>会员</span></a>
+            <a href="recharge.html" class="dock-item" data-page="recharge"><i class="fas fa-wallet"></i><span>充值</span></a>
+            <a href="join.html" class="dock-item" data-page="join"><i class="fas fa-user-plus"></i><span>加入</span></a>
+            <a href="profile.html" class="dock-item" data-page="profile"><i class="fas fa-user-circle"></i><span>我的</span></a>
+        </div>
+    </nav>
+    <script>
+    (function(){
+        var p=window.location.pathname.split('/');
+        var isInPages=p.length>=3 && p[p.length-2]==='pages';
+        var links=document.querySelectorAll('.dock-item');
+        links.forEach(function(l){
+            var h=l.getAttribute('href');
+            if(isInPages){
+                // Already in pages/, href="order.html" -> pages/order.html ✅
+                // href="index.html" -> pages/index.html (wrong!), fix to ../index.html
+                if(h==='index.html'){
+                    l.href='../index.html';
+                }
+            }else{
+                // At root, href="order.html" -> root/order.html (wrong!)
+                // Fix: prepend pages/
+                if(h!=='index.html'){
+                    l.href='pages/'+h;
+                }
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

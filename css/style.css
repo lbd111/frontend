@@ -1,4 +1,5 @@
-﻿/* ============================================
+﻿.mobile-fab-nav { display: none !important; }
+/* ============================================
 
 
 /* ============================================
@@ -472,7 +473,17 @@ img {
     100% { opacity: 1; }
 }
 
-.hero-content {
+
+/* ===== Floating Particle Canvas ===== */
+#particleCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}.hero-content {
     position: relative;
     z-index: 2;
     text-align: center;
@@ -1021,74 +1032,121 @@ section {
 
 /* --- 页脚 --- */
 .footer {
-    background: #0D1B2A;
+    background: linear-gradient(180deg, #0D1B2A 0%, #0a1520 100%);
     color: rgba(255, 255, 255, 0.7);
-    padding: 60px 0 30px;
+    padding: 50px 0 20px;
+    position: relative;
+}
+
+.footer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
 }
 
 .footer-content {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 40px;
-    margin-bottom: 40px;
+    gap: 30px;
+    margin-bottom: 30px;
 }
 
 .footer-section h3 {
     color: white;
-    font-size: 1.15rem;
+    font-size: 1rem;
     margin-bottom: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    position: relative;
+    padding-bottom: 10px;
+}
+
+.footer-section h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 30px;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 1px;
 }
 
 .footer-section p {
-    font-size: 0.9rem;
-    line-height: 1.7;
-    margin-bottom: 16px;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    margin-bottom: 12px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.footer-section ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
 }
 
 .footer-section ul li {
     margin-bottom: 10px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+}
+
+.footer-section ul li a {
+    color: rgba(255, 255, 255, 0.65);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .footer-section ul li a:hover {
     color: var(--primary);
+    transform: translateX(3px);
 }
 
 .footer-section ul li i {
-    margin-right: 8px;
     color: var(--primary);
-    width: 16px;
+    font-size: 0.8rem;
+    width: 14px;
+    text-align: center;
 }
 
 .social-links {
     display: flex;
-    gap: 12px;
+    gap: 10px;
 }
 
 .social-links a {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    transition: var(--transition);
+    color: rgba(255, 255, 255, 0.7);
+    transition: all 0.3s ease;
+    text-decoration: none;
+    font-size: 0.85rem;
 }
 
 .social-links a:hover {
     background: var(--primary);
-    transform: translateY(-3px);
+    color: white;
+    transform: translateY(-2px);
 }
 
 .footer-bottom {
     text-align: center;
-    padding-top: 30px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    font-size: 0.85rem;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
 }
-
 /* --- 弹窗 --- */
 .modal-overlay {
     position: fixed;
@@ -1108,6 +1166,11 @@ section {
 }
 
 .modal-overlay.active {
+.modal-overlay[style*='display: block'],
+.modal-overlay[style*='display:block'] {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
     opacity: 1;
     visibility: visible;
 }
@@ -1668,17 +1731,41 @@ section {
         font-size: 1.8rem;
     }
 
-    /* 页脚 */
+        /* 页脚 */
+    .footer {
+        padding: 30px 0 50px !important;
+    }
     .footer-content {
-        grid-template-columns: 1fr;
-        gap: 20px;
-        text-align: center;
+        grid-template-columns: 1fr !important;
+        gap: 24px !important;
+        text-align: center !important;
+    }
+    .footer-section h3 {
+        font-size: 0.95rem !important;
+        margin-bottom: 12px !important;
+    }
+    .footer-section h3::after {
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+    }
+    .footer-section p {
+        font-size: 0.8rem !important;
     }
     .footer-section ul {
-        padding: 0;
+        padding: 0 !important;
     }
-
-    /* 页面头部 */
+    .footer-section ul li {
+        font-size: 0.8rem !important;
+        margin-bottom: 8px !important;
+    }
+    .footer-section ul li a {
+        font-size: 0.8rem !important;
+    }
+    .footer-bottom {
+        font-size: 0.75rem !important;
+        padding-top: 16px !important;
+    }
+/* 页面头部 */
     .page-header {
         padding: 30px 0;
     }
@@ -1853,3 +1940,209 @@ section {
 }
 
 
+
+
+/* ===== MOBILE NAVBAR FIX ===== */
+@media (max-width: 768px) {
+    .navbar {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 6px 10px !important;
+        min-height: 44px !important;
+    }
+
+    .nav-container {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+
+    .nav-logo {
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .nav-logo .logo-icon {
+        font-size: 1.3rem !important;
+        color: #FFD54F !important;
+        text-shadow: none !important;
+        line-height: 1 !important;
+        transform: none !important;
+    }
+
+    .nav-logo .logo-text {
+        font-size: 0.9rem !important;
+        font-weight: 700 !important;
+        color: #1a2a4a !important;
+    }
+
+    .nav-menu {
+        display: none !important;
+    }
+
+    .nav-actions {
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .nav-actions .btn-login {
+        display: inline-flex !important;
+        padding: 4px 8px !important;
+        font-size: 0.65rem !important;
+        white-space: nowrap !important;
+        height: auto !important;
+        line-height: normal !important;
+    }
+
+    .hamburger {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        gap: 3px !important;
+        width: 24px !important;
+        height: 24px !important;
+        background: none !important;
+        border: none !important;
+        cursor: pointer !important;
+        padding: 2px !important;
+    }
+
+    .hamburger span {
+        display: block !important;
+        width: 20px !important;
+        height: 2px !important;
+        background: #333 !important;
+        border-radius: 2px !important;
+        margin: 0 !important;
+    }
+}/* ===== MOBILE DOCK BAR CENTERING ===== */
+@media (max-width: 768px) {
+    .mobile-fab-nav {
+        display: flex !important;
+        position: fixed !important;
+        bottom: 12px !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 9999 !important;
+        pointer-events: none !important;
+    }
+
+    .dock-bar {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-around !important;
+        background: linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(240,248,255,0.88) 100%) !important;
+        backdrop-filter: blur(30px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+        border: 1px solid rgba(255, 255, 255, 0.8) !important;
+        border-radius: 30px !important;
+        padding: 6px 6px !important;
+        height: 56px !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+        width: auto !important;
+        margin: 0 auto !important;
+        max-width: calc(100vw - 24px) !important;
+        min-width: 300px !important;
+        pointer-events: auto !important;
+    }
+
+    .dock-item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 2px !important;
+        text-decoration: none !important;
+        color: #8B95A5 !important;
+        font-size: 0.6rem !important;
+        padding: 4px 10px !important;
+        border-radius: 14px !important;
+        transition: all 0.2s ease !important;
+        flex: 1 !important;
+        min-width: 36px !important;
+    }
+
+    .dock-item i {
+        font-size: 1.15rem !important;
+        transition: transform 0.2s ease !important;
+    }
+
+    .dock-item.active {
+        color: #4FC3F7 !important;
+    }
+
+    .dock-item.active i {
+        transform: scale(1.15) !important;
+    }
+
+    .dock-item:hover {
+        background: rgba(79, 195, 247, 0.12) !important;
+    }
+
+    .dock-item:active {
+        transform: scale(0.9) !important;
+    }
+}
+
+
+    .dock-bar {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-around !important;
+        background: rgba(255, 255, 255, 0.98) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(0, 0, 0, 0.08) !important;
+        border-radius: 28px !important;
+        padding: 6px 6px !important;
+        height: 54px !important;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0,0,0,0.03) !important;
+        width: auto !important;
+        margin: 0 auto !important;
+        max-width: calc(100vw - 24px) !important;
+        min-width: 300px !important;
+        pointer-events: auto !important;
+    }
+
+    .dock-item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 2px !important;
+        text-decoration: none !important;
+        color: #8B95A5 !important;
+        font-size: 0.6rem !important;
+        padding: 4px 10px !important;
+        border-radius: 14px !important;
+        transition: all 0.2s ease !important;
+        flex: 1 !important;
+        min-width: 36px !important;
+    }
+
+    .dock-item i {
+        font-size: 1.15rem !important;
+        transition: transform 0.2s ease !important;
+    }
+
+    .dock-item.active {
+        color: #4FC3F7 !important;
+    }
+
+    .dock-item.active i {
+        transform: scale(1.15) !important;
+    }
+
+    .dock-item:hover {
+        background: rgba(79, 195, 247, 0.08) !important;
+    }
+
+    .dock-item:active {
+        transform: scale(0.9) !important;
+    }
