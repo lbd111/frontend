@@ -1,12 +1,20 @@
 ﻿// ============================================
-// 光遇陪玩团 - 点单大厅交互
+// BJ陪玩团 - 点单大厅交互
 // ============================================
 
 let currentFilter = 'all';
-let currentCategory = 'all';
+window.currentCategory = 'all';
 
 // --- 筛选陪玩 ---
 function filterWizards() {
+    // 接单模式下复用同一搜索框，调用接单列表的筛选/加载
+    if (window.currentRoleMode === 'serve') {
+        if (typeof window.serveFilterWizards === 'function') {
+            window.serveFilterWizards();
+        }
+        return;
+    }
+
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const cards = document.querySelectorAll('.wizard-list-card');
 
@@ -26,11 +34,12 @@ function filterWizards() {
 
         const category = card.dataset.category;
         let matchesCategory = true;
-        if (currentCategory !== 'all') {
-            matchesCategory = category.includes(currentCategory);
+        if (window.currentCategory !== 'all') {
+            matchesCategory = category.includes(window.currentCategory);
         }
 
-        card.style.display = (matchesSearch && matchesFilter && matchesCategory) ? '' : 'none';
+        const matchesGame = card.dataset.game === window.currentGame;
+        card.style.display = (matchesSearch && matchesFilter && matchesCategory && matchesGame) ? '' : 'none';
     });
 
     checkEmptyState();
@@ -46,7 +55,15 @@ function setFilter(filter, btn) {
 
 // --- 选择分类 ---
 function selectCategory(card, category) {
-    currentCategory = category;
+    // 接单模式下复用同一分类筛选
+    if (window.currentRoleMode === 'serve') {
+        if (typeof window.selectServeCategory === 'function') {
+            window.selectServeCategory(card, category);
+        }
+        return;
+    }
+
+    window.currentCategory = category;
     document.querySelectorAll('.category-card').forEach(c => c.classList.remove('active'));
     card.classList.add('active');
     filterWizards();
@@ -122,3 +139,50 @@ function calcOrderTotal() {
         totalPriceEl.textContent = '￥' + total;
     }
 }
+
+
+// --- 当前游戏类型 ---
+window.currentGame = 'sky';
+
+// --- 切换游戏服务 ---
+function switchGame(game, btn) {
+    window.currentGame = game;
+    document.querySelectorAll('.game-switch-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    // Show/hide the corresponding categories section
+    const skyCat = document.getElementById('sky-categories');
+    const kingCat = document.getElementById('king-categories');
+    if (skyCat) skyCat.style.display = game === 'sky' ? '' : 'none';
+    if (kingCat) kingCat.style.display = game === 'king' ? '' : 'none';
+
+    // Reset category UI to "全部服务"
+    document.querySelectorAll('.category-card').forEach(c => c.classList.remove('active'));
+    const visibleSection = game === 'sky' ? skyCat : kingCat;
+    if (visibleSection) {
+        const firstCard = visibleSection.querySelector('.category-card');
+        if (firstCard) firstCard.classList.add('active');
+    }
+
+    // 接单模式下复用同一游戏筛选
+    if (window.currentRoleMode === 'serve') {
+        if (window.serveFilterState) {
+            window.serveFilterState.game = game;
+            window.serveFilterState.category = 'all';
+        }
+        if (typeof window.loadServeModeList === 'function') {
+            window.loadServeModeList();
+        }
+        return;
+    }
+
+    const cards = document.querySelectorAll('.wizard-list-card');
+    cards.forEach(card => {
+        card.style.display = card.dataset.game === game ? '' : 'none';
+    });
+
+    // Reset category
+    window.currentCategory = 'all';
+    filterWizards();
+}
+

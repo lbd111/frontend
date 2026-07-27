@@ -3,7 +3,8 @@ let currentMemberFilter = 'all';
 let currentMemberLevel = 'all';
 
 function filterMembers() {
-    const search = document.getElementById('memberSearch').value.toLowerCase();
+    const searchEl = document.getElementById('memberSearch');
+    const search = searchEl ? searchEl.value.toLowerCase() : '';
     const cards = document.querySelectorAll('.member-card');
     let visibleCount = 0;
 
@@ -50,7 +51,8 @@ function setMemberLevel(level, btn) {
 }
 
 function sortMembers() {
-    const sortBy = document.getElementById('memberSort').value;
+    // Sort dropdown removed - default to no sorting
+    const sortBy = '';
     const grid = document.getElementById('membersGrid');
     const cards = Array.from(grid.querySelectorAll('.member-card'));
 

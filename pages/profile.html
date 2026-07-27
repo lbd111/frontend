@@ -1,6 +1,6 @@
 ﻿<!DOCTYPE html>
 
-<html lang="zh-CN">n
+<html lang="zh-CN">
 
     <head>
 
@@ -10,7 +10,7 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>个人中心 - 光遇陪玩团</title>
+<title>个人中心 - BJ陪玩团</title>
 
     <link rel="stylesheet" href="../css/style.css">
 
@@ -18,9 +18,13 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <style>
+        .my-orders-page { background: #f5f7fa; display: flex; flex-direction: column; min-height: 100vh; margin: 0; padding: 0; }
+    
+        .footer { margin-top: auto !important; }</style>
 </head>
 
-<body><script>
+<body class="my-orders-page"><script>
 
 // API BASE URL - auto detect environment
 
@@ -44,7 +48,7 @@
 
                 <span class="logo-icon">&#9733;</span>
 
-                <span class="logo-text">光遇陪玩团</span>
+                <span class="logo-text">BJ陪玩团</span>
 
             </a>
 
@@ -101,6 +105,7 @@
                     </div>
 
                     <button class="avatar-edit"><i class="fas fa-camera"></i></button>
+                    <input type="file" id="profileAvatarInput" accept="image/*" style="display:none;" onchange="uploadProfileAvatar(this)">
 
                 </div>
 
@@ -108,15 +113,17 @@
 
                     <h2 id="userName">玩家</h2>
 
-                    <p class="user-id"><i class="fas fa-id-badge"></i> ID: SKY20260001</p>
+                    <p class="user-id"><i class="fas fa-id-badge"></i> <span id="roleIdDisplay">加载中...</span></p>
 
                     <div class="user-meta">
 
-                        <span class="meta-item" id="metaGameId"><i class="fas fa-gamepad"></i> 游戏ID: <span id="gameIdValue">未设置</span></span>
-
+                        <span class="meta-item" id="metaGameId"><i class="fas fa-gamepad"></i> 光遇ID: <span id="skyIdValue">未设置</span></span>
+                        <span class="meta-item" id="metaWangzheId" style="display:none;"><i class="fas fa-trophy"></i> 王者ID: <span id="wangzheIdValue">未设置</span></span>
                         <span class="meta-item" id="metaLevel"><i class="fas fa-award"></i> <span id="levelValue">普通会员</span></span>
 
+                        <span class="meta-item" id="metaVipExpire" style="display:none;"><i class="fas fa-clock"></i> 到期时间: <span id="vipExpireValue">--</span></span>
                         <span class="meta-item" id="metaRegTime"><i class="fas fa-calendar"></i> 注册时间: <span id="regTimeValue">--</span></span>
+                        <span class="meta-item" id="metaRating"><i class="fas fa-star"></i> 评分: <span id="ratingValue" style="font-size: 0.8rem; color: #999;">暂无评分</span></span>
 
                     </div>
 
@@ -138,7 +145,7 @@
 
                 <div class="stat-card">
 
-                    <div class="stat-value">12</div>
+                    <div class="stat-value" id="profileOrderCount">0</div>
 
                     <div class="stat-label">我的订单</div>
 
@@ -146,7 +153,7 @@
 
                 <div class="stat-card">
 
-                    <div class="stat-value">3</div>
+                    <div class="stat-value">0</div>
 
                     <div class="stat-label">收藏陪玩</div>
 
@@ -154,7 +161,7 @@
 
                 <div class="stat-card">
 
-                    <div class="stat-value">5</div>
+                    <div class="stat-value">0</div>
 
                     <div class="stat-label">优惠券</div>
 
@@ -162,7 +169,7 @@
 
                 <div class="stat-card">
 
-                    <div class="stat-value">￥250</div>
+                    <div class="stat-value">￥0.00</div>
 
                     <div class="stat-label">账户余额</div>
 
@@ -191,11 +198,11 @@
 
                 </div>
 
-                <div class="menu-item" onclick="showAddress()">
+                <div class="menu-item" onclick="window.location.href='orders.html'">
 
-                    <div class="menu-icon"><i class="fas fa-map-marker-alt"></i></div>
+                    <div class="menu-icon"><i class="fas fa-shopping-cart"></i></div>
 
-                    <span>游戏区服</span>
+                    <span>我的订单</span>
 
                     <i class="fas fa-chevron-right arrow"></i>
 
@@ -229,104 +236,14 @@
     <section class="recent-orders">
         <div class="container">
             <h3 class="section-title-sm"><i class="fas fa-history"></i> 最近订单</h3>
-            <div class="orders-list">
-                <div class="order-item">
-                    <div class="order-wizard-info">
-                        <div class="order-avatar"><i class="fas fa-user-circle"></i></div>
-                        <div>
-                            <h4>星光旅者</h4>
-                            <p>跑图服务 · 2小时</p>
-                        </div>
-                    </div>
-                    <div class="order-status status-completed">已完成</div>
-                    <div class="order-price">￥59.80</div>
-                </div>
-                <div class="order-item">
-                    <div class="order-wizard-info">
-                        <div class="order-avatar"><i class="fas fa-user-circle"></i></div>
-                        <div>
-                            <h4>云间漫步</h4>
-                            <p>聊天交友 · 1小时</p>
-                        </div>
-                    </div>
-                    <div class="order-status status-pending">进行中</div>
-                    <div class="order-price">￥25.00</div>
-                </div>
+            <div class="orders-list" id="recentOrdersList">
+                <div class="order-item"><p style="color:#999;text-align:center;padding:20px;">暂无订单</p></div>
             </div>
         </div>
     </section>
 
     
-    <!-- 服务器选择弹窗 -->
-    <div class="modal-overlay" id="serverModal">
-        <div class="modal server-modal">
-            <button class="modal-close" onclick="closeServerModal()">&times;</button>
-            <h2><i class="fas fa-server"></i> 选择游戏服务器</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">请选择您的游戏运行平台</p>
-            <div class="server-options">
-                <div class="server-option" onclick="selectServer('ios')">
-                    <div class="server-icon"><i class="fab fa-apple"></i></div>
-                    <div class="server-info">
-                        <h4>iOS</h4>
-                        <p>苹果 iPhone/iPad 用户</p>
-                    </div>
-                </div>
-                <div class="server-option" onclick="selectServer('android')">
-                    <div class="server-icon"><i class="fab fa-android"></i></div>
-                    <div class="server-info">
-                        <h4>Android</h4>
-                        <p>安卓手机/平板用户</p>
-                    </div>
-                </div>
-                <div class="server-option" onclick="selectServer('pc')">
-                    <div class="server-icon"><i class="fab fa-windows"></i></div>
-                    <div class="server-info">
-                        <h4>PC 模拟器</h4>
-                        <p>电脑模拟器用户</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-<!-- 登录弹窗 -->
-
-
     
-    <!-- 服务器选择弹窗 -->
-    <div class="modal-overlay" id="serverModal">
-        <div class="modal server-modal">
-            <button class="modal-close" onclick="closeServerModal()">&times;</button>
-            <h2><i class="fas fa-server"></i> 选择游戏服务器</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">请选择您的游戏运行平台</p>
-            <div class="server-options">
-                <div class="server-option" onclick="selectServer('ios')">
-                    <div class="server-icon"><i class="fab fa-apple"></i></div>
-                    <div class="server-info">
-                        <h4>iOS</h4>
-                        <p>苹果 iPhone/iPad 用户</p>
-                    </div>
-                </div>
-                <div class="server-option" onclick="selectServer('android')">
-                    <div class="server-icon"><i class="fab fa-android"></i></div>
-                    <div class="server-info">
-                        <h4>Android</h4>
-                        <p>安卓手机/平板用户</p>
-                    </div>
-                </div>
-                <div class="server-option" onclick="selectServer('pc')">
-                    <div class="server-icon"><i class="fab fa-windows"></i></div>
-                    <div class="server-info">
-                        <h4>PC 模拟器</h4>
-                        <p>电脑模拟器用户</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-<!-- 登录弹窗 -->
-
 
     <!-- 优惠券弹窗 -->
     <div class="modal-overlay" id="couponsModal">
@@ -347,7 +264,7 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <h3>光遇陪玩团</h3>
+                    <h3>BJ陪玩团</h3>
                     <p>温暖相遇，快乐同行。</p>
                 </div>
                 <div class="footer-section">
@@ -374,15 +291,320 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p>
+                <p>&copy; 2026 BJ陪玩团 All Rights Reserved.</p>
             </div>
         </div>
     </footer>
 
     <script src="../js/supabase-config.js"></script>
-    <script src="../js/main.js"></script>
+    <script src="../js/main.js?v=202607211200"></script>
     <script src="../js/profile.js"></script>
+    <script>
+        // Profile page avatar upload
+        document.addEventListener('DOMContentLoaded', function() {
+            var cameraBtn = document.querySelector('.avatar-edit');
+            var fileInput = document.getElementById('profileAvatarInput');
+            if (cameraBtn && fileInput) {
+                cameraBtn.addEventListener('click', function() {
+                    fileInput.click();
+                });
+            }
+        });
+
+        function uploadProfileAvatar(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var avatarInner = document.querySelector('.avatar-inner');
+                    if (avatarInner) {
+                        avatarInner.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+                    }
+                    // Save to localStorage
+                    try {
+                        var user = JSON.parse(localStorage.getItem('skyUser') || '{}');
+                        user.avatar = e.target.result;
+                        localStorage.setItem('skyUser', JSON.stringify(user));
+                    } catch(ex) {}
+                    // Save to database
+                    if (window.supabaseClient) {
+                        window.supabaseClient.auth.getSession().then(function(session) {
+                            if (session.data.session) {
+                                window.supabaseClient.from('profiles').update({ avatar_url: e.target.result }).eq('id', session.data.session.user.id).then(function(res) {
+                                    if (res.error) console.error('保存头像到数据库失败:', res.error);
+                                    else console.log('头像保存到数据库成功');
+                                });
+                            }
+                        });
+                    }
+                    // Update nav
+                    if (typeof updateNavUser === 'function') updateNavUser();
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+
+    <!-- 移动端底部 Dock 栏 -->
+    
+    <!-- 移动端底部 Dock 栏 -->
+    <nav class="mobile-fab-nav">
+        <div class="dock-bar">
+            <a href="index.html" class="dock-item" data-page="index"><i class="fas fa-home"></i><span>首页</span></a>
+            <a href="order.html" class="dock-item" data-page="order"><i class="fas fa-shopping-cart"></i><span>点单</span></a>
+            <a href="members.html" class="dock-item" data-page="members"><i class="fas fa-users"></i><span>成员</span></a>
+            <a href="vip.html" class="dock-item" data-page="vip"><i class="fas fa-crown"></i><span>会员</span></a>
+            <a href="recharge.html" class="dock-item" data-page="recharge"><i class="fas fa-wallet"></i><span>充值</span></a>
+            <a href="join.html" class="dock-item" data-page="join"><i class="fas fa-user-plus"></i><span>加入</span></a>
+            <a href="profile.html" class="dock-item" data-page="profile"><i class="fas fa-user-circle"></i><span>我的</span></a>
+        </div>
+    </nav>
+    <script>
+    (function(){
+        var p=window.location.pathname.split('/');
+        var isInPages=p.length>=3 && p[p.length-2]==='pages';
+        var links=document.querySelectorAll('.dock-item');
+        links.forEach(function(l){
+            var h=l.getAttribute('href');
+            if(isInPages){
+                // Already in pages/, href="order.html" -> pages/order.html ✅
+                // href="index.html" -> pages/index.html (wrong!), fix to ../index.html
+                if(h==='index.html'){
+                    l.href='../index.html';
+                }
+            }else{
+                // At root, href="order.html" -> root/order.html (wrong!)
+                // Fix: prepend pages/
+                if(h!=='index.html'){
+                    l.href='pages/'+h;
+                }
+            }
+        });
+    })();
+
+
+    function parseRecentDesc(desc) {
+        var map = { boardName: '' };
+        if(!desc) return map;
+        var parts = String(desc).split('|');
+        for(var i = 0; i < parts.length; i++) {
+            var seg = parts[i].trim();
+            var idx = seg.indexOf('：');
+            if(idx === -1) idx = seg.indexOf(':');
+            if(idx === -1) continue;
+            var key = seg.substring(0, idx).trim();
+            var val = seg.substring(idx + 1).trim();
+            if(key === '板板') map.boardName = val;
+        }
+        return map;
+    }
+
+    async function loadRecentOrders() {
+        try {
+            const userStr = localStorage.getItem('skyUser');
+            if (!userStr) return;
+            const user = JSON.parse(userStr);
+            const userId = user.id || user.user_id || user.sub;
+            if (!userId || !window.supabaseClient) return;
+
+            // 获取昵称用于查询我接的 orders 表订单
+            let nickname = '';
+            try {
+                const profileRes = await window.supabaseClient
+                    .from('profiles')
+                    .select('nickname')
+                    .eq('id', userId)
+                    .maybeSingle();
+                if (profileRes.data) nickname = profileRes.data.nickname || '';
+            } catch(e) {}
+
+            // 同步 orders.html「全部」标签数据源
+            const boardPromise = window.supabaseClient
+                .from('orders')
+                .select('*')
+                .eq('user_id', userId);
+            const wizardPromise = nickname
+                ? window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname)
+                : Promise.resolve({ data: [] });
+            const reqPromise = window.supabaseClient
+                .from('order_requests')
+                .select('*')
+                .eq('user_id', userId);
+            const dispPromise = window.supabaseClient
+                .from('dispatch_orders')
+                .select('*')
+                .eq('user_id', userId);
+
+            const [boardRes, wizardRes, reqRes, dispRes] = await Promise.all([boardPromise, wizardPromise, reqPromise, dispPromise]);
+
+            // 合并并统一字段
+            var all = [];
+            (boardRes.data || []).forEach(o => {
+                o.order_role = 'board';
+                all.push(o);
+            });
+            (wizardRes.data || []).forEach(o => {
+                o.order_role = 'wizard';
+                all.push(o);
+            });
+            (reqRes.data || []).forEach(r => {
+                all.push({
+                    id: 'req_' + r.id,
+                    order_role: 'wizard',
+                    board_name: parseRecentDesc(r.description).boardName,
+                    wizard_name: r.nickname,
+                    service_type: r.request_title,
+                    game_type: r.game_type,
+                    price: r.price,
+                    status: r.status,
+                    created_at: r.created_at
+                });
+            });
+            (dispRes.data || []).forEach(r => {
+                all.push({
+                    id: 'disp_' + r.id,
+                    order_role: 'wizard',
+                    board_name: parseRecentDesc(r.description).boardName,
+                    user_id: r.user_id,
+                    wizard_name: r.nickname,
+                    service_type: r.request_title,
+                    game_type: r.game_type,
+                    price: r.price,
+                    status: r.status,
+                    created_at: r.created_at
+                });
+            });
+
+            // 只保留 5 天内，最多 2 单，按时间倒序
+            const now = Date.now();
+            const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
+            const filtered = all
+                .filter(o => {
+                    if(!o.created_at) return false;
+                    return (now - new Date(o.created_at).getTime()) <= fiveDaysMs;
+                })
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                .slice(0, 2);
+
+            // 批量查询头像
+            const namesToQuery = [];
+            const idsToQuery = [];
+            filtered.forEach(o => {
+                if (o.order_role === 'board') {
+                    if (o.wizard_name) namesToQuery.push(o.wizard_name);
+                } else if (o.order_role === 'wizard') {
+                    if (String(o.id).startsWith('req_')) {
+                        if (o.board_name) namesToQuery.push(o.board_name);
+                    } else {
+                        if (o.user_id) idsToQuery.push(o.user_id);
+                    }
+                }
+            });
+            const avatarByName = {};
+            const avatarById = {};
+            const [nameProfileRes, idProfileRes] = await Promise.all([
+                namesToQuery.length
+                    ? window.supabaseClient.from('profiles').select('nickname,avatar_url').in('nickname', namesToQuery)
+                    : Promise.resolve({ data: [] }),
+                idsToQuery.length
+                    ? window.supabaseClient.from('profiles').select('id,avatar_url').in('id', idsToQuery)
+                    : Promise.resolve({ data: [] })
+            ]);
+            (nameProfileRes.data || []).forEach(p => { if (p.nickname) avatarByName[p.nickname] = p.avatar_url || ''; });
+            (idProfileRes.data || []).forEach(p => { if (p.id) avatarById[p.id] = p.avatar_url || ''; });
+
+            const container = document.getElementById('recentOrdersList');
+            if (!container) return;
+
+            if (!filtered.length) {
+                container.innerHTML = '<div class="order-item"><p style="color:#999;text-align:center;padding:20px;">暂无最近订单</p></div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            filtered.forEach(o => {
+                const st = getRecentStatus(o.status);
+                const timeAgo = formatTimeAgo(o.created_at);
+                const price = parseFloat(o.price || 0).toFixed(2);
+                const game = o.game_type || '';
+                const desc = game + (timeAgo ? ' · ' + timeAgo : '');
+                const title = o.order_role === 'wizard'
+                    ? (o.board_name || '接单需求')
+                    : (o.wizard_name || '陪玩');
+
+                let avatarUrl = '';
+                if (o.order_role === 'board') {
+                    avatarUrl = avatarByName[o.wizard_name] || '';
+                } else if (o.order_role === 'wizard') {
+                    if (String(o.id).startsWith('req_')) {
+                        avatarUrl = avatarByName[o.board_name] || '';
+                    } else {
+                        avatarUrl = avatarById[o.user_id] || '';
+                    }
+                }
+                const avatarHtml = avatarUrl
+                    ? '<img src="' + escapeHtml(avatarUrl) + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'
+                    : '<i class="fas fa-user-circle"></i>';
+
+                const item = document.createElement('div');
+                item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #eee;cursor:pointer;';
+                item.onclick = () => { window.location.href = '../pages/orders.html'; };
+                item.innerHTML =
+                    '<div class="order-wizard-info">' +
+                        '<div class="order-avatar">' + avatarHtml + '</div>' +
+                        '<div><h4>' + escapeHtml(title) + '</h4>' +
+                        '<p>' + escapeHtml(desc) + '</p></div>' +
+                    '</div>' +
+                    '<div class="order-status ' + st.cls + '">' + st.text + '</div>' +
+                    '<div class="order-price" style="font-weight:700;color:var(--primary);">¥' + price + '</div>';
+                container.appendChild(item);
+            });
+        } catch(e) {
+            console.error('loadRecentOrders:', e);
+        }
+    }
+
+    function getRecentStatus(status) {
+        if(status === 'completed') return { cls: 'status-completed', text: '已完成' };
+        if(status === 'progress') return { cls: 'status-progress', text: '进行中' };
+        if(status === 'cancelled') return { cls: 'status-cancelled', text: '已取消' };
+        return { cls: 'status-pending', text: '待支付' };
+    }
+
+    function formatTimeAgo(dateStr) {
+        if(!dateStr) return '';
+        try {
+            const created = new Date(dateStr);
+            const diffMs = Date.now() - created.getTime();
+            const diffMin = Math.floor(diffMs / 60000);
+            const diffHr = Math.floor(diffMs / 3600000);
+            const diffDay = Math.floor(diffMs / 86400000);
+            if(diffMin < 60) return '刚刚';
+            if(diffMin < 1440) return diffHr + '小时前';
+            return diffDay + '天前';
+        } catch(e) { return ''; }
+    }
+
+    function escapeHtml(str) {
+        if(str == null) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        function init() {
+            loadRecentOrders();
+        }
+        if (window.supabaseClient) {
+            init();
+        } else {
+            const checkInterval = setInterval(() => {
+                if (window.supabaseClient) {
+                    clearInterval(checkInterval);
+                    init();
+                }
+            }, 200);
+            setTimeout(() => clearInterval(checkInterval), 5000);
+        }
+    });
+</script>
 </body>
-
 </html>
-

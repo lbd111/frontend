@@ -1,513 +1,2318 @@
-﻿<!DOCTYPE html>
-<html lang="zh-CN">n
-    <head>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>点单大厅 - 光遇陪玩团</title>
-    <link rel="stylesheet" href="../css/style.css">
-<link rel="stylesheet" href="../css/profile.css">
-    <link rel="stylesheet" href="../css/order.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body><script>
-// API BASE URL - auto detect environment
-(function() {
-    var h = window.location.hostname;
-    window.API_BASE = (h === "localhost" || h === "127.0.0.1") ? "http://localhost:3000" : "http://192.168.1.8:3000";
-})();
+﻿
+
+<!DOCTYPE html>
+
+<html lang="zh-CN">    
+
+<head>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+
+</script>    
+
+<script src='../js/supabase-config.js?v=202607240001'>
+
 </script>
-    <!-- 导航栏 -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="../index.html" class="nav-logo">
-                <span class="logo-icon">&#9733;</span>
-                <span class="logo-text">光遇陪玩团</span>
-            </a>
-            <ul class="nav-menu">
-                <li><a href="../index.html" class="nav-link">首页</a></li>
-                <li><a href="#order" class="nav-link active">点单大厅</a></li>
-                <li><a href="members.html" class="nav-link">陪玩成员</a></li>
-                <li><a href="vip.html" class="nav-link">会员中心</a></li>
-                <li><a href="recharge.html" class="nav-link">充值中心</a></li>
-                <li><a href="join.html" class="nav-link">加入团队</a></li>
-                <li><a href="profile.html" class="nav-link">个人中心</a></li>
-            </ul>
-            <div class="nav-actions" data-auth-url="auth.html">
-                <button class="btn-login" onclick="window.location.href='../pages/auth.html'">登录 / 注册</button>
-                <button class="hamburger" id="hamburger" onclick="toggleMenu()">
-                    <span></span><span></span><span></span>
-                </button>
-            </div>
+
+<meta charset="UTF-8">    
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>点单大厅 - BJ陪玩团
+
+</title>    
+
+<link rel="stylesheet" href="../css/style.css">
+
+<link rel="stylesheet" href="../css/profile.css">    
+
+<link rel="stylesheet" href="../css/order.css">    
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+</head>    
+
+<style>
+
+        /* === 角色切换按钮样式 === */
+
+        .role-switcher {
+
+            display: none;
+
+            align-items: center;
+
+            gap: 8px;
+
+            flex-shrink: 0;
+
+        }
+
+        .role-switch-btn {
+
+            padding: 10px 20px;
+
+            border: 2px solid var(--border);
+
+            border-radius: 25px;
+
+            background: white;
+
+            font-size: 0.9rem;
+
+            font-weight: 500;
+
+            cursor: pointer;
+
+            transition: var(--transition);
+
+            color: var(--text-secondary);
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 6px;
+
+            white-space: nowrap;
+
+        }
+
+        .role-switch-btn:hover {
+
+            border-color: var(--primary);
+
+            color: var(--primary);
+
+        }
+
+        .role-switch-btn.active {
+
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+
+            color: white;
+
+            border-color: transparent;
+
+            box-shadow: 0 2px 10px rgba(79, 172, 254, 0.3);
+
+        }
+
+        @media (max-width: 768px) {
+
+            .role-switcher { width: 100%; justify-content: center; }
+
+            .filter-row { flex-direction: column; }
+
+        }
+
+
+        
+        /* === 接单模式样式 === */
+        .serve-request-card {
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            padding: 0;
+            transition: var(--transition);
+            background: white;
+            cursor: default;
+            overflow: hidden;
+        }
+        .serve-request-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 16px rgba(79, 172, 254, 0.15);
+            transform: translateY(-2px);
+        }
+        .serve-request-card .card-header {
+            padding: 20px 20px 12px;
+        }
+        .serve-request-card .card-body {
+            padding: 0 20px 0;
+        }
+        .serve-request-card .card-footer {
+            border-radius: 0 0 14px 14px;
+        }
+        .serve-request-card .serve-details {
+            display: flex;
+            gap: 16px;
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .btn-accept {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-accept:hover {
+            box-shadow: 0 4px 16px rgba(79, 172, 254, 0.4);
+            transform: scale(1.05);
+        }
+        .btn-accept:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .dispatch-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-detail {
+            background: white;
+            color: var(--primary, #4facfe);
+            border: 1px solid var(--primary, #4facfe);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-detail:hover {
+            background: rgba(79, 172, 254, 0.08);
+        }
+        .dispatch-server-line {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 6px;
+        }
+        .dispatch-server-line i {
+            color: var(--primary, #4facfe);
+        }
+        .dispatch-detail-modal {
+            max-width: 420px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 24px;
+        }
+        .dispatch-confirm-modal {
+            max-width: 320px;
+            width: 90%;
+            padding: 24px;
+            text-align: center;
+        }
+        .dispatch-confirm-actions {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+        .dispatch-confirm-actions .btn {
+            padding: 8px 22px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+        }
+        .dispatch-confirm-actions .btn-cancel {
+            background: #f0f0f0;
+            color: #666;
+        }
+        .dispatch-confirm-actions .btn-cancel:hover {
+            background: #e0e0e0;
+        }
+        .dispatch-confirm-actions .btn-confirm {
+            background: linear-gradient(135deg, #FFD54F, #FFB300);
+            color: #333;
+        }
+        .dispatch-confirm-actions .btn-confirm:hover {
+            transform: scale(1.05);
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border, #eee);
+            font-size: 0.85rem;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            color: #888;
+        }
+        .detail-value {
+            color: #333;
+            font-weight: 500;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-all;
+        }
+        .dispatch-team-modal {
+            max-width: 420px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 24px;
+        }
+        .team-progress {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 16px 0;
+        }
+        .team-progress-bar {
+            flex: 1;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .team-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .team-progress-text {
+            font-size: 0.85rem;
+            color: #666;
+            white-space: nowrap;
+        }
+        .team-member-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 16px 0;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+        .team-member {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8f9fa;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: #333;
+        }
+        .team-member i {
+            color: var(--primary, #4facfe);
+        }
+        .team-member-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .team-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .team-actions .btn {
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+        }
+        .team-actions .btn-cancel {
+            background: #f0f0f0;
+            color: #666;
+        }
+        .team-actions .btn-join {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+        }
+        .team-actions .btn-join:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .team-actions .btn-done {
+            background: linear-gradient(135deg, #81C784, #4CAF50);
+            color: white;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            display: block;
+            color: #ddd;
+        }
+        @media (max-width: 768px) {
+            .serve-request-card { padding: 0; }
+            .serve-request-card .card-header { padding: 16px 16px 10px; }
+            .serve-request-card .card-body { padding: 0 16px 0; }
+            .serve-details { flex-direction: column; gap: 8px; }
+        }</style>
+
+<body>
+
+<script>(function() {    var h = window.location.hostname;    window.API_BASE = (h === "localhost" || h === "127.0.0.1") ? "http://localhost:3000" : "http://192.168.1.8:3000";})();
+
+</script>
+
+<nav class="navbar">
+
+<div class="nav-container">            
+
+<a href="../index.html" class="nav-logo">
+
+<span class="logo-icon">&#9733;
+
+</span>
+
+<span class="logo-text">BJ陪玩团
+
+</span>
+
+</a>
+
+<ul class="nav-menu">
+
+<li>
+
+<a href="../index.html" class="nav-link">首页
+
+</a>
+
+</li>
+
+<li>
+
+<a href="#order" class="nav-link active">点单大厅
+
+</a>
+
+</li>
+
+<li>
+
+<a href="members.html" class="nav-link">陪玩成员
+
+</a>
+
+</li>
+
+<li>
+
+<a href="vip.html" class="nav-link">会员中心
+
+</a>
+
+</li>
+
+<li>
+
+<a href="recharge.html" class="nav-link">充值中心
+
+</a>
+
+</li>
+
+<li>
+
+<a href="join.html" class="nav-link">加入团队
+
+</a>
+
+</li>
+
+<li>
+
+<a href="profile.html" class="nav-link">个人中心
+
+</a>
+
+</li>
+
+</ul>
+
+<div class="nav-actions" data-auth-url="auth.html">
+
+<button class="btn-login" onclick="window.location.href='../pages/auth.html'">登录 / 注册
+
+</button>
+
+<button class="hamburger" id="hamburger" onclick="toggleMenu()">
+
+<span>
+
+</span>
+
+<span>
+
+</span>
+
+<span>
+
+</span>
+
+</button>
+
+</div>
+
+</div>
+
+</nav>
+
+<section class="page-header">
+
+<div class="container">
+
+<h1>
+
+<i class="fas fa-shopping-cart">
+
+</i> 点单大厅
+
+</h1>
+
+<p>选择你心仪的陪玩伙伴，开启温暖旅程
+
+</p>
+
+</div>
+
+</section>
+
+<section class="filter-bar">
+
+<div class="container">
+
+<div class="filter-row">                
+
+<!-- 角色切换按钮（仅陪陪可见） -->
+
+<div class="role-switcher" id="roleSwitcher" style="display:none; align-items:center; gap:8px;">
+
+<button class="role-switch-btn active" id="btnOrderMode" onclick="switchRoleMode('order')">
+
+<i class="fas fa-cart-plus">
+
+</i> 点单
+
+</button>
+
+<button class="role-switch-btn" id="btnServeMode" onclick="switchRoleMode('serve')">
+
+<i class="fas fa-headset">
+
+</i> 接单
+
+</button>
+
+</div>
+
+<div class="search-box">                    
+
+<i class="fas fa-search">
+
+</i>                    
+
+<input type="text" id="searchInput" placeholder="搜索陪玩名称..." oninput="filterWizards()">
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<section class="service-categories">
+
+<div class="container">
+
+<div class="game-switch-bar">
+
+<button class="game-switch-btn active" onclick="switchGame('sky', this)" data-game="sky">                    
+
+<i class="fas fa-star">
+
+</i> 光遇服务
+
+</button>
+
+<button class="game-switch-btn" onclick="switchGame('king', this)" data-game="king">                    
+
+<i class="fas fa-gamepad">
+
+</i> 王者服务
+
+</button>
+
+</div>
+
+<div class="categories-scroll-wrapper">
+
+<div class="categories-section" id="sky-categories">
+
+<h3 class="section-title">
+
+<i class="fas fa-star">
+
+</i> 光遇服务
+
+</h3>
+
+<div class="categories-grid">
+
+<div class="category-card active" onclick="selectCategory(this, 'all')">
+
+<i class="fas fa-th-large">
+
+</i>
+
+<span>全部服务
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'tech')">
+
+<i class="fas fa-code">
+
+</i>
+
+<span>技术
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'entertain')">
+
+<i class="fas fa-laugh-beam">
+
+</i>
+
+<span>娱乐
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'normal')">
+
+<i class="fas fa-user">
+
+</i>
+
+<span>普陪
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'piano')">
+
+<i class="fas fa-music">
+
+</i>
+
+<span>琴陪
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'treehole')">
+
+<i class="fas fa-comment-dots">
+
+</i>
+
+<span>树洞
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'three-love')">
+
+<i class="fas fa-heart">
+
+</i>
+
+<span>三恋
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'dragon-taming')">
+
+<i class="fas fa-dragon">
+
+</i>
+
+<span>驯龙
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'substitute')">
+
+<i class="fas fa-user-friends">
+
+</i>
+
+<span>替身
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'checkin')">
+
+<i class="fas fa-calendar-check">
+
+</i>
+
+<span>打卡
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'blindbox')">
+
+<i class="fas fa-gift">
+
+</i>
+
+<span>盲盒
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'hang')">
+
+<i class="fas fa-video">
+
+</i>
+
+<span>挂机陪
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'photo-edit')">
+
+<i class="fas fa-camera">
+
+</i>
+
+<span>换情头
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'send-heart')">
+
+<i class="fas fa-paper-plane">
+
+</i>
+
+<span>送心
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'sacrifice')">
+
+<i class="fas fa-pray">
+
+</i>
+
+<span>献祭
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'record')">
+
+<i class="fas fa-microphone-alt">
+
+</i>
+
+<span>录歌
+
+</span>
+
+</div>
+
+</div>
+
+</div>
+
+                <div class="categories-section" id="king-categories" style="display:none;">
+
+<h3 class="section-title">
+
+<i class="fas fa-gamepad">
+
+</i> 王者服务
+
+</h3>
+
+<div class="categories-grid">
+
+<div class="category-card active" onclick="selectCategory(this, 'all')">
+
+<i class="fas fa-th-large">
+
+</i>
+
+<span>全部服务
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'entertain')">
+
+<i class="fas fa-smile-wink">
+
+</i>
+
+<span>娱乐
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'tech')">
+
+<i class="fas fa-code">
+
+</i>
+
+<span>技术
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'sleep')">
+
+<i class="fas fa-bed">
+
+</i>
+
+<span>哄睡
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'photo-edit')">
+
+<i class="fas fa-laugh">
+
+</i>
+
+<span>换情头
+
+</span>
+
+</div>
+
+<div class="category-card" onclick="selectCategory(this, 'record')">
+
+<i class="fas fa-microphone">
+
+</i>
+
+<span>录歌
+
+</span>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<section class="wizard-list">
+
+<div class="container">
+
+<div class="list-grid" id="wizardList">
+
+</div>
+
+</div>
+
+</section>
+
+<div class="modal-overlay" id="orderModal">
+
+<div class="modal order-modal">
+
+<button class="modal-close" onclick="closeOrderModal()">&times;
+
+</button>
+
+<h2>创建订单
+
+</h2>
+
+<form id="orderForm" class="order-form">
+
+<div class="order-info">
+
+<div class="order-wizard">
+
+<div class="order-wizard-avatar">
+
+<i class="fas fa-user-circle">
+
+</i>
+
+</div>
+
+<div>
+
+<h4 id="orderWizardName">陪玩名称
+
+</h4>
+
+<span id="orderWizardPrice">&#65509;0.00/小时
+
+</span>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="form-row">
+
+<div class="form-group">                        
+
+<label>
+
+<i class="fas fa-list">
+
+</i> 服务类型
+
+</label>                        
+
+<select id="orderServiceType" required>                            
+
+<option value="">请选择服务类型
+
+</option>
+
+</select>
+
+</div>
+
+<div class="form-group">                        
+
+<label>
+
+<i class="fas fa-server">
+
+</i> 游戏服务器
+
+</label>                        
+
+<select required>                            
+
+<option value="">请选择服务器
+
+</option>                            
+
+<option value="ios">iOS
+
+</option>                            
+
+<option value="android">Android
+
+</option>                            
+
+<option value="pc">PC模拟器
+
+</option>
+
+</select>
+
+</div>
+
+</div>
+
+<div class="form-row">
+
+<div class="form-group">                        
+
+<label>
+
+<i class="fas fa-clock">
+
+</i> 预计时长（小时）
+
+</label>                        
+
+<input type="number" min="1" max="12" value="1" required onchange="calcOrderTotal()">
+
+</div>
+
+<div class="form-group">                        
+
+<label>
+
+<i class="fas fa-calendar">
+
+</i> 预约时间
+
+</label>                        
+
+<input type="datetime-local" required>
+
+</div>
+
+</div>
+
+<div class="form-group">                    
+
+<label>
+
+<i class="fas fa-comment">
+
+</i> 备注信息
+
+</label>                    
+
+<textarea rows="3" placeholder="请描述您的需求（可选）">
+
+</textarea>
+
+</div>
+
+<div class="order-total">
+
+<span>订单总额：
+
+</span>                    
+
+<strong id="orderTotalPrice">&#65509;0.00
+
+</strong>
+
+</div>
+
+<button type="submit" class="btn btn-primary btn-block">确认下单
+
+</button>
+
+</form>
+
+</div>
+
+</div>
+
+<div class="modal-overlay" id="dispatchDetailModal">
+    <div class="modal dispatch-detail-modal">
+        <button class="modal-close" onclick="closeDispatchDetail()">&times;</button>
+        <h2>订单详情</h2>
+        <div id="dispatchDetailContent" style="margin-top:16px;"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="dispatchConfirmModal">
+    <div class="modal dispatch-confirm-modal">
+        <h3>确认接单</h3>
+        <p id="dispatchConfirmText" style="margin:16px 0 24px;color:#666;font-size:0.9rem;">确定要接这个派单吗？</p>
+        <div class="dispatch-confirm-actions">
+            <button class="btn btn-cancel" onclick="closeDispatchConfirm()">取消</button>
+            <button class="btn btn-confirm" onclick="onDispatchConfirmOk()">确定</button>
         </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="dispatchTeamModal">
+    <div class="modal dispatch-team-modal">
+        <button class="modal-close" onclick="closeTeamDispatchModal()">&times;</button>
+        <h2>组合接单</h2>
+        <div id="dispatchTeamContent" style="margin-top:16px;"></div>
+        <div class="team-actions">
+            <button class="btn btn-cancel" id="dispatchTeamCancelBtn" onclick="closeTeamDispatchModal()">取消</button>
+            <button class="btn btn-join" id="dispatchTeamJoinBtn" onclick="joinTeamDispatch()">
+                <i class="fas fa-user-plus"></i> 加入接单
+            </button>
+        </div>
+    </div>
+</div>
+
+<footer class="footer">
+
+<div class="container">
+
+<div class="footer-content">
+
+<div class="footer-section">
+
+<h3>BJ陪玩团
+
+</h3>
+
+<p>温暖相遇，快乐同行。
+
+</p>
+
+</div>
+
+<div class="footer-section">
+
+<h3>快速链接
+
+</h3>
+
+<ul>
+
+<li>
+
+<a href="../index.html">首页
+
+</a>
+
+</li>
+
+<li>
+
+<a href="order.html">点单大厅
+
+</a>
+
+</li>
+
+<li>
+
+<a href="members.html">陪玩成员
+
+</a>
+
+</li>
+
+</ul>
+
+</div>
+
+<div class="footer-section">
+
+<h3>下载APP
+
+</h3>
+
+<ul>
+
+<li>
+
+<a href="download.html">
+
+<i class="fab fa-windows">
+
+</i> Windows客户端
+
+</a>
+
+</li>
+
+<li>
+
+<a href="#">
+
+<i class="fab fa-android">
+
+</i> Android版
+
+</a>
+
+</li>
+
+<li>
+
+<a href="#">
+
+<i class="fab fa-apple">
+
+</i> iOS版
+
+</a>
+
+</li>
+
+</ul>
+
+</div>
+
+<div class="footer-section">
+
+<h3>联系我们
+
+</h3>
+
+<ul>
+
+<li>
+
+<i class="fas fa-envelope">
+
+</i> support@skycompanion.com
+
+</li>
+
+</ul>
+
+</div>
+
+</div>
+
+<div class="footer-bottom">
+
+<p>&copy; 2026 BJ陪玩团 All Rights Reserved.
+
+</p>
+
+</div>
+
+</div>
+
+</footer>    
+
+<script src="../js/main.js?v=202607240001">
+
+</script>    
+
+<script src="../js/order.js?v=202607240001">
+
+</script>    
+
+<script>// 加载点单大厅的陪玩列表（从 Supabase）
+
+        // Handle quick order click with avatar from data attribute
+
+        function handleQuickOrder(btn) {
+
+            const name = btn.getAttribute('data-wname');
+
+            const price = parseFloat(btn.getAttribute('data-wprice'));
+
+            const encodedAvatar = btn.getAttribute('data-wavatar') || '';
+
+            const skills = btn.getAttribute('data-wskills') || '';
+
+            const avatar = decodeURIComponent(encodedAvatar) || '';
+
+            showOrderModal(name, price, avatar, skills);
+
+        }
+
+        // ===== 角色切换功能（陪陪可见点单/接单按钮） =====
+
+        window.currentRoleMode = 'order';
+
+        function syncFilterUIForMode(mode) {
+            const serviceCats = document.querySelector('.service-categories');
+            if (serviceCats) serviceCats.style.display = 'block';
+
+            const skyCat = document.getElementById('sky-categories');
+            const kingCat = document.getElementById('king-categories');
+            document.querySelectorAll('.game-switch-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.category-card').forEach(c => c.classList.remove('active'));
+
+            if (mode === 'serve') {
+                const game = window.serveFilterState.game;
+                const gameBtn = document.querySelector('.game-switch-btn[data-game="' + game + '"]');
+                if (gameBtn) gameBtn.classList.add('active');
+                if (skyCat) skyCat.style.display = game === 'sky' ? '' : 'none';
+                if (kingCat) kingCat.style.display = game === 'king' ? '' : 'none';
+                const visibleSection = game === 'sky' ? skyCat : kingCat;
+                if (visibleSection) {
+                    const catCards = visibleSection.querySelectorAll('.category-card');
+                    catCards.forEach(c => c.classList.remove('active'));
+                    const target = Array.from(catCards).find(c => c.getAttribute('onclick') && c.getAttribute('onclick').includes("'" + window.serveFilterState.category + "'"));
+                    const active = target || catCards[0];
+                    if (active) active.classList.add('active');
+                }
+            } else {
+                // Order mode: sync from order.js state (currentGame / currentCategory)
+                const game = window.currentGame || 'sky';
+                const gameBtn = document.querySelector('.game-switch-btn[data-game="' + game + '"]');
+                if (gameBtn) gameBtn.classList.add('active');
+                if (skyCat) skyCat.style.display = game === 'sky' ? '' : 'none';
+                if (kingCat) kingCat.style.display = game === 'king' ? '' : 'none';
+                const visibleSection = game === 'sky' ? skyCat : kingCat;
+                if (visibleSection) {
+                    const catCards = visibleSection.querySelectorAll('.category-card');
+                    catCards.forEach(c => c.classList.remove('active'));
+                    const target = Array.from(catCards).find(c => c.getAttribute('onclick') && c.getAttribute('onclick').includes("'" + (window.currentCategory || 'all') + "'"));
+                    const active = target || catCards[0];
+                    if (active) active.classList.add('active');
+                }
+            }
+        }
+
+        function switchRoleMode(mode) {
+            window.currentRoleMode = mode;
+            const btnOrder = document.getElementById('btnOrderMode');
+            const btnServe = document.getElementById('btnServeMode');
+            if (mode === 'order') {
+                btnOrder.classList.add('active');
+                btnServe.classList.remove('active');
+            } else {
+                btnOrder.classList.remove('active');
+                btnServe.classList.add('active');
+            }
+
+            const wizardList = document.getElementById('wizardList');
+            const pageHeader = document.querySelector('.page-header h1');
+            const pageDesc = document.querySelector('.page-header p');
+            const searchInput = document.getElementById('searchInput');
+
+            // 接单/点单模式都显示筛选栏
+            syncFilterUIForMode(mode);
+
+            if (mode === 'serve') {
+                if (wizardList) wizardList.style.display = 'grid';
+                if (pageHeader) pageHeader.innerHTML = '<i class="fas fa-headset"></i> 接单大厅';
+                if (pageDesc) pageDesc.textContent = '浏览求助单，选择你擅长的服务接单';
+                if (searchInput) searchInput.placeholder = '搜索求助内容或用户名...';
+                loadServeModeList();
+            } else {
+                if (wizardList) wizardList.style.display = 'grid';
+                if (pageHeader) pageHeader.innerHTML = '<i class="fas fa-shopping-cart"></i> 点单大厅';
+                if (pageDesc) pageDesc.textContent = '选择你心仪的陪玩伙伴，开启温暖旅程';
+                if (searchInput) searchInput.placeholder = '搜索陪玩名称...';
+                loadWizardList();
+            }
+
+
+        }
+
+        async function checkUserRoleAndShowButtons() {
+
+            const switcher = document.getElementById('roleSwitcher');
+
+            try {
+
+                const { data: { session } } = await window.supabaseClient.auth.getSession();
+
+                if (!session) return;
+
+                const userId = session.user.id;
+
+                const { data: profile } = await window.supabaseClient
+
+                    .from('profiles')
+
+                    .select('role')
+
+                    .eq('id', userId)
+
+                    .single();
+
+                if (profile && profile.role === '陪陪') {
+
+                    switcher.style.display = 'flex';
+
+                } else {
+
+                    switcher.style.display = 'none';
+
+                }
+
+            } catch (e) {
+
+                console.error('角色检查失败:', e);
+
+                switcher.style.display = 'none';
+
+            }
+
+        }
+
+        
+        // ===== 接单模式相关功能 =====
+        let serveFilterState = { category: 'all', game: 'sky', search: '' };
+
+        async function loadServeModeList() {
+            try {
+                const [{ data: requests, error: reqErr }, { data: dispatches, error: dispErr }] = await Promise.all([
+                    window.supabaseClient
+                        .from('order_requests')
+                        .select('*')
+                        .eq('status', 'pending')
+                        .order('created_at', { ascending: false }),
+                    window.supabaseClient
+                        .from('dispatch_orders')
+                        .select('*')
+                        .eq('status', 'pending')
+                        .order('created_at', { ascending: false })
+                ]);
+
+                if (reqErr) console.error('加载求助单失败:', reqErr);
+                if (dispErr) console.error('加载派的单失败:', dispErr);
+
+                const requestList = (requests || []).map(r => { r._source = 'request'; return r; });
+                const dispatchList = (dispatches || []).map(d => { d._source = 'dispatch'; return d; });
+                const allItems = requestList.concat(dispatchList);
+
+                const grid = document.getElementById('wizardList');
+                if (!grid) return;
+                grid.innerHTML = '';
+
+                if (allItems.length === 0) {
+                    grid.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>暂无求助单</p></div>';
+                    return;
+                }
+
+                // 批量获取头像
+                const nicknameSet = {};
+                allItems.forEach(item => { if (item.nickname) nicknameSet[item.nickname] = true; });
+                const avatarMap = {};
+                const nicknames = Object.keys(nicknameSet);
+                if (nicknames.length > 0) {
+                    try {
+                        const { data: profiles } = await window.supabaseClient
+                            .from('profiles')
+                            .select('nickname, avatar_url')
+                            .in('nickname', nicknames);
+                        (profiles || []).forEach(p => { avatarMap[p.nickname] = p.avatar_url; });
+                    } catch (profErr) {
+                        console.warn('批量获取头像失败:', profErr);
+                    }
+                }
+
+                // 组合接单成员数：用于判断派的单是否已有人开始组队
+                const dispatchIds = dispatchList.map(d => d.id);
+                const teamCountMap = {};
+                if (dispatchIds.length > 0) {
+                    try {
+                        const { data: tmData } = await window.supabaseClient
+                            .from('dispatch_team_members')
+                            .select('dispatch_order_id')
+                            .in('dispatch_order_id', dispatchIds);
+                        (tmData || []).forEach(t => {
+                            teamCountMap[t.dispatch_order_id] = (teamCountMap[t.dispatch_order_id] || 0) + 1;
+                        });
+                    } catch (tmErr) {
+                        console.warn('加载组队成员数失败:', tmErr);
+                    }
+                }
+
+                // Filter by game type
+                const gameFiltered = allItems.filter(item => {
+                    const gt = item.game_type || '';
+                    if (serveFilterState.game === 'sky') return gt.includes('光');
+                    if (serveFilterState.game === 'king') return gt.includes('王者');
+                    return true;
+                });
+
+                // 统一中文技能/服务类型 → 分类卡片 value 映射
+                const _skillToCat = {
+                    '技术': 'tech', 'tech': 'tech',
+                    '娱乐': 'entertain', 'entertain': 'entertain',
+                    '普陪': 'normal', 'normal': 'normal',
+                    '琴陪': 'piano', 'piano': 'piano',
+                    '树洞': 'treehole', '聊天交友': 'treehole',
+                    '三恋': 'three-love',
+                    '驯龙': 'dragon-taming', '打龙': 'dragon-taming',
+                    '替身': 'substitute',
+                    '打卡': 'checkin', '监督': 'checkin',
+                    '盲盒': 'blindbox',
+                    '挂机陪': 'hang', '挂机': 'hang',
+                    '换情头': 'photo-edit', '拍照': 'photo-edit',
+                    '献祭': 'sacrifice', '破晓': 'sacrifice',
+                    '录歌': 'record',
+                    '送心': 'send-heart',
+                    '哄睡': 'sleep', 'sleep': 'sleep'
+                };
+
+                // Filter by category
+                const categoryFiltered = gameFiltered.filter(item => {
+                    if (serveFilterState.category === 'all') return true;
+                    const targetCat = serveFilterState.category;
+                    if (item._source === 'request') {
+                        const reqSkills = item.skills || [];
+                        for (const skill of reqSkills) {
+                            if (_skillToCat[skill] === targetCat) return true;
+                        }
+                        return false;
+                    }
+                    const meta = parseRequestDesc(item.description);
+                    if (_skillToCat[meta.serviceType] === targetCat) return true;
+                    if (_skillToCat[meta.subType] === targetCat) return true;
+                    return false;
+                });
+
+                // Filter by search
+                const finalItems = categoryFiltered.filter(item => {
+                    if (!serveFilterState.search) return true;
+                    const s = serveFilterState.search.toLowerCase();
+                    return (item.request_title || '').toLowerCase().includes(s) ||
+                           (item.description || '').toLowerCase().includes(s) ||
+                           (item.nickname || '').toLowerCase().includes(s);
+                });
+
+                if (finalItems.length === 0) {
+                    grid.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>暂无求助单</p></div>';
+                    return;
+                }
+
+                finalItems.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'wizard-list-card serve-request-card';
+                    card.dataset.game = (item.game_type && item.game_type.includes('王者')) ? 'king' : 'sky';
+
+                    if (item._source === 'request') {
+                        const r = item;
+                        const skillTags = (r.skills && r.skills.length > 0)
+                            ? r.skills.map(s => '<span class="skill">' + escapeHtml(s) + '</span>').join('')
+                            : '';
+                        const priceInfo = r.price ? '¥' + r.price + '/小时' : '面议';
+                        const hoursInfo = r.hours ? r.hours + '小时' : '';
+                        const avatarHtml = avatarMap[r.nickname]
+                            ? '<img src="' + avatarMap[r.nickname] + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'
+                            : '<i class="fas fa-user-circle"></i>';
+
+                        card.innerHTML = `
+                            <div class="card-header" style="position:relative;">
+                                <div class="card-avatar">${avatarHtml}</div>
+                                <div class="card-info"><h3>${escapeHtml(r.nickname)}</h3><div class="card-tags"><span class="tag tag-normal">待接单</span></div></div>
+                                <span class="card-time" style="position:absolute;top:20px;right:20px;font-size:0.75rem;color:#999;background:rgba(255,255,255,0.9);padding:2px 8px;border-radius:8px;">${getRelativeTime(r.created_at)}</span>
+                            </div>
+                            <div class="card-body">
+                                <h4 style="margin:0 0 8px 0;font-size:1rem;">${escapeHtml(r.request_title)}</h4>
+                                <p class="card-desc" style="font-size:0.85rem;margin-bottom:8px;">${escapeHtml(r.description) || '暂无描述'}</p>
+                                <div class="card-skills">${skillTags}</div>
+                                <div class="serve-details" style="display:flex;gap:16px;font-size:0.8rem;color:#666;margin-top:4px;">
+                                    ${hoursInfo ? '<span><i class="fas fa-clock"></i> '+hoursInfo+'</span>' : ''}
+                                    <span style="color:#4facfe;"><i class="fas fa-money-bill-wave"></i> ${priceInfo}</span>
+                                    ${r.server ? '<span><i class="fas fa-server"></i> '+escapeHtml(r.server)+'</span>' : ''}
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <div class="card-price"><span class="price-num">${r.price || '面议'}</span><span class="price-unit">元/小时</span></div>
+                                <button class="btn btn-primary btn-small btn-accept" data-request-id="${r.id}" onclick="acceptRequest(this)">
+                                    <i class="fas fa-headset"></i> 立即接单
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        const d = item;
+                        const meta = parseRequestDesc(d.description);
+                        const tagsHtml = [meta.serviceType, meta.subType].filter(Boolean)
+                            .map(s => '<span class="skill">' + escapeHtml(s) + '</span>').join('');
+                        const avatarHtml = avatarMap[d.nickname]
+                            ? '<img src="' + avatarMap[d.nickname] + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"><span class="online-badge"></span>'
+                            : '<i class="fas fa-user-circle"></i><span class="online-badge"></span>';
+                        const detailData = encodeURIComponent(JSON.stringify({
+                            id: d.id,
+                            nickname: d.nickname,
+                            request_title: d.request_title,
+                            game_type: d.game_type,
+                            serviceType: meta.serviceType,
+                            subType: meta.subType,
+                            server: d.server,
+                            price: d.price,
+                            hours: d.hours,
+                            description: d.description,
+                            remark: meta.remark,
+                            boardName: meta.boardName,
+                            qty: meta.qty,
+                            people: meta.people,
+                            created_at: d.created_at
+                        }));
+
+                        const peopleNum = parseInt(meta.people, 10) || 1;
+                        const teamStarted = peopleNum > 1 && (teamCountMap[d.id] || 0) >= 1;
+                        const dispatchBtnLabel = teamStarted ? '加入组队' : '立即接单';
+                        const dispatchBtnIcon = teamStarted ? 'fas fa-users' : 'fas fa-handshake';
+
+                        card.innerHTML = `
+                            <div class="card-header" style="position:relative;">
+                                <div class="card-avatar" style="position:relative;">${avatarHtml}</div>
+                                <div class="card-info"><h3>${escapeHtml(d.nickname)}</h3><div class="card-tags"><span class="tag tag-normal">待接单</span></div></div>
+                                <span class="card-time" style="position:absolute;top:20px;right:20px;font-size:0.75rem;color:#999;background:rgba(255,255,255,0.9);padding:2px 8px;border-radius:8px;">${getRelativeTime(d.created_at)}</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="card-skills">${tagsHtml}</div>
+                                ${d.server ? '<div class="dispatch-server-line"><i class="fas fa-server"></i> 区服：' + escapeHtml(d.server) + '</div>' : ''}
+                            </div>
+                            <div class="card-footer">
+                                <div class="card-price"><span class="price-num">${d.price || '面议'}</span><span class="price-unit">${meta.serviceType === '送心' ? '元' : '元/小时'}</span></div>
+                                <div class="dispatch-actions">
+                                    <button class="btn btn-detail" data-dispatch-id="${d.id}" data-detail="${detailData}" onclick="showDispatchDetail('${d.id}')">
+                                        <i class="fas fa-file-alt"></i> 详细
+                                    </button>
+                                    <button class="btn btn-primary btn-small" data-dispatch-id="${d.id}" onclick="acceptDispatchOrder(this, '${d.id}')">
+                                        <i class="${dispatchBtnIcon}"></i> ${dispatchBtnLabel}
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    grid.appendChild(card);
+                });
+            } catch(e) {
+                console.error('接单加载异常:', e);
+            }
+        }
+
+        function acceptRequest(btn) {
+            const requestId = btn.getAttribute('data-request-id');
+            if (!requestId) return;
+            
+            const { data: { session } } = window.supabaseClient.auth.getSession();
+            if (!session) {
+                alert('请先登录');
+                return;
+            }
+
+            if (confirm('确定要接这个订单吗？')) {
+                btn.disabled = true;
+                btn.textContent = '接单中...';
+                
+                window.supabaseClient
+                    .from('order_requests')
+                    .update({ status: 'accepted', accepted_by: session.user.id })
+                    .eq('id', requestId)
+                    .then(({ error }) => {
+                        if (error) {
+                            alert('接单失败: ' + error.message);
+                            btn.disabled = false;
+                            btn.textContent = '立即接单';
+                        } else {
+                            alert('接单成功！请等待对方联系你。');
+                            // Remove the card
+                            const card = btn.closest('.serve-request-card');
+                            if (card) card.remove();
+                        }
+                    });
+            }
+        }
+
+        let pendingDispatchBtn = null;
+
+        async function acceptDispatchOrder(btn, dispatchId) {
+            if (!dispatchId) return;
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            if (!session) {
+                alert('请先登录');
+                return;
+            }
+
+            const detailBtn = document.querySelector('button[data-dispatch-id="' + dispatchId + '"][data-detail]');
+            let detail = {};
+            if (detailBtn) {
+                try {
+                    detail = JSON.parse(decodeURIComponent(detailBtn.getAttribute('data-detail') || '{}'));
+                } catch (e) {
+                    detail = {};
+                }
+            }
+            const meta = parseRequestDesc(detail.description || '');
+            const people = parseInt(meta.people, 10) || 1;
+
+            pendingDispatchBtn = { btn, dispatchId, originalHtml: btn.innerHTML, detail, meta, people };
+
+            if (people <= 1) {
+                const modal = document.getElementById('dispatchConfirmModal');
+                if (modal) modal.classList.add('active');
+            } else {
+                await openTeamDispatchModal(dispatchId, detail, meta, people);
+            }
+        }
+
+        function closeDispatchConfirm() {
+            const modal = document.getElementById('dispatchConfirmModal');
+            if (modal) modal.classList.remove('active');
+            pendingDispatchBtn = null;
+        }
+
+        async function onDispatchConfirmOk() {
+            if (!pendingDispatchBtn) {
+                closeDispatchConfirm();
+                return;
+            }
+            const { btn, dispatchId, originalHtml } = pendingDispatchBtn;
+            closeDispatchConfirm();
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 接单中...';
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('dispatch_orders')
+                    .update({ status: 'progress', accepted_by: (await window.supabaseClient.auth.getSession()).data.session.user.id })
+                    .eq('id', dispatchId);
+
+                if (error) {
+                    alert('接单失败: ' + error.message);
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                    return;
+                }
+
+                alert('接单成功！请等待对方联系你。');
+                const card = btn.closest('.serve-request-card');
+                if (card) card.remove();
+            } catch (e) {
+                console.error('接单异常:', e);
+                alert('接单异常: ' + (e.message || '未知错误'));
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+
+        async function openTeamDispatchModal(dispatchId, detail, meta, people) {
+            const modal = document.getElementById('dispatchTeamModal');
+            if (modal) modal.classList.add('active');
+            await renderTeamDispatchModal(dispatchId, detail, meta, people);
+        }
+
+        function closeTeamDispatchModal() {
+            const modal = document.getElementById('dispatchTeamModal');
+            if (modal) modal.classList.remove('active');
+            const content = document.getElementById('dispatchTeamContent');
+            if (content) content.innerHTML = '';
+            if (pendingDispatchBtn && pendingDispatchBtn.people > 1) {
+                pendingDispatchBtn = null;
+            }
+        }
+
+        async function loadTeamMembers(dispatchId) {
+            const { data, error } = await window.supabaseClient
+                .from('dispatch_team_members')
+                .select('*')
+                .eq('dispatch_order_id', dispatchId)
+                .order('created_at', { ascending: true });
+            if (error) {
+                console.error('加载组合成员失败:', error);
+                return [];
+            }
+            const members = data || [];
+            const userIds = members.map(m => m.user_id).filter(Boolean);
+            if (userIds.length > 0) {
+                const { data: profiles, error: profileError } = await window.supabaseClient
+                    .from('profiles')
+                    .select('id, nickname, avatar_url')
+                    .in('id', userIds);
+                if (profileError) {
+                    console.error('加载成员资料失败:', profileError);
+                } else if (profiles) {
+                    const profileMap = {};
+                    profiles.forEach(p => { profileMap[p.id] = p; });
+                    members.forEach(m => {
+                        const p = profileMap[m.user_id];
+                        if (p) {
+                            m.nickname = p.nickname || m.nickname;
+                            m.avatar_url = p.avatar_url || m.avatar_url;
+                        }
+                    });
+                }
+            }
+            return members;
+        }
+
+        async function renderTeamDispatchModal(dispatchId, detail, meta, people) {
+            const content = document.getElementById('dispatchTeamContent');
+            const joinBtn = document.getElementById('dispatchTeamJoinBtn');
+            if (!content) return;
+
+            const members = await loadTeamMembers(dispatchId);
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            const currentUserId = session ? session.user.id : null;
+            const alreadyJoined = currentUserId ? members.some(m => m.user_id === currentUserId) : false;
+            const isFull = members.length >= people;
+
+            const priceLabel = detail.serviceType === '送心' ? '元' : '元/小时';
+            const memberHtml = members.length > 0
+                ? members.map(m => {
+                    const avatarHtml = m.avatar_url
+                        ? '<img src="' + escapeHtml(m.avatar_url) + '" class="team-member-avatar" alt="">'
+                        : '<i class="fas fa-user-circle"></i>';
+                    return '<div class="team-member">' + avatarHtml + ' ' + escapeHtml(m.nickname || '未知') + '</div>';
+                }).join('')
+                : '<p style="color:#999;font-size:0.85rem;">暂无成员，等待第一个接单者</p>';
+
+            const progressPercent = Math.min(100, (members.length / people) * 100);
+
+            content.innerHTML = `
+                <div class="detail-row"><span class="detail-label">称呼</span><span class="detail-value">${escapeHtml(detail.request_title) || '-'}</span></div>
+                <div class="detail-row"><span class="detail-label">服务类型</span><span class="detail-value">${escapeHtml(detail.serviceType)}${detail.subType ? ' / ' + escapeHtml(detail.subType) : ''}</span></div>
+                <div class="detail-row"><span class="detail-label">区服</span><span class="detail-value">${escapeHtml(detail.server) || '-'}</span></div>
+                <div class="detail-row"><span class="detail-label">价格</span><span class="detail-value">${detail.price ? '¥' + detail.price + priceLabel : '面议'}</span></div>
+                <div class="detail-row"><span class="detail-label">需要人数</span><span class="detail-value">${people}人</span></div>
+                <div class="team-progress">
+                    <div class="team-progress-bar"><div class="team-progress-fill" style="width:${progressPercent}%"></div></div>
+                    <span class="team-progress-text">${members.length}/${people}</span>
+                </div>
+                <p style="font-size:0.85rem;color:#666;margin-bottom:8px;">已接成员：</p>
+                <div class="team-member-list">${memberHtml}</div>
+            `;
+
+            if (joinBtn) {
+                if (isFull) {
+                    joinBtn.disabled = true;
+                    joinBtn.className = 'btn btn-done';
+                    joinBtn.innerHTML = '<i class="fas fa-check"></i> 已满员';
+                } else if (alreadyJoined) {
+                    joinBtn.disabled = true;
+                    joinBtn.className = 'btn btn-done';
+                    joinBtn.innerHTML = '<i class="fas fa-check"></i> 已加入';
+                } else {
+                    joinBtn.disabled = false;
+                    joinBtn.className = 'btn btn-join';
+                    joinBtn.innerHTML = '<i class="fas fa-user-plus"></i> 加入接单';
+                }
+            }
+
+            const cancelBtn = document.getElementById('dispatchTeamCancelBtn');
+            if (cancelBtn) {
+                if (alreadyJoined) {
+                    cancelBtn.textContent = '退出组队';
+                    cancelBtn.onclick = leaveTeamDispatch;
+                } else {
+                    cancelBtn.textContent = '取消';
+                    cancelBtn.onclick = closeTeamDispatchModal;
+                }
+            }
+        }
+
+        async function joinTeamDispatch() {
+            if (!pendingDispatchBtn) return;
+            const { dispatchId, detail, meta, people, btn } = pendingDispatchBtn;
+            const joinBtn = document.getElementById('dispatchTeamJoinBtn');
+            if (joinBtn) {
+                joinBtn.disabled = true;
+                joinBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 加入中...';
+            }
+
+            try {
+                const { data: { session } } = await window.supabaseClient.auth.getSession();
+                if (!session) {
+                    alert('请先登录');
+                    return;
+                }
+
+                const { error: insertError } = await window.supabaseClient
+                    .from('dispatch_team_members')
+                    .insert({
+                        dispatch_order_id: dispatchId,
+                        user_id: session.user.id,
+                        nickname: session.user.user_metadata && session.user.user_metadata.nickname ? session.user.user_metadata.nickname : (session.user.email || '未知')
+                    });
+
+                if (insertError) {
+                    alert('加入失败: ' + insertError.message);
+                    await renderTeamDispatchModal(dispatchId, detail, meta, people);
+                    return;
+                }
+
+                const members = await loadTeamMembers(dispatchId);
+                if (members.length >= people) {
+                    const { error: updateError } = await window.supabaseClient
+                        .from('dispatch_orders')
+                        .update({ status: 'progress', accepted_by: session.user.id })
+                        .eq('id', dispatchId);
+
+                    if (updateError) {
+                        alert('组队成功，但更新订单状态失败: ' + updateError.message);
+                        await renderTeamDispatchModal(dispatchId, detail, meta, people);
+                        return;
+                    }
+
+                    closeTeamDispatchModal();
+                    const card = btn ? btn.closest('.serve-request-card') : null;
+                    if (card) card.remove();
+
+                    const modal = document.getElementById('dispatchConfirmModal');
+                    const confirmText = document.getElementById('dispatchConfirmText');
+                    if (modal && confirmText) {
+                        confirmText.textContent = '组合接单完成！订单已进入进行中状态。';
+                        modal.classList.add('active');
+                        document.querySelector('#dispatchConfirmModal .btn-confirm').style.display = 'none';
+                        setTimeout(() => {
+                            modal.classList.remove('active');
+                            document.querySelector('#dispatchConfirmModal .btn-confirm').style.display = '';
+                        }, 2000);
+                    } else {
+                        alert('组合接单完成！订单已进入进行中状态。');
+                    }
+                } else {
+                await renderTeamDispatchModal(dispatchId, detail, meta, people);
+            }
+        } catch (e) {
+            console.error('加入组合接单异常:', e);
+            alert('加入异常: ' + (e.message || '未知错误'));
+            await renderTeamDispatchModal(dispatchId, detail, meta, people);
+        }
+    }
+
+    async function leaveTeamDispatch() {
+        if (!pendingDispatchBtn) return;
+        const { dispatchId, btn } = pendingDispatchBtn;
+        try {
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            if (!session) {
+                alert('请先登录');
+                return;
+            }
+
+            const { error } = await window.supabaseClient
+                .from('dispatch_team_members')
+                .delete()
+                .eq('dispatch_order_id', dispatchId)
+                .eq('user_id', session.user.id);
+
+            if (error) {
+                alert('退出组队失败: ' + error.message);
+                return;
+            }
+
+            closeTeamDispatchModal();
+            if (typeof loadServeModeList === 'function') loadServeModeList();
+        } catch (e) {
+            console.error('退出组队异常:', e);
+            alert('退出组队异常: ' + (e.message || '未知错误'));
+        }
+    }
+
+    function parseRequestDesc(desc) {
+            const map = { serviceType: '', subType: '', orderNo: '', boardName: '', remark: '', people: '', qty: '' };
+            if (!desc) return map;
+            const parts = String(desc).split('|');
+            for (let i = 0; i < parts.length; i++) {
+                const seg = parts[i].trim();
+                let idx = seg.indexOf('：');
+                if (idx === -1) idx = seg.indexOf(':');
+                if (idx === -1) continue;
+                const key = seg.substring(0, idx).trim();
+                const val = seg.substring(idx + 1).trim();
+                if (key === '服务类型') map.serviceType = val;
+                else if (key === '三恋类型') map.subType = val;
+                else if (key === '订单编号') map.orderNo = val;
+                else if (key === '板板') map.boardName = val;
+                else if (key === '备注') map.remark = val;
+                else if (key === '人数') map.people = val;
+                else if (key === '数量') map.qty = val;
+            }
+            return map;
+        }
+
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function showDispatchDetail(dispatchId) {
+            if (!dispatchId) return;
+            const btn = document.querySelector('button[data-dispatch-id="' + dispatchId + '"][data-detail]');
+            if (!btn) return;
+            let data;
+            try {
+                data = JSON.parse(decodeURIComponent(btn.getAttribute('data-detail') || '{}'));
+            } catch (e) {
+                console.error('详情解析失败:', e);
+                data = {};
+            }
+
+            const rows = [
+                { label: '称呼', value: data.request_title },
+                { label: '发布人', value: data.nickname },
+                { label: '游戏类型', value: data.game_type },
+                { label: '服务类型', value: data.serviceType + (data.subType ? ' / ' + data.subType : '') },
+                { label: '区服', value: data.server },
+                { label: '价格', value: data.price ? ('¥' + data.price + (data.serviceType === '送心' ? '元' : '/小时')) : '面议' },
+                { label: '时长', value: data.hours ? data.hours + '小时' : '' },
+                { label: '数量', value: data.qty },
+                { label: '人数', value: data.people },
+                { label: '板板', value: data.boardName },
+                { label: '备注', value: data.remark },
+                { label: '发布时间', value: data.created_at ? getRelativeTime(data.created_at) : '' }
+            ];
+
+            const html = rows
+                .filter(r => r.value)
+                .map(r => '<div class="detail-row"><span class="detail-label">' + escapeHtml(r.label) + '</span><span class="detail-value">' + escapeHtml(r.value) + '</span></div>')
+                .join('');
+
+            const content = document.getElementById('dispatchDetailContent');
+            if (!content) return;
+            content.innerHTML = html || '<p style="color:#999;text-align:center;">暂无详情</p>';
+
+            const modal = document.getElementById('dispatchDetailModal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeDispatchDetail() {
+            const modal = document.getElementById('dispatchDetailModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        // Serve mode filter handlers
+        function switchServeGame(game) {
+            serveFilterState.game = game;
+            document.querySelectorAll('.game-switch-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('[data-game="'+game+'"]').classList.add('active');
+            loadServeModeList();
+        }
+
+        function selectServeCategory(el, category) {
+            serveFilterState.category = category;
+            el.closest('.categories-grid').querySelectorAll('.category-card').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+            loadServeModeList();
+        }
+
+        function serveFilterWizards() {
+            serveFilterState.search = document.getElementById('searchInput').value;
+            loadServeModeList();
+        }
+
+async function loadWizardList() {
+
+            try {
+
+                let { data: wizards, error } = await window.supabaseClient
+
+                    .from('wizards')
+
+                    .select('*')
+
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+
+                    console.error('加载失败:', error);
+
+                    return;
+
+                }
+
+                // Fetch avatars for each wizard from profiles table
+
+                for (const w of wizards) {
+
+                    if (w.user_id) {
+
+                        const { data: profiles } = await window.supabaseClient
+
+                            .from('profiles')
+
+                            .select('avatar_url, rating')
+
+                            .eq('id', w.user_id)
+
+                            .limit(1);
+
+                        if (profiles && profiles.length > 0) {
+
+                            w._avatar = profiles[0].avatar_url;
+
+                            w._rating = profiles[0].rating;
+
+                        }
+
+                    }
+
+                }
+
+                // 只展示已上架（在线）的服务
+                wizards = wizards.filter(w => w.status === 'online');
+
+                const grid = document.getElementById('wizardList');
+
+                if (!grid) return;
+
+                grid.innerHTML = '';
+
+                if (!wizards || wizards.length === 0) {
+
+                    grid.innerHTML = '<div class="empty-state"><i class="fas fa-user-slash"></i><p>暂无上架的陪玩信息</p></div>';
+
+                    return;
+
+                }
+
+                wizards.forEach(w => {
+
+                    const skillsHtml = (w.skills && w.skills.length > 0)
+
+                        ? w.skills.map(s => '<span class="skill">' + s + '</span>').join('')
+
+                        : '<span class="skill">' + (w.service_type || '') + '</span>';
+
+                    const card = document.createElement('div');
+
+                    card.className = 'wizard-list-card';
+
+                    card.dataset.game = (w.game_type && w.game_type.includes('王者')) ? 'king' : 'sky';
+
+                    card.dataset.price = w.price || 29.9;
+
+                    card.dataset.online = w.status === 'online' ? 'true' : 'false';
+
+                    card.dataset.type = 'normal';
+
+                    // Detect category from skills array
+
+                    var _skills = w.skills || [];
+
+                    if (_skills.length === 0 && w.service_type) { _skills = [w.service_type]; }
+
+                    var _cats = ['all'];
+
+                    var _skillToCat = {
+
+                        '技术':'tech','tech':'tech',
+
+                        '娱乐':'entertain','entertain':'entertain','三恋':'entertain','送心':'entertain',
+
+                        '普陪':'normal','normal':'normal',
+
+                        '琴陪':'piano','piano':'piano',
+
+                        '树洞':'treehole','聊天交友':'treehole',
+
+                        '哄睡':'sleep','sleep':'sleep',
+
+                        '驯龙':'dragon-taming','打龙':'dragon-taming',
+
+                        '替身':'substitute','substitute':'substitute',
+
+                        '打卡':'checkin','checkin':'checkin','监督':'checkin',
+
+                        '盲盒':'blindbox','blindbox':'blindbox',
+
+                        '挂机陪':'hang','挂机':'hang','hang':'hang',
+
+                        '换情头':'photo-edit','拍照':'photo-edit','photo-edit':'photo-edit',
+
+                        '献祭':'sacrifice','破晓':'sacrifice','sacrifice':'sacrifice',
+
+                        '录歌':'record','record':'record'
+
+                    };
+
+                    for (var _i = 0; _i < _skills.length; _i++) {
+
+                        var _k = String(_skills[_i]).trim();
+
+                        if (_k in _skillToCat) { _cats.push(_skillToCat[_k]); }
+
+                    }
+
+                    card.dataset.category = JSON.stringify(_cats.sort().filter(function(v,i,a){return a.indexOf(v)===i;}));
+
+                    card.innerHTML = `
+
+                        <div class="card-header" style="position: relative;">
+
+                            <div class="card-avatar">${w._avatar ? '<img src="' + w._avatar + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">' : '<i class="fas fa-user-circle"></i>'}<span class="${w.status === 'online' ? 'online-badge' : 'offline-badge'}"></span></div>
+
+                            <div class="card-info"><h3>${w.wizard_name}</h3><div class="card-tags"><span class="tag tag-normal">${w.status === 'online' ? '在线' : '离线'}</span></div></div>
+
+                            <span class="card-time" style="position: absolute; top: 20px; right: 20px; font-size: 0.75rem; color: #999; background: rgba(255,255,255,0.9); padding: 2px 8px; border-radius: 8px;">${getRelativeTime(w.created_at)}</span>
+
+                        </div>
+
+                        <div class="card-body">
+
+                            <div class="card-rating" style="font-size: 0.8rem; color: #999;">${(w._rating !== undefined && w._rating !== null) ? '<i class="fas fa-star"></i> ' + w._rating : '暂无评分'}</div>
+
+                            <div class="card-skills">${skillsHtml}</div>
+
+                            <p class='card-desc'>${w.description || w.service_type || '欢迎来玩~'}</p>
+
+                        </div>
+
+                        <div class="card-footer">
+
+                            <div class="card-price">
+
+                                <span class="price-num">${(w.price || 29.9)}</span>
+
+                                <span class="price-unit">元/小时</span>
+
+                            </div>
+
+                            <button class="btn btn-primary btn-small" data-wname="${w.wizard_name}" data-wprice="${(w.price || 29.9)}" data-wskills="${(w.skills ? JSON.stringify(w.skills) : '')}" data-wavatar="${encodeURIComponent(w._avatar || '')}" onclick="handleQuickOrder(this)">
+
+                                <i class='fas fa-cart-plus'></i> 立即点单
+
+                            </button>
+
+                        </div>
+
+                    `;
+
+                    grid.appendChild(card);
+
+                });
+
+                filterWizards();
+
+            } catch(e) {
+
+                console.error('加载异常:', e);
+
+            }
+
+        }
+
+        // Format relative time for listing cards
+
+        function getRelativeTime(timestamp) {
+
+            if (!timestamp) return '';
+
+            const now = Date.now();
+
+            const created = new Date(timestamp).getTime();
+
+            const diff = now - created;
+
+            const minutes = Math.floor(diff / 60000);
+
+            const hours = Math.floor(minutes / 60);
+
+            const days = Math.floor(hours / 24);
+
+            if (minutes < 1) return '刚刚';
+
+            if (minutes < 60) return minutes + '分钟前';
+
+            if (hours < 24) return hours + '小时前';
+
+            return days + '天前';
+
+        }
+
+
+        // Expose all functions globally for onclick handlers
+        window.switchRoleMode = switchRoleMode;
+        window.checkUserRoleAndShowButtons = checkUserRoleAndShowButtons;
+        window.loadServeModeList = loadServeModeList;
+        window.acceptRequest = acceptRequest;
+        window.acceptDispatchOrder = acceptDispatchOrder;
+        window.showDispatchDetail = showDispatchDetail;
+        window.closeDispatchDetail = closeDispatchDetail;
+        window.closeDispatchConfirm = closeDispatchConfirm;
+        window.onDispatchConfirmOk = onDispatchConfirmOk;
+        window.closeTeamDispatchModal = closeTeamDispatchModal;
+        window.joinTeamDispatch = joinTeamDispatch;
+        window.leaveTeamDispatch = leaveTeamDispatch;
+        window.switchServeGame = switchServeGame;
+        window.selectServeCategory = selectServeCategory;
+        window.serveFilterWizards = serveFilterWizards;
+        window.serveFilterState = serveFilterState;
+        window.handleQuickOrder = handleQuickOrder;
+        window.loadWizardList = loadWizardList;
+
+        // Init - DOM already ready (script at end of body)
+        checkUserRoleAndShowButtons();
+        loadWizardList();
+</script>
+
+    <!-- 移动端底部 Dock 栏 -->
+
+    <nav class="mobile-fab-nav">
+
+        <div class="dock-bar">
+
+            <a href="../index.html" class="dock-item" data-page="index"><i class="fas fa-home"></i><span>首页</span></a>
+
+            <a href="order.html" class="dock-item" data-page="order"><i class="fas fa-shopping-cart"></i><span>点单</span></a>
+
+            <a href="members.html" class="dock-item" data-page="members"><i class="fas fa-users"></i><span>成员</span></a>
+
+            <a href="vip.html" class="dock-item" data-page="vip"><i class="fas fa-crown"></i><span>会员</span></a>
+
+            <a href="recharge.html" class="dock-item" data-page="recharge"><i class="fas fa-wallet"></i><span>充值</span></a>
+
+            <a href="join.html" class="dock-item" data-page="join"><i class="fas fa-user-plus"></i><span>加入</span></a>
+
+            <a href="profile.html" class="dock-item" data-page="profile"><i class="fas fa-user-circle"></i><span>我的</span></a>
+
+        </div>
+
     </nav>
 
-    <!-- 页面标题 -->
-    <section class="page-header">
-        <div class="container">
-            <h1><i class="fas fa-shopping-cart"></i> 点单大厅</h1>
-            <p>选择你心仪的陪玩伙伴，开启温暖旅程</p>
-        </div>
-    </section>
+    <script>
 
-    <!-- 筛选栏 -->
-    <section class="filter-bar">
-        <div class="container">
-            <div class="filter-row">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="搜索陪玩名称..." oninput="filterWizards()">
-                </div>
-                <div class="filter-tabs">
-                    <button class="filter-tab active" onclick="setFilter('all', this)">全部</button>
-                    <button class="filter-tab" onclick="setFilter('online', this)">在线</button>
-                    <button class="filter-tab" onclick="setFilter('vip', this)">VIP</button>
-                    <button class="filter-tab" onclick="setFilter('master', this)">大师</button>
-                </div>
-                <div class="sort-box">
-                    <select id="sortSelect" onchange="sortWizards()">
-                        <option value="default">默认排序</option>
-                        <option value="price-low">价格从低到高</option>
-                        <option value="price-high">价格从高到低</option>
-                        <option value="rating">评分最高</option>
-                        <option value="orders">订单最多</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-    </section>
+    (function(){
 
-    <!-- 服务分类 -->
-    <section class="service-categories">
-        <div class="container">
-            <div class="categories-grid">
-                <div class="category-card active" onclick="selectCategory(this, 'all')">
-                    <i class="fas fa-th-large"></i>
-                    <span>全部服务</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'tech')">
-                    <i class="fas fa-code"></i>
-                    <span>技术</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'entertain')">
-                    <i class="fas fa-laugh-beam"></i>
-                    <span>娱乐</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'normal')">
-                    <i class="fas fa-handshake"></i>
-                    <span>普陪</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'piano')">
-                    <i class="fas fa-music"></i>
-                    <span>琴陪</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'treehole')">
-                    <i class="fas fa-heart"></i>
-                    <span>树洞</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'three-love')">
-                    <i class="fas fa-heartbeat"></i>
-                    <span>三恋</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'dragon-taming')">
-                    <i class="fas fa-dragon"></i>
-                    <span>驯龙</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'substitute')">
-                    <i class="fas fa-user-friends"></i>
-                    <span>替身</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'checkin')">
-                    <i class="fas fa-calendar-check"></i>
-                    <span>打卡</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'blindbox')">
-                    <i class="fas fa-box-open"></i>
-                    <span>盲盒</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'hang')">
-                    <i class="fas fa-cloud"></i>
-                    <span>挂机陪</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'photo-edit')">
-                    <i class="fas fa-image"></i>
-                    <span>代拍剪</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'send-heart')">
-                    <i class="fas fa-gift"></i>
-                    <span>送心</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'sacrifice')">
-                    <i class="fas fa-pray"></i>
-                    <span>陪献祭</span>
-                </div>
-                <div class="category-card" onclick="selectCategory(this, 'record')">
-                    <i class="fas fa-video"></i>
-                    <span>录琴</span>
-                </div>
-            </div>
-        </div>
-    </section>
+        var p=window.location.pathname.split("/");
 
-    <!-- 陪玩列表 -->
-    <section class="wizard-list">
-        <div class="container">
-            <div class="list-grid" id="wizardList">
-                <!-- 陪玩卡片1 -->
-                <div class="wizard-list-card" data-category="run photo teach" data-price="29.9" data-rating="5.0" data-orders="328" data-online="true" data-type="vip">
-                    <div class="card-header">
-                        <div class="card-avatar">
-                            <i class="fas fa-user-circle"></i>
-                            <span class="online-badge"></span>
-                        </div>
-                        <div class="card-info">
-                            <h3>星光旅者</h3>
-                            <div class="card-tags">
-                                <span class="tag tag-vip">VIP</span>
-                                <span class="tag tag-hot">热门</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="card-rating">
-                            <i class="fas fa-star"></i> 5.0
-                            <span class="card-orders">(328单)</span>
-                        </div>
-                        <div class="card-skills">
-                            <span class="skill">跑图</span>
-                            <span class="skill">拍照</span>
-                            <span class="skill">高飞</span>
-                        </div>
-                        <p class="card-desc">资深跑图达人，全地图解锁，擅长拍照构图。1000+小时游戏经验，带你领略天空王国最美的风景。</p>
-                    </div>
-                    <div class="card-footer">
-                        <div class="card-price">
-                            <span class="price-num">29.9</span>
-                            <span class="price-unit">元/小时</span>
-                        </div>
-                        <button class="btn btn-primary btn-small" onclick="showOrderModal('星光旅者', 29.9)">
-                            <i class="fas fa-cart-plus"></i> 立即点单
-                        </button>
-                    </div>
-                </div>
+        var links=document.querySelectorAll(".dock-item");
 
-                <!-- 陪玩卡片2 -->
-                <div class="wizard-list-card" data-category="chat collect" data-price="25.0" data-rating="4.8" data-orders="256" data-online="true" data-type="vip">
-                    <div class="card-header">
-                        <div class="card-avatar">
-                            <i class="fas fa-user-circle"></i>
-                            <span class="online-badge"></span>
-                        </div>
-                        <div class="card-info">
-                            <h3>云间漫步</h3>
-                            <div class="card-tags">
-                                <span class="tag tag-vip">VIP</span>
-                                <span class="tag tag-new">推荐</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="card-rating">
-                            <i class="fas fa-star"></i> 4.8
-                            <span class="card-orders">(256单)</span>
-                        </div>
-                        <div class="card-skills">
-                            <span class="skill">聊天</span>
-                            <span class="skill">收集</span>
-                            <span class="skill">拍照</span>
-                        </div>
-                        <p class="card-desc">温柔小姐姐，聊天解闷，带你收集所有蜡烛。耐心细致，服务态度极佳。</p>
-                    </div>
-                    <div class="card-footer">
-                        <div class="card-price">
-                            <span class="price-num">25.0</span>
-                            <span class="price-unit">元/小时</span>
-                        </div>
-                        <button class="btn btn-primary btn-small" onclick="showOrderModal('云间漫步', 25.0)">
-                            <i class="fas fa-cart-plus"></i> 立即点单
-                        </button>
-                    </div>
-                </div>
+        links.forEach(function(l){
 
-                <!-- 陪玩卡片3 -->
-                <div class="wizard-list-card" data-category="teach run" data-price="49.9" data-rating="5.0" data-orders="189" data-online="false" data-type="master">
-                    <div class="card-header">
-                        <div class="card-avatar">
-                            <i class="fas fa-user-circle"></i>
-                            <span class="offline-badge"></span>
-                        </div>
-                        <div class="card-info">
-                            <h3>翼之守护者</h3>
-                            <div class="card-tags">
-                                <span class="tag tag-master">大师</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="card-rating">
-                            <i class="fas fa-star"></i> 5.0
-                            <span class="card-orders">(189单)</span>
-                        </div>
-                        <div class="card-skills">
-                            <span class="skill">教学</span>
-                            <span class="skill">跑图</span>
-                            <span class="skill">技术</span>
-                        </div>
-                        <p class="card-desc">技术流大神，高飞路线教学，极限操作演示。让你从新手变高手。</p>
-                    </div>
-                    <div class="card-footer">
-                        <div class="card-price">
-                            <span class="price-num">49.9</span>
-                            <span class="price-unit">元/小时</span>
-                        </div>
-                        <button class="btn btn-primary btn-small" onclick="showOrderModal('翼之守护者', 49.9)">
-                            <i class="fas fa-cart-plus"></i> 立即点单
-                        </button>
-                    </div>
-                </div>
+            var h=l.getAttribute("href");
 
-                <!-- 陪玩卡片4 -->
-                <div class="wizard-list-card" data-category="run collect chat" data-price="19.9" data-rating="4.5" data-orders="412" data-online="true" data-type="normal">
-                    <div class="card-header">
-                        <div class="card-avatar">
-                            <i class="fas fa-user-circle"></i>
-                            <span class="online-badge"></span>
-                        </div>
-                        <div class="card-info">
-                            <h3>晨岛小太阳</h3>
-                            <div class="card-tags">
-                                <span class="tag tag-normal">新人</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="card-rating">
-                            <i class="fas fa-star"></i> 4.5
-                            <span class="card-orders">(412单)</span>
-                        </div>
-                        <div class="card-skills">
-                            <span class="skill">跑图</span>
-                            <span class="skill">收集</span>
-                            <span class="skill">聊天</span>
-                        </div>
-                        <p class="card-desc">元气满满的小太阳，陪你走遍每个地图。价格实惠，服务热情！</p>
-                    </div>
-                    <div class="card-footer">
-                        <div class="card-price">
-                            <span class="price-num">19.9</span>
-                            <span class="price-unit">元/小时</span>
-                        </div>
-                        <button class="btn btn-primary btn-small" onclick="showOrderModal('晨岛小太阳', 19.9)">
-                            <i class="fas fa-cart-plus"></i> 立即点单
-                        </button>
-                    </div>
-                </div>
+            if(p.length>=3 && p[p.length-2]==="pages"){
 
-                <!-- 陪玩卡片5 -->
-                <div class="wizard-list-card" data-category="photo chat" data-price="35.0" data-rating="4.9" data-orders="198" data-online="true" data-type="vip">
-                    <div class="card-header">
-                        <div class="card-avatar">
-                            <i class="fas fa-user-circle"></i>
-                            <span class="online-badge"></span>
-                        </div>
-                        <div class="card-info">
-                            <h3>光影诗人</h3>
-                            <div class="card-tags">
-                                <span class="tag tag-vip">VIP</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="card-rating">
-                            <i class="fas fa-star"></i> 4.9
-                            <span class="card-orders">(198单)</span>
-                        </div>
-                        <div class="card-skills">
-                            <span class="skill">拍照</span>
-                            <span class="skill">聊天</span>
-                            <span class="skill">剪辑</span>
-                        </div>
-                        <p class="card-desc">专业摄影师陪玩，帮你拍出朋友圈爆款照片。附赠视频剪辑服务。</p>
-                    </div>
-                    <div class="card-footer">
-                        <div class="card-price">
-                            <span class="price-num">35.0</span>
-                            <span class="price-unit">元/小时</span>
-                        </div>
-                        <button class="btn btn-primary btn-small" onclick="showOrderModal('光影诗人', 35.0)">
-                            <i class="fas fa-cart-plus"></i> 立即点单
-                        </button>
-                    </div>
-                </div>
+                if(h==="index.html"){ l.href="../index.html"; }
 
-                <!-- 陪玩卡片6 -->
-                <div class="wizard-list-card" data-category="run teach" data-price="15.0" data-rating="4.3" data-orders="89" data-online="true" data-type="normal">
-                    <div class="card-header">
-                        <div class="card-avatar">
-                            <i class="fas fa-user-circle"></i>
-                            <span class="online-badge"></span>
-                        </div>
-                        <div class="card-info">
-                            <h3>清风小助手</h3>
-                            <div class="card-tags">
-                                <span class="tag tag-normal">新人</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="card-rating">
-                            <i class="fas fa-star"></i> 4.3
-                            <span class="card-orders">(89单)</span>
-                        </div>
-                        <div class="card-skills">
-                            <span class="skill">跑图</span>
-                            <span class="skill">入门</span>
-                        </div>
-                        <p class="card-desc">新手友好型陪玩，耐心教你基础操作，带你熟悉各个地图。</p>
-                    </div>
-                    <div class="card-footer">
-                        <div class="card-price">
-                            <span class="price-num">15.0</span>
-                            <span class="price-unit">元/小时</span>
-                        </div>
-                        <button class="btn btn-primary btn-small" onclick="showOrderModal('清风小助手', 15.0)">
-                            <i class="fas fa-cart-plus"></i> 立即点单
-                        </button>
-                    </div>
-                </div>
-            </div>
+            }else{
 
-            <!-- 加载更多 -->
-            <div class="load-more">
-                <button class="btn btn-outline" onclick="loadMore()">
-                    <i class="fas fa-sync-alt"></i> 加载更多
-                </button>
-            </div>
-        </div>
-    </section>
+                if(h!=="index.html" && !h.startsWith("../")){ l.href="pages/"+h; }
 
-    <!-- 订单弹窗 -->
-    <div class="modal-overlay" id="orderModal">
-        <div class="modal order-modal">
-            <button class="modal-close" onclick="closeOrderModal()">&times;</button>
-            <h2>创建订单</h2>
-            <form id="orderForm" class="order-form">
-                <div class="order-info">
-                    <div class="order-wizard">
-                        <div class="order-wizard-avatar"><i class="fas fa-user-circle"></i></div>
-                        <div>
-                            <h4 id="orderWizardName">陪玩名称</h4>
-                            <span id="orderWizardPrice">￥0.00/小时</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label><i class="fas fa-list"></i> 服务类型</label>
-                        <select required>
-                            <option value="">请选择服务类型</option>
-                            <option value="run">跑图服务</option>
-                            <option value="photo">拍照陪玩</option>
-                            <option value="collect">收集陪伴</option>
-                            <option value="chat">聊天交友</option>
-                            <option value="teach">技术教学</option>
-                            <option value="custom">自定义服务</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-server"></i> 游戏服务器</label>
-                        <select required>
-                            <option value="">请选择服务器</option>
-                            <option value="ios">iOS</option>
-                            <option value="android">Android</option>
-                            <option value="pc">PC模拟器</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label><i class="fas fa-clock"></i> 预计时长（小时）</label>
-                        <input type="number" min="1" max="12" value="1" required onchange="calcOrderTotal()">
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-calendar"></i> 预约时间</label>
-                        <input type="datetime-local" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-comment"></i> 备注信息</label>
-                    <textarea rows="3" placeholder="请描述您的需求（可选）"></textarea>
-                </div>
-                <div class="order-total">
-                    <span>订单总额：</span>
-                    <strong id="orderTotalPrice">￥0.00</strong>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">确认下单</button>
-            </form>
-        </div>
-    </div>
+            }
 
-    <!-- 登录弹窗 -->
-    <div class="modal-overlay" id="loginModal">
-        <div class="modal login-modal">
-            <button class="modal-close" onclick="closeLoginModal()">&times;</button>
-            <div class="modal-tabs">
-                <button class="tab active" onclick="switchTab('login')">登录</button>
-                <button class="tab" onclick="switchTab('register')">注册</button>
-            </div>
-            <div class="modal-body">
-                <form id="loginForm" class="auth-form">
-                    <div class="form-group">
-                        <label><i class="fas fa-user"></i> 用户名 / 手机号</label>
-                        <input type="text" placeholder="请输入用户名或手机号" required>
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-lock"></i> 密码</label>
-                        <input type="password" placeholder="请输入密码" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">登录</button>
-                </form>
-                <form id="registerForm" class="auth-form" style="display:none;">
-                    <div class="form-group">
-                        <label><i class="fas fa-user"></i> 用户名</label>
-                        <input type="text" placeholder="设置用户名" required>
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-gamepad"></i> 游戏ID</label>
-                        <input type="text" placeholder="请输入游戏内角色ID" required>
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-lock"></i> 密码</label>
-                        <input type="password" placeholder="设置密码（至少6位）" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">注册</button>
-                </form>
-            </div>
-        </div>
-    </div>
+        });
 
-    <!-- 页脚 -->
-    <footer class="footer">
-<div class="container">
-<div class="footer-content">
-<div class="footer-section"><h3>光遇陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
-<div class="footer-section"><h3>快速链接</h3><ul>
-<li><a href="../index.html">首页</a></li><li><a href="order.html">点单大厅</a></li>
-<li><a href="members.html">陪玩成员</a></li></ul></div>
-<div class="footer-section"><h3>下载APP</h3><ul>
-<li><a href="download.html"><i class="fab fa-windows"></i> Windows客户端</a></li>
-<li><a href="#"><i class="fab fa-android"></i> Android版</a></li>
-<li><a href="#"><i class="fab fa-apple"></i> iOS版</a></li></ul></div>
-<div class="footer-section"><h3>联系我们</h3><ul>
-<li><i class="fas fa-envelope"></i> support@skycompanion.com</li></ul></div>
-</div>
-<div class="footer-bottom"><p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p></div>
-</div>
-</footer>
+    })();
 
-    
+    </script>
 
-<script src="../js/main.js"></script>
-    <script src="../js/order.js"></script>
 </body>
+
 </html>
+

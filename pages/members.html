@@ -1,13 +1,48 @@
 ﻿<!DOCTYPE html>
-<html lang="zh-CN">n
+<html lang="zh-CN">
     <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>陪玩成员 - 光遇陪玩团</title>
-    <link rel="stylesheet" href="../css/style.css">
+<title>陪玩成员 - BJ陪玩团</title>
+    <link rel="stylesheet" href="../css/style.css?v=3">
 <link rel="stylesheet" href="../css/profile.css">
-    <link rel="stylesheet" href="../css/members.css">
+    <link rel="stylesheet" href="../css/members.css?v=2">
+<link rel="stylesheet" href="../css/order.css">
+<style>
+    /* 超级强制网格布局 - 覆盖所有可能的冲突 */
+    section.members-list {
+        padding: 40px 0 !important;
+        background: var(--bg-light) !important;
+    }
+    section.members-list .container {
+        max-width: 1200px !important;
+        margin: 0 auto !important;
+        padding: 0 20px !important;
+    }
+    .members-grid, #membersGrid {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 24px !important;
+        width: 100% !important;
+    }
+    @media (max-width: 1200px) and (min-width: 769px) {
+        .members-grid, #membersGrid {
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)) !important;
+        }
+    }
+    @media (max-width: 768px) {
+        .members-grid, #membersGrid {
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+        }
+    }
+    .member-card {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+</style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body><script>
@@ -19,7 +54,7 @@
 </script>
 <nav class="navbar">
 <div class="nav-container">
-<a href="../index.html" class="nav-logo"><span class="logo-icon">&#9733;</span><span class="logo-text">光遇陪玩团</span></a>
+<a href="../index.html" class="nav-logo"><span class="logo-icon">&#9733;</span><span class="logo-text">BJ陪玩团</span></a>
 <ul class="nav-menu" id="navMenu">
 <li><a href="../index.html" class="nav-link">首页</a></li>
 <li><a href="order.html" class="nav-link">点单大厅</a></li>
@@ -41,38 +76,66 @@
 <p>寻找你的光之旅伴，一起探索天空王国</p>
 </div>
 </section>
-<section class="members-overview">
-<div class="container">
-<div class="overview-grid">
-<div class="overview-item"><span class="ov-number">528</span><span class="ov-label">认证陪玩</span></div>
-<div class="overview-item"><span class="ov-number online-count">186</span><span class="ov-label">在线人数</span></div>
-<div class="overview-item"><span class="ov-number">12,450</span><span class="ov-label">累计订单</span></div>
-<div class="overview-item"><span class="ov-number">4.9</span><span class="ov-label">平均评分</span></div>
-</div>
-</div>
-</section>
 <section class="members-filter">
-<div class="container">
-<div class="filter-row">
-<div class="search-box"><i class="fas fa-search"></i><input type="text" id="memberSearch" placeholder="搜索陪玩名称..." oninput="filterMembers()"></div>
-<div class="filter-group"><label>状态：</label>
-<button class="filter-btn active" onclick="setMemberFilter('all',this)">全部</button>
-<button class="filter-btn" onclick="setMemberFilter('online',this)">在线</button>
-<button class="filter-btn" onclick="setMemberFilter('offline',this)">离线</button></div>
-<div class="filter-group"><label>等级：</label>
-<button class="filter-btn active" onclick="setMemberLevel('all',this)">全部</button>
-<button class="filter-btn" onclick="setMemberLevel('normal',this)">普通</button>
-<button class="filter-btn" onclick="setMemberLevel('vip',this)">VIP</button>
-<button class="filter-btn" onclick="setMemberLevel('master',this)">大师</button></div>
-<div class="sort-group"><select id="memberSort" onchange="sortMembers()">
-<option value="default">默认排序</option><option value="rating">评分最高</option>
-<option value="orders">订单最多</option><option value="price-low">价格从低到高</option>
-<option value="price-high">价格从高到低</option></select></div>
-</div>
-</div>
-</section><section class="members-list">
-<div class="container">
-<div class="members-grid" id="membersGrid"><div class="member-card" data-name="星光旅者" data-online="true" data-level="vip" data-rating="5.0" data-orders="328" data-price="29.9" data-skills="run,photo,teach">
+        <div class="container">
+            <div class="filter-row">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="memberSearch" placeholder="搜索陪玩名称..." oninput="filterMembers()">
+                </div>
+            </div>
+        </div>
+    </section>
+
+<section class="service-categories">
+        <div class="container">
+            <div class="game-switch-bar">
+                <button class="game-switch-btn active" onclick="switchGame('sky', this)" data-game="sky">
+                    <i class="fas fa-star"></i> 光遇服务
+                </button>
+                <button class="game-switch-btn" onclick="switchGame('king', this)" data-game="king">
+                    <i class="fas fa-gamepad"></i> 王者服务
+                </button>
+            </div>
+            <div class="categories-scroll-wrapper">
+                <div class="categories-section" id="sky-categories">
+                    <h3 class="section-title"><i class="fas fa-star"></i> 光遇服务</h3>
+                    <div class="categories-grid">
+                        <div class="category-card active" onclick="selectCategory(this, 'all')"><i class="fas fa-th-large"></i><span>全部服务</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'tech')"><i class="fas fa-code"></i><span>技术</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'entertain')"><i class="fas fa-laugh-beam"></i><span>娱乐</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'normal')"><i class="fas fa-user"></i><span>普陪</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'piano')"><i class="fas fa-music"></i><span>琴陪</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'treehole')"><i class="fas fa-comment-dots"></i><span>树洞</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'three-love')"><i class="fas fa-heart"></i><span>三恋</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'dragon-taming')"><i class="fas fa-dragon"></i><span>驯龙</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'substitute')"><i class="fas fa-user-friends"></i><span>替身</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'checkin')"><i class="fas fa-calendar-check"></i><span>打卡</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'blindbox')"><i class="fas fa-gift"></i><span>盲盒</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'hang')"><i class="fas fa-video"></i><span>挂机陪</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'photo-edit')"><i class="fas fa-camera"></i><span>换情头</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'send-heart')"><i class="fas fa-paper-plane"></i><span>送心</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'sacrifice')"><i class="fas fa-pray"></i><span>献祭</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'record')"><i class="fas fa-microphone-alt"></i><span>录歌</span></div>
+                    </div>
+                </div>
+                <div class="categories-section" id="king-categories" style="display:none;">
+                    <h3 class="section-title"><i class="fas fa-gamepad"></i> 王者服务</h3>
+                    <div class="categories-grid">
+                        <div class="category-card active" onclick="selectCategory(this, 'all')"><i class="fas fa-th-large"></i><span>全部服务</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'tech')"><i class="fas fa-code"></i><span>技术</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'entertain')"><i class="fas fa-laugh-beam"></i><span>娱乐</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'sleep')"><i class="fas fa-bed"></i><span>哄睡</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'photo-edit')"><i class="fas fa-camera"></i><span>换情头</span></div>
+                        <div class="category-card" onclick="selectCategory(this, 'record')"><i class="fas fa-microphone-alt"></i><span>录歌</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="members-list">
+        <div class="container">
+            <div class="members-grid" id="membersGrid"><div class="member-card" data-name="星光旅者" data-online="true" data-level="vip" data-rating="5.0" data-orders="328" data-price="29.9" data-skills="run,photo,teach">
 <div class="mc-header">
 <div class="mc-avatar"><i class="fas fa-user-circle"></i><span class='mc-status online'></span></div>
 <div class="mc-badge-row"><span class='mc-level-tag vip'>VIP</span><span class='mc-hot-badge'></span></div>
@@ -261,9 +324,7 @@
 <button class="btn btn-outline" onclick="loadMoreMembers()"><i class="fas fa-sync-alt"></i> 加载更多成员</button>
 </div>
 </div>
-</section>
-
-<div class="modal-overlay" id="memberDetailModal">
+</section><div class="modal-overlay" id="memberDetailModal">
 <div class="modal member-detail-modal">
 <button class="modal-close" onclick="closeMemberDetail()">&times;</button>
 <h2>成员详情</h2>
@@ -336,7 +397,7 @@
 <footer class="footer">
 <div class="container">
 <div class="footer-content">
-<div class="footer-section"><h3>光遇陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
+<div class="footer-section"><h3>BJ陪玩团</h3><p>温暖相遇，快乐同行。</p></div>
 <div class="footer-section"><h3>快速链接</h3><ul>
 <li><a href="../index.html">首页</a></li><li><a href="order.html">点单大厅</a></li>
 <li><a href="members.html">陪玩成员</a></li></ul></div>
@@ -347,13 +408,73 @@
 <div class="footer-section"><h3>联系我们</h3><ul>
 <li><i class="fas fa-envelope"></i> support@skycompanion.com</li></ul></div>
 </div>
-<div class="footer-bottom"><p>&copy; 2026 光遇陪玩团 All Rights Reserved.</p></div>
+<div class="footer-bottom"><p>&copy; 2026 BJ陪玩团 All Rights Reserved.</p></div>
 </div>
 </footer>
 
 
 
-<script src="../js/main.js"></script>
+<script src="../js/main.js?v=202607211200"></script>
 <script src="../js/members.js"></script>
+
+    <!-- 移动端底部 Dock 栏 -->
+    
+    <!-- 移动端底部 Dock 栏 -->
+    <nav class="mobile-fab-nav">
+        <div class="dock-bar">
+            <a href="index.html" class="dock-item" data-page="index"><i class="fas fa-home"></i><span>首页</span></a>
+            <a href="order.html" class="dock-item" data-page="order"><i class="fas fa-shopping-cart"></i><span>点单</span></a>
+            <a href="members.html" class="dock-item" data-page="members"><i class="fas fa-users"></i><span>成员</span></a>
+            <a href="vip.html" class="dock-item" data-page="vip"><i class="fas fa-crown"></i><span>会员</span></a>
+            <a href="recharge.html" class="dock-item" data-page="recharge"><i class="fas fa-wallet"></i><span>充值</span></a>
+            <a href="join.html" class="dock-item" data-page="join"><i class="fas fa-user-plus"></i><span>加入</span></a>
+            <a href="profile.html" class="dock-item" data-page="profile"><i class="fas fa-user-circle"></i><span>我的</span></a>
+        </div>
+    </nav>
+    <script>
+    (function(){
+        var p=window.location.pathname.split('/');
+        var isInPages=p.length>=3 && p[p.length-2]==='pages';
+        var links=document.querySelectorAll('.dock-item');
+        links.forEach(function(l){
+            var h=l.getAttribute('href');
+            if(isInPages){
+                // Already in pages/, href="order.html" -> pages/order.html ✅
+                // href="index.html" -> pages/index.html (wrong!), fix to ../index.html
+                if(h==='index.html'){
+                    l.href='../index.html';
+                }
+            }else{
+                // At root, href="order.html" -> root/order.html (wrong!)
+                // Fix: prepend pages/
+                if(h!=='index.html'){
+                    l.href='pages/'+h;
+                }
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,1966 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src='../js/supabase-config.js?v=202607240001'></script>
+<script src='../js/auth.js?v=202607240001'></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的订单 - BJ陪玩团</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/profile.css">
+<link rel="stylesheet" href="../css/order.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+.my-orders-page { background: #f5f7fa; display: flex; flex-direction: column; min-height: 100vh; margin: 0; padding: 0; }
+.footer { margin-top: auto !important; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 30px 0; }
+.stat-card { background: white; border-radius: 12px; padding: 24px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.stat-value { font-size: 2rem; font-weight: bold; color: var(--primary); margin-bottom: 8px; }
+.stat-label { font-size: 0.9rem; color: #666; }
+.tab-filter { display: flex; margin: 20px 0; background: white; border-radius: 8px 8px 0 0; overflow: hidden; }
+.tab-btn { flex: 1; padding: 14px 6px; border: none; border-bottom: 2px solid #e8e8e8; background: transparent; cursor: pointer; transition: var(--transition); font-size: 0.95rem; color: #999; font-weight: 500; text-align: center; }
+.tab-btn:hover { color: var(--primary); }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.action-buttons { display: flex; gap: 12px; margin: 20px 0; justify-content: center; flex-wrap: wrap; }
+.action-btn { padding: 10px 20px; border: 2px solid var(--border); border-radius: 25px; background: white; cursor: pointer; transition: var(--transition); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; }
+.action-btn:hover { border-color: var(--primary); color: var(--primary); }
+.online-switcher { position: relative; width: 50px; height: 26px; background: #ccc; border-radius: 13px; cursor: pointer; transition: var(--transition); }
+.online-switcher.online { background: var(--primary); }
+.online-switcher::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: var(--transition); }
+.online-switcher.online::after { left: 27px; }
+.wizard-list { padding: 20px 0; }
+.order-card { background: #ffffff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); display: flex; align-items: flex-start; gap: 14px; position: relative; transition: transform 0.25s ease, box-shadow 0.25s ease; }
+.order-card:hover { transform: translateY(-5px); box-shadow: 0 10px 26px rgba(0,0,0,0.12); }
+.order-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #74c0fc 0%, #4dabf7 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.3rem; flex-shrink: 0; }
+.order-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.order-top { display: flex; justify-content: space-between; align-items: flex-start; }
+.order-titles { min-width: 0; }
+.order-wizard-name { font-size: 1.05rem; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+.order-service { font-size: 0.8rem; color: #888; }
+.order-right { text-align: right; flex-shrink: 0; }
+.order-status { padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; display: inline-block; }
+.order-price { font-size: 1.05rem; font-weight: 700; color: var(--primary); margin-top: 6px; }
+.order-price small { font-size: 0.75rem; font-weight: 400; color: #999; margin-left: 2px; }
+.order-bottom { display: flex; justify-content: flex-end; align-items: center; font-size: 0.75rem; color: #999; }
+.order-intro { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.order-meta { display: none; flex-direction: column; gap: 6px; margin-top: 4px; padding-top: 10px; border-top: 1px dashed #eee; }
+.order-meta.expanded { display: flex; }
+.card-avatar-col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.card-toggle-btn { width: 22px; height: 22px; border-radius: 50%; border: none; background: #f5f7fa; color: #888; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; transition: transform 0.25s ease, background 0.2s ease; }
+.card-toggle-btn:hover { background: #e8e8e8; color: #555; }
+.card-toggle-btn.expanded { transform: rotate(180deg); }
+.meta-row { display: flex; gap: 8px; font-size: 0.8rem; line-height: 1.45; }
+.meta-label { flex-shrink: 0; width: 60px; color: #999; }
+.meta-value { flex: 1; min-width: 0; color: #444; word-break: break-all; }
+.order-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.role-tag { align-self: flex-start; font-size: 0.7rem; padding: 2px 9px; border-radius: 10px; margin-bottom: 8px; font-weight: 600; line-height: 1.4; }
+.role-tag.board { background: rgba(79,195,247,0.15); color: var(--primary); }
+.role-tag.wizard { background: rgba(255,152,0,0.15); color: #ef6c00; }
+.role-tag.dispatch { background: rgba(76,175,80,0.15); color: #2e7d32; }
+.board-card { border-left: 4px solid #4FC3F7; }
+.wizard-card { border-left: 4px solid #FF9800; cursor: default; }
+.wizard-card.dispatch-card { border-left-color: #4CAF50; }
+.status-pending { background: #FFF3E0; color: #FF9800; }
+.status-progress { background: #E3F2FD; color: #2196F3; }
+.status-completed { background: #E8F5E9; color: #4CAF50; }
+.status-cancelled { background: #FFEBEE; color: #f44336; }
+.empty-state { text-align: center; padding: 60px 20px; color: #999; }
+.empty-state i { font-size: 4rem; margin-bottom: 16px; display: block; }
+.card-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+.card-overlay.active { display: flex; }
+.card-modal { background: white; border-radius: 16px; padding: 24px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; position: relative; scrollbar-width: none; -ms-overflow-style: none; }
+.card-modal.confirm-modal { max-width: 360px; text-align: center; padding: 28px 24px; }
+.card-modal.confirm-modal h3 { margin: 0 0 12px 0; font-size: 1.15rem; color: #333; }
+.card-modal.confirm-modal p { margin: 0 0 24px 0; font-size: 0.95rem; color: #666; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 12px; justify-content: center; }
+.confirm-actions button { padding: 10px 24px; border-radius: 10px; border: none; font-size: 0.95rem; cursor: pointer; transition: var(--transition); }
+.btn-confirm-cancel { background: #f5f5f5; color: #666; }
+.btn-confirm-cancel:hover { background: #e8e8e8; }
+.btn-confirm-ok { background: #f44336; color: white; }
+.btn-confirm-ok:hover { background: #d32f2f; }
+.card-modal::-webkit-scrollbar { display: none; }
+.card-modal.has-sticky-header { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.card-modal.has-sticky-header .card-modal-header { flex-shrink: 0; padding: 24px 24px 16px 24px; position: relative; background: white; z-index: 10; }
+.card-modal.has-sticky-header .card-modal-body { flex: 1; overflow-y: auto; padding: 0 24px 24px 24px; scrollbar-width: none; -ms-overflow-style: none; }
+.card-modal.has-sticky-header .card-modal-body::-webkit-scrollbar { display: none; }
+.modal-close { position: absolute; top: 16px; right: 16px; font-size: 1.5rem; cursor: pointer; color: #999; }
+.wizard-item { background: white; border-radius: 12px; padding: 20px 20px 52px 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; position: relative; }
+.wizard-status { position: absolute; top: 14px; right: 16px; }
+.wizard-actions { position: absolute; bottom: 14px; right: 16px; }
+.wizard-date { position: absolute; bottom: 14px; left: 16px; font-size: 0.75rem; color: #999; }
+.wizard-info h3 { margin: 0 0 8px 0; font-size: 1.1rem; }
+.wizard-info p { margin: 4px 0; font-size: 0.85rem; color: #666; }
+.wizard-info .wizard-desc { color: #555; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wizard-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-small { padding: 6px 16px; border-radius: 20px; border: none; cursor: pointer; font-size: 0.85rem; transition: var(--transition); }
+.btn-edit { background: var(--primary); color: white; }
+.btn-delete { background: #ff4444; color: white; }
+.status-badge { padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+.status-online { background: #E8F5E9; color: #4CAF50; }
+.status-offline { background: #EEEEEE; color: #999; }
+.wizard-tabs { display: flex; gap: 8px; margin: 16px 0 20px 0; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; }
+.wizard-tab { flex: 1; padding: 8px 6px; border: none; background: none; border-radius: 8px; cursor: pointer; font-size: 0.85rem; color: #666; transition: var(--transition); text-align: center; white-space: nowrap; }
+.wizard-tab:hover { background: #f5f7fa; color: var(--primary); }
+.wizard-tab.active { background: var(--primary); color: white; }
+.detail-section { margin-bottom: 16px; }
+.detail-section h4 { margin: 0 0 8px 0; font-size: 0.9rem; color: #666; }
+.detail-section p, .detail-section div { margin: 0; font-size: 1rem; color: #333; }
+.skill-tag { display: inline-block; padding: 4px 10px; border-radius: 12px; background: #E3F2FD; color: #2196F3; font-size: 0.8rem; margin: 0 6px 6px 0; }
+.wizard-form { display: none; }
+.wizard-form.active { display: block; }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 0.9rem; font-weight: 600; color: #333; margin-bottom: 8px; }
+.form-label .required { color: #ff4444; margin-left: 4px; }
+.form-input, .form-select, .form-textarea { width: 100%; padding: 12px 14px; border: 1px solid #e0e0e0; border-radius: 10px; background: #f8faff; font-size: 0.95rem; color: #333; box-sizing: border-box; transition: var(--transition); }
+.form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--primary); background: #fff; }
+.form-textarea { min-height: 80px; resize: vertical; }
+.form-select { appearance: auto; cursor: pointer; }
+.skill-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.skill-tag-selectable { padding: 6px 14px; border-radius: 18px; border: 1px solid #e0e0e0; background: white; color: #666; font-size: 0.85rem; cursor: pointer; transition: var(--transition); user-select: none; }
+.skill-tag-selectable:hover { border-color: var(--primary); color: var(--primary); }
+.skill-tag-selectable.selected { background: var(--primary); color: white; border-color: var(--primary); }
+.form-actions { display: flex; gap: 12px; margin-top: 24px; }
+.form-actions .btn { flex: 1; padding: 12px 20px; border-radius: 10px; border: none; font-size: 0.95rem; cursor: pointer; transition: var(--transition); text-align: center; display: flex; align-items: center; justify-content: center; }
+.form-actions .btn-cancel { background: #f0f0f0; color: #666; }
+.form-actions .btn-cancel:hover { background: #e0e0e0; }
+.form-actions .btn-submit { background: #FFD54F; color: #333; font-weight: 600; }
+.form-actions .btn-submit:hover { background: #ffca28; }
+.dynamic-field { display: none; }
+.dynamic-field.active { display: block; }
+.add-order-fab {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%);
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(79, 195, 247, 0.45);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+.add-order-fab:hover { transform: scale(1.06); box-shadow: 0 6px 22px rgba(79, 195, 247, 0.55); }
+.add-order-fab:active { transform: scale(0.96); }
+.add-order-modal { max-width: 420px; width: 90%; padding: 0; overflow: hidden; }
+.add-order-modal .card-modal-header { padding: 20px 24px 16px 24px; text-align: center; position: relative; background: white; }
+.add-order-modal .card-modal-header h2 { margin: 0; font-size: 1.2rem; color: #333; display: inline-flex; align-items: center; gap: 8px; }
+.add-order-modal .card-modal-header h2 i { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%); color: white; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; }
+.add-order-modal .card-modal-body { padding: 0 24px 24px 24px; max-height: 70vh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.add-order-modal .card-modal-body::-webkit-scrollbar { display: none; }
+.add-order-modal .form-group { margin-bottom: 16px; }
+.add-order-modal .form-label { display: block; font-size: 0.9rem; font-weight: 600; color: #555; margin-bottom: 8px; }
+.add-order-modal .form-input,
+.add-order-modal .form-select,
+.add-order-modal .form-textarea { width: 100%; padding: 12px 14px; border: 1px solid #e8e8e8; border-radius: 10px; background: #f8faff; font-size: 0.95rem; color: #333; box-sizing: border-box; transition: var(--transition); }
+.add-order-modal .form-input:focus,
+.add-order-modal .form-select:focus,
+.add-order-modal .form-textarea:focus { outline: none; border-color: var(--primary); background: #fff; }
+.add-order-modal .form-textarea { min-height: 80px; resize: vertical; }
+.add-order-modal .form-actions { display: flex; gap: 12px; margin-top: 8px; }
+.add-order-modal .form-actions .btn { flex: 1; padding: 12px 20px; border-radius: 10px; border: none; font-size: 0.95rem; cursor: pointer; transition: var(--transition); text-align: center; }
+.add-order-modal .btn-submit { background: linear-gradient(90deg, #4FC3F7 0%, #29B6F6 100%); color: white; font-weight: 600; }
+.add-order-modal .btn-submit:hover { opacity: 0.92; }
+@media (max-width: 768px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .action-buttons { flex-direction: column; align-items: center; } .wizard-item { flex-direction: column; align-items: flex-start; } .form-actions { flex-direction: column; } .add-order-fab { right: 16px; bottom: 80px; width: 52px; height: 52px; } .add-order-modal .card-modal-body { max-height: 60vh; } }
+</style>
+</head>
+<body class="my-orders-page">
+<script>
+(function() {
+    var h = window.location.hostname;
+    window.API_BASE = (h === "localhost" || h === "127.0.0.1") ? "http://localhost:3000" : "http://192.168.1.8:3000";
+})();
+</script>
+
+<nav class="navbar">
+    <div class="nav-container">
+        <a href="../index.html" class="nav-logo">
+            <span class="logo-icon">&#9733;</span>
+            <span class="logo-text">BJ陪玩团</span>
+        </a>
+        <ul class="nav-menu">
+            <li><a href="../index.html" class="nav-link">首页</a></li>
+            <li><a href="order.html" class="nav-link">点单大厅</a></li>
+            <li><a href="members.html" class="nav-link">陪玩成员</a></li>
+            <li><a href="vip.html" class="nav-link">会员中心</a></li>
+            <li><a href="recharge.html" class="nav-link">充值中心</a></li>
+            <li><a href="join.html" class="nav-link">加入团队</a></li>
+            <li><a href="profile.html" class="nav-link active">个人中心</a></li>
+        </ul>
+        <div class="nav-actions" data-auth-url="auth.html">
+            <button class="btn-login" onclick="window.location.href='../pages/auth.html'">登录 / 注册</button>
+            <button class="hamburger" id="hamburger" onclick="toggleMenu()">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </div>
+</nav>
+
+<section class="page-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div class="container">
+        <h1><i class="fas fa-clipboard-list"></i> 我的订单</h1>
+        <p>查看和管理你的所有订单</p>
+    </div>
+</section>
+
+<section class="profile-stats" style="padding-top: 0;">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">总订单</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statActive">0</div>
+                <div class="stat-label">进行中</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statCompleted">0</div>
+                <div class="stat-label">已完成</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statSpent">&yen;0</div>
+                <div class="stat-label" id="statSpentLabel">累计消费</div>
+            </div>
+        </div>
+        
+        <div class="tab-filter">
+            <button class="tab-btn active" onclick="switchTab('all', this)">全部</button>
+            <button class="tab-btn" onclick="switchTab('board', this)">下单</button>
+            <button class="tab-btn" onclick="switchTab('wizard', this)">接单</button>
+            <button class="tab-btn" onclick="switchTab('dispatch', this)">派单</button>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="action-btn" id="myWizardBtn" onclick="openMyWizardCard()">
+                <i class="fas fa-list-alt"></i> 我的陪玩
+            </button>
+            <button class="action-btn" onclick="openMyOrdersCard()">
+                <i class="fas fa-briefcase"></i> 我的派单
+            </button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 0.9rem;">切换在线</span>
+                <div class="online-switcher" id="onlineSwitcher" onclick="toggleOnlineStatus()"></div>
+            </div>
+        </div>
+        
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <i class="fas fa-inbox"></i>
+            <p>暂无订单记录</p>
+            <p id="loginPrompt" style="display:none; margin-top:10px; font-size:0.9rem; color:#666;">请先<a href="../pages/auth.html" style="color:var(--primary);">登录</a></p>
+        </div>
+    </div>
+</section>
+
+<section class="wizard-list" style="flex: 1;">
+    <div class="container">
+        <div id="ordersList"></div>
+    </div>
+</section>
+
+<div class="card-overlay" id="myWizardCard">
+    <div class="card-modal has-sticky-header">
+        <div class="card-modal-header">
+            <span class="modal-close" onclick="closeMyWizardCard()">&times;</span>
+            <h2><i class="fas fa-list-alt"></i> 我的陪玩</h2>
+            <div class="wizard-tabs">
+                <button class="wizard-tab active" data-tab="view" onclick="switchWizardTab('view')">查看我的服务</button>
+                <button class="wizard-tab" data-tab="list" onclick="switchWizardTab('list')">上架我的服务</button>
+            </div>
+        </div>
+        <div class="card-modal-body">
+            <div id="wizardListContainer"></div>
+            <div id="wizardFormContainer" class="wizard-form">
+            <div class="form-group">
+                <label class="form-label">陪玩名称</label>
+                <input type="text" id="wfName" class="form-input" placeholder="输入您的陪玩昵称">
+            </div>
+            <div class="form-group">
+                <label class="form-label">时薪（元/小时）<span class="required">*</span></label>
+                <input type="number" id="wfPrice" class="form-input" placeholder="例如：88" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+                <label class="form-label">选择游戏<span class="required">*</span></label>
+                <select id="wfGame" class="form-select" onchange="onWizardGameChange()">
+                    <option value="">请选择游戏</option>
+                    <option value="光·遇">光·遇</option>
+                    <option value="王者荣耀">王者荣耀</option>
+                </select>
+            </div>
+            <div id="wfServerGroup" class="form-group dynamic-field">
+                <label class="form-label">区服选择</label>
+                <select id="wfServer" class="form-select">
+                    <option value="">请选择区服</option>
+                    <option value="安卓微信">安卓微信</option>
+                    <option value="安卓QQ">安卓QQ</option>
+                    <option value="苹果微信">苹果微信</option>
+                    <option value="苹果QQ">苹果QQ</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">个人简介</label>
+                <textarea id="wfIntro" class="form-textarea" placeholder="简单介绍自己..."></textarea>
+            </div>
+            <div id="wfSkillsGroup" class="form-group" style="display:none;">
+                <label class="form-label">擅长技能</label>
+                <div id="wfSkills" class="skill-tags"></div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="resetWizardForm()">取消</button>
+                <button type="button" class="btn btn-submit" onclick="submitWizardForm()"><i class="fas fa-check"></i> 立即上架</button>
+            </div>
+        </div>
+        </div>
+    </div>
+</div>
+
+<div class="card-overlay" id="myOrdersCard">
+    <div class="card-modal has-sticky-header">
+        <div class="card-modal-header">
+            <span class="modal-close" onclick="closeMyOrdersCard()">&times;</span>
+            <h2><i class="fas fa-briefcase"></i> 我的派单</h2>
+            <div class="wizard-tabs">
+                <button class="wizard-tab active" data-tab="view" onclick="switchOrdersTab('view')">查看我的派单</button>
+                <button class="wizard-tab" data-tab="list" onclick="switchOrdersTab('list')">上架我的派单</button>
+            </div>
+        </div>
+        <div class="card-modal-body">
+            <div id="ordersCardContainer"></div>
+            <div id="ordersFormContainer" class="wizard-form">
+                <div class="form-group">
+                    <label class="form-label">游戏<span class="required">*</span></label>
+                    <select id="dispatchGame" class="form-select" onchange="updateDispatchServerOptions()">
+                        <option value="">请选择游戏</option>
+                        <option value="光·遇">光·遇</option>
+                        <option value="王者荣耀">王者荣耀</option>
+                    </select>
+                </div>
+                <div class="form-group" id="dispatchServerGroup" style="display:none;">
+                    <label class="form-label">区服<span class="required">*</span></label>
+                    <select id="dispatchServer" class="form-select">
+                        <option value="">请先选择游戏</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">类型</label>
+                    <select id="dispatchType" class="form-select" onchange="onDispatchTypeChange()">
+                        <option value="">请先选择游戏</option>
+                    </select>
+                </div>
+                <div class="form-group" id="dispatchSubTypeGroup" style="display:none;">
+                    <label class="form-label">三恋类型</label>
+                    <select id="dispatchSubType" class="form-select">
+                        <option value="">请选择三恋类型</option>
+                        <option value="病恋">病恋</option>
+                        <option value="虚恋">虚恋</option>
+                        <option value="虐恋">虐恋</option>
+                    </select>
+                </div>
+                <div class="form-group" id="dispatchQtyGroup" style="display:none;">
+                    <label class="form-label">数量<span class="required">*</span></label>
+                    <input type="number" id="dispatchQty" class="form-input" placeholder="请输入数量" min="1" step="1" value="1" oninput="onDispatchQtyChange()">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">金额（元）<span class="required">*</span></label>
+                    <input type="number" id="dispatchPrice" class="form-input" placeholder="请输入金额" min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">板板</label>
+                    <input type="text" id="dispatchBoard" class="form-input" placeholder="请输入板板名称">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">称呼<span class="required">*</span></label>
+                    <input type="text" id="dispatchTitle" class="form-input" placeholder="请输入称呼">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">人数</label>
+                    <input type="number" id="dispatchPeople" class="form-input" placeholder="请输入人数" min="1" step="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">时间</label>
+                    <input type="datetime-local" id="dispatchTime" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">要求</label>
+                    <textarea id="dispatchRequirement" class="form-textarea" placeholder="可选要求说明"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" onclick="resetDispatchForm()">取消</button>
+                    <button type="button" class="btn btn-submit" onclick="submitDispatchOrder()"><i class="fas fa-check"></i> 立即上架</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card-overlay" id="confirmModal">
+    <div class="card-modal confirm-modal">
+        <h3 id="confirmTitle">提示</h3>
+        <p id="confirmMessage">确定要执行此操作吗？</p>
+        <div class="confirm-actions">
+            <button class="btn-confirm-cancel" onclick="closeConfirmModal()">取消</button>
+            <button class="btn-confirm-ok" id="confirmOkBtn" onclick="onConfirmOk()">确定</button>
+        </div>
+    </div>
+</div>
+
+<div class="card-overlay" id="wizardDetailCard">
+    <div class="card-modal">
+        <span class="modal-close" onclick="closeWizardDetailCard()">&times;</span>
+        <h2><i class="fas fa-id-card"></i> 服务详情</h2>
+        <div id="wizardDetailContainer"></div>
+    </div>
+</div>
+
+<button class="add-order-fab" id="addOrderFab" onclick="openAddOrderModal()" title="添加订单"><i class="fas fa-plus"></i></button>
+
+<div class="card-overlay" id="addOrderOverlay">
+    <div class="card-modal add-order-modal">
+        <div class="card-modal-header">
+            <span class="modal-close" onclick="closeAddOrderModal()">&times;</span>
+            <h2><i class="fas fa-plus"></i> 添加订单</h2>
+        </div>
+        <div class="card-modal-body">
+            <form id="addOrderForm" onsubmit="return false;">
+                <div class="form-group">
+                    <label class="form-label">订单编号</label>
+                    <input type="text" id="addOrderNo" class="form-input" placeholder="请输入订单编号">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">需求标题<span class="required">*</span></label>
+                    <input type="text" id="addRequestTitle" class="form-input" placeholder="请输入需求标题">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">陪玩名称</label>
+                    <input type="text" id="addWizardName" class="form-input" placeholder="请输入陪玩名称" disabled>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">服务类型</label>
+                    <input type="text" id="addServiceType" class="form-input" placeholder="如：技术、娱乐、聊天">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">游戏类型</label>
+                    <select id="addGameType" class="form-select">
+                        <option value="">请选择游戏</option>
+                        <option value="光·遇">光·遇</option>
+                        <option value="王者荣耀">王者荣耀</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">板板名称</label>
+                    <input type="text" id="addBoardName" class="form-input" placeholder="请输入板板名称">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">价格（元）</label>
+                    <input type="number" id="addPrice" class="form-input" placeholder="请输入价格" min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">下单时间</label>
+                    <input type="datetime-local" id="addOrderTime" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">备注</label>
+                    <textarea id="addRemark" class="form-textarea" placeholder="可选备注信息"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-submit" onclick="submitAddOrder()">提交订单</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>BJ陪玩团</h3>
+                <p>温暖相遇，快乐同行。</p>
+            </div>
+            <div class="footer-section">
+                <h3>快速链接</h3>
+                <ul>
+                    <li><a href="../index.html">首页</a></li>
+                    <li><a href="order.html">点单大厅</a></li>
+                    <li><a href="members.html">陪玩成员</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>下载APP</h3>
+                <ul>
+                    <li><a href="download.html"><i class="fab fa-windows"></i> Windows客户端</a></li>
+                    <li><a href="#"><i class="fab fa-android"></i> Android版</a></li>
+                    <li><a href="#"><i class="fab fa-apple"></i> iOS版</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>联系我们</h3>
+                <ul>
+                    <li><i class="fas fa-envelope"></i> support@skycompanion.com</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 BJ陪玩团 All Rights Reserved.</p>
+        </div>
+    </div>
+</footer>
+
+<script src="../js/main.js?v=202607240001"></script>
+
+<div id="toastContainer"></div>
+
+<nav class="mobile-fab-nav">
+    <div class="dock-bar">
+        <a href="../index.html" class="dock-item"><i class="fas fa-home"></i><span>首页</span></a>
+        <a href="order.html" class="dock-item"><i class="fas fa-shopping-cart"></i><span>点单</span></a>
+        <a href="members.html" class="dock-item"><i class="fas fa-users"></i><span>成员</span></a>
+        <a href="vip.html" class="dock-item"><i class="fas fa-crown"></i><span>会员</span></a>
+        <a href="recharge.html" class="dock-item"><i class="fas fa-wallet"></i><span>充值</span></a>
+        <a href="join.html" class="dock-item"><i class="fas fa-user-plus"></i><span>加入</span></a>
+        <a href="profile.html" class="dock-item"><i class="fas fa-user-circle"></i><span>我的</span></a>
+    </div>
+</nav>
+
+<script>
+(function(){
+    var p=window.location.pathname.split("/");
+    var links=document.querySelectorAll(".dock-item");
+    links.forEach(function(l){
+        var h=l.getAttribute("href");
+        if(p.length>=3 && p[p.length-2]==="pages"){
+            if(h==="index.html"){ l.href="../index.html"; }
+        }else{
+            if(h!=="index.html" && !h.startsWith("../")){ l.href="pages/"+h; }
+        }
+    });
+})();
+</script>
+<script>
+function showToast(message, type) {
+    if(type === undefined) type = "info";
+    var container = document.getElementById("toastContainer");
+    if(!container) return;
+    var toast = document.createElement("div");
+    toast.textContent = message;
+    toast.style.cssText = "position:fixed;top:80px;right:20px;padding:12px 20px;border-radius:8px;color:white;z-index:10000;animation:slideInRight 0.3s ease;";
+    if(type === "success") toast.style.background = "#4CAF50";
+    else if(type === "error") toast.style.background = "#f44336";
+    else toast.style.background = "#2196F3";
+    container.appendChild(toast);
+    setTimeout(function() {
+        toast.style.opacity = "0";
+        setTimeout(function() { toast.remove(); }, 300);
+    }, 3000);
+}
+
+var currentTab = "all";
+var currentWizardTab = "view";
+var currentOrdersTab = "view";
+
+function switchTab(tab, btn) {
+    currentTab = tab;
+    var buttons = document.querySelectorAll(".tab-btn");
+    for(var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.remove("active");
+    }
+    if(btn) btn.classList.add("active");
+    loadOrders();
+}
+
+// 当前用户资料缓存（避免 loadOrders 与 checkUserRoleAndShowButtons 重复查询 profiles）
+var currentUserProfilePromise = null;
+function getCurrentUserProfile(userId) {
+    if(!currentUserProfilePromise) {
+        currentUserProfilePromise = window.supabaseClient
+            .from("profiles")
+            .select("nickname, role, avatar_url")
+            .eq("id", userId)
+            .maybeSingle()
+            .then(function(res) { return res.data || {}; })
+            .catch(function() { return {}; });
+    }
+    return currentUserProfilePromise;
+}
+
+async function loadOrders() {
+    try {
+        // 尝试从localStorage获取用户信息
+        var userStr = null;
+        try {
+            userStr = localStorage.getItem("skyUser");
+        } catch(storageErr) {
+            console.warn("localStorage访问被阻止:", storageErr);
+            document.getElementById("emptyState").style.display = "block";
+            document.getElementById("ordersList").innerHTML = "<p style='text-align:center;padding:40px;color:#f44336;'>存储访问受限，请检查浏览器设置</p>";
+            return;
+        }
+
+        if(!userStr) {
+            document.getElementById("emptyState").style.display = "block";
+            var loginPrompt = document.getElementById("loginPrompt");
+            if(loginPrompt) loginPrompt.style.display = "block";
+            document.getElementById("ordersList").innerHTML = "";
+            return;
+        }
+
+        var user = null;
+        try {
+            user = JSON.parse(userStr);
+        } catch(jsonErr) {
+            console.error("用户数据JSON解析失败:", jsonErr);
+            document.getElementById("ordersList").innerHTML = "<p style='text-align:center;padding:40px;color:#f44336;'>用户数据格式错误，请重新登录</p>";
+            return;
+        }
+
+        // 并行发起：作为板板的订单 + 用户资料 + 接单请求 + 派的单
+        var [orders1Res, profile, requestsRes, dispatchRes] = await Promise.all([
+            window.supabaseClient
+                .from("orders")
+                .select("*")
+                .eq("user_id", user.id)
+                .order("created_at", { ascending: false }),
+            getCurrentUserProfile(user.id),
+            window.supabaseClient
+                .from("order_requests")
+                .select("*")
+                .eq("user_id", user.id)
+                .order("created_at", { ascending: false }),
+            window.supabaseClient
+                .from("dispatch_orders")
+                .select("*")
+                .eq("user_id", user.id)
+                .order("created_at", { ascending: false })
+        ]);
+
+        var orders1 = orders1Res.data || [];
+        for(var i = 0; i < orders1.length; i++) { orders1[i].order_role = "board"; }
+
+        var nickname = profile.nickname || "";
+
+        // 组装「我接的单 / 我派的单」列表
+        var orders2 = [];
+
+        // order_requests 数据
+        var rawRequests = requestsRes.data || [];
+        for(var i = 0; i < rawRequests.length; i++) {
+            var r = rawRequests[i];
+            orders2.push({
+                id: "req_" + r.id,
+                order_role: "wizard",
+                wizard_name: r.nickname,
+                service_type: r.request_title,
+                game_type: r.game_type,
+                price: r.price,
+                status: r.status,
+                remark: r.description,
+                created_at: r.created_at
+            });
+        }
+
+        // dispatch_orders 数据
+        var rawDispatch = dispatchRes.data || [];
+        for(var i = 0; i < rawDispatch.length; i++) {
+            var d = rawDispatch[i];
+            orders2.push({
+                id: "disp_" + d.id,
+                order_role: "dispatch",
+                wizard_name: d.nickname,
+                service_type: d.request_title,
+                game_type: d.game_type,
+                price: d.price,
+                status: d.status,
+                remark: d.description,
+                created_at: d.created_at
+            });
+        }
+
+        // 查询作为陪陪的订单(wizard_name)
+        if(nickname) {
+            var result2 = await window.supabaseClient
+                .from("orders")
+                .select("*")
+                .eq("wizard_name", nickname)
+                .order("created_at", { ascending: false });
+            var rawOrders2 = result2.data || [];
+            var existingIds = {};
+            for(var i = 0; i < orders1.length; i++) { existingIds[orders1[i].id] = true; }
+            for(var i = 0; i < rawOrders2.length; i++) {
+                if(!existingIds[rawOrders2[i].id]) {
+                    rawOrders2[i].order_role = "wizard";
+                    orders2.push(rawOrders2[i]);
+                }
+            }
+        }
+
+        // 合并并排序
+        var orders = orders1.concat(orders2);
+        orders.sort(function(a, b){ return new Date(b.created_at) - new Date(a.created_at); });
+
+        // 收集所有陪玩名字，从 profiles 表批量获取头像
+        var nameSet = {};
+        for(var n = 0; n < orders.length; n++) {
+            if(orders[n].wizard_name) nameSet[orders[n].wizard_name] = true;
+            // 接单卡片需要按板板名称查头像
+            if(orders[n].order_role === "wizard" && orders[n].remark) {
+                var meta = parseRequestDesc(orders[n].remark);
+                if(meta.boardName) nameSet[meta.boardName] = true;
+            }
+        }
+        var avatarMap = {};
+        var names = Object.keys(nameSet);
+        if(names.length > 0) {
+            try {
+                var profRes = await window.supabaseClient
+                    .from("profiles")
+                    .select("nickname, avatar_url")
+                    .in("nickname", names);
+                if(profRes.data) {
+                    for(var p = 0; p < profRes.data.length; p++) {
+                        avatarMap[profRes.data[p].nickname] = profRes.data[p].avatar_url || "";
+                    }
+                }
+            } catch(profErr) {
+                console.warn("批量获取头像失败:", profErr);
+            }
+        }
+
+        updateStats(orders);
+        renderOrders(orders, avatarMap);
+    } catch(e) {
+        console.error("=== 加载订单发生异常 ===");
+        console.error("错误对象:", e);
+        console.error("错误消息:", e.message);
+        console.error("错误堆栈:", e.stack);
+        document.getElementById("emptyState").style.display = "block";
+        document.getElementById("ordersList").innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p style="color:#f44336;">加载失败: ' + (e.message || "未知错误") + '</p><p style="font-size:0.85rem;color:#999;margin-top:10px;">请打开控制台查看详细错误信息</p></div>';
+    }
+}
+
+function updateStats(orders) {
+    // 根据当前标签过滤统计数据
+    var filtered = orders;
+    if(currentTab !== "all") {
+        filtered = orders.filter(function(o) { return o.order_role === currentTab; });
+    }
+    var total = filtered.length;
+    var active = 0;
+    var completed = 0;
+    var spent = 0;
+    for(var i = 0; i < filtered.length; i++) {
+        var o = filtered[i];
+        if(o.status === "pending" || o.status === "progress") active++;
+        if(o.status === "completed") completed++;
+        // 全部标签下消费统计下单（board）+ 派单（dispatch）；接单标签下统计接单收入；下单/派单标签下统计各自消费
+        if(currentTab === "all" && (o.order_role === "board" || o.order_role === "dispatch")) {
+            spent += parseFloat(o.price) || 0;
+        } else if(currentTab !== "all") {
+            spent += parseFloat(o.price) || 0;
+        }
+    }
+    document.getElementById("statTotal").textContent = total;
+    document.getElementById("statActive").textContent = active;
+    document.getElementById("statCompleted").textContent = completed;
+    document.getElementById("statSpent").textContent = "\u00a5" + spent.toFixed(0);
+    document.getElementById("statSpentLabel").textContent = currentTab === "wizard" ? "累计获取" : "累计消费";
+    document.getElementById("emptyState").style.display = total === 0 ? "block" : "none";
+}
+
+function renderOrders(orders, avatarMap) {
+    var container = document.getElementById("ordersList");
+    if(!container) return;
+
+    var filtered = orders;
+    if(currentTab !== "all") {
+        filtered = orders.filter(function(o) { return o.order_role === currentTab; });
+    }
+
+    if(filtered.length === 0) {
+        container.innerHTML = "";
+        return;
+    }
+
+    var html2 = "";
+    for(var i = 0; i < filtered.length; i++) {
+        var order = filtered[i];
+        if(order.order_role === "wizard" || order.order_role === "dispatch") {
+            html2 += renderWizardCard(order, avatarMap);
+        } else {
+            html2 += renderBoardCard(order, avatarMap);
+        }
+    }
+    container.innerHTML = html2;
+}
+
+function getOrderStatus(order) {
+    var statusClass = "status-pending";
+    var statusText = "待支付";
+    if(order.status === "completed") { statusClass = "status-completed"; statusText = "已完成"; }
+    else if(order.status === "cancelled") { statusClass = "status-cancelled"; statusText = "已取消"; }
+    else if(order.status === "progress") { statusClass = "status-progress"; statusText = "进行中"; }
+    return { cls: statusClass, text: statusText };
+}
+
+function getDispatchStatus(order) {
+    var s = (order.status || "").toLowerCase();
+    if(s === "completed" || s === "已完成") return { cls: "status-completed", text: "已完成" };
+    if(s === "progress" || s === "进行中") return { cls: "status-progress", text: "进行中" };
+    // pending / open / 待接单 或未设置都显示「待接单」
+    return { cls: "status-pending", text: "待接单" };
+}
+
+function renderBoardCard(order, avatarMap) {
+    var st = getOrderStatus(order);
+    var avatarUrl = (avatarMap && avatarMap[order.wizard_name]) ? avatarMap[order.wizard_name] : "";
+    var avatarHtml = avatarUrl
+        ? "<img src='" + avatarUrl + "' style='width:100%;height:100%;border-radius:50%;object-fit:cover;'>"
+        : "<i class='fas fa-user'></i>";
+    var metaRows = "";
+    if(order.service_type) metaRows += metaRow("服务类型", order.service_type);
+    if(order.order_no) metaRows += metaRow("订单编号", order.order_no);
+    if(order.board_name) metaRows += metaRow("板板名称", order.board_name);
+    if(order.remark) metaRows += metaRow("备注", order.remark);
+    var hasMeta = !!metaRows;
+    var avatarCol = hasMeta
+        ? "<div class='card-avatar-col'><div class='order-avatar'>" + avatarHtml + "</div><button class='card-toggle-btn' onclick='toggleCardMeta(this)'><i class='fas fa-chevron-down'></i></button></div>"
+        : "<div class='order-avatar'>" + avatarHtml + "</div>";
+    var h = "";
+    h += "<div class='order-card board-card'>";
+    h += avatarCol;
+    h += "<div class='order-main'>";
+    h += "<div class='role-tag board'>我下单的</div>";
+    h += "<div class='order-top'>";
+    h += "<div class='order-titles'>";
+    h += "<div class='order-wizard-name'>" + (order.wizard_name || "未知陪玩") + "</div>";
+    h += "<div class='order-service'>" + (order.game_type || "光·遇") + "</div>";
+    h += "</div>";
+    h += "<div class='order-right'>";
+    h += "<span class='order-status " + st.cls + "'>" + st.text + "</span>";
+    h += "<div class='order-price'>¥" + (order.price || "0") + "<small>/小时</small></div>";
+    h += "</div>";
+    h += "</div>";
+    if(metaRows) {
+        h += "<div class='order-meta'>" + metaRows + "</div>";
+    }
+    h += "<div class='order-bottom'>";
+    h += "<div class='order-date'>" + formatDate(order.created_at) + "</div>";
+    h += "</div>";
+    h += "</div>";
+    h += "</div>";
+    return h;
+}
+
+function renderWizardCard(order, avatarMap) {
+    var isDispatch = String(order.id || "").indexOf("disp_") === 0;
+    var st = isDispatch ? getDispatchStatus(order) : getOrderStatus(order);
+    var meta = parseRequestDesc(order.remark);
+    var avatarKey = meta.boardName || order.wizard_name || "";
+    var avatarUrl = (avatarMap && avatarKey && avatarMap[avatarKey]) ? avatarMap[avatarKey] : "";
+    var avatarHtml = avatarUrl
+        ? "<img src='" + avatarUrl + "' style='width:100%;height:100%;border-radius:50%;object-fit:cover;'>"
+        : "<i class='fas fa-handshake'></i>";
+    var metaRows = "";
+    if(meta.serviceType) metaRows += metaRow("服务类型", meta.serviceType);
+    if(meta.subType) metaRows += metaRow("三恋类型", meta.subType);
+    if(meta.orderNo) metaRows += metaRow("订单编号", meta.orderNo);
+    if(order.service_type) metaRows += metaRow("需求标题", order.service_type);
+    if(order.server) metaRows += metaRow("区服", order.server);
+    if(meta.people) metaRows += metaRow("人数", meta.people);
+    if(meta.qty) metaRows += metaRow("数量", meta.qty);
+    if(meta.remark) metaRows += metaRow("备注", meta.remark);
+    var h = "";
+    var hasMeta = !!metaRows;
+    var avatarCol = hasMeta
+        ? "<div class='card-avatar-col'><div class='order-avatar'>" + avatarHtml + "</div><button class='card-toggle-btn' onclick='toggleCardMeta(this)'><i class='fas fa-chevron-down'></i></button></div>"
+        : "<div class='order-avatar'>" + avatarHtml + "</div>";
+    h += "<div class='order-card wizard-card" + (isDispatch ? " dispatch-card" : "") + "'>";
+    h += avatarCol;
+    h += "<div class='order-main'>";
+    h += "<div class='role-tag " + (isDispatch ? "dispatch" : "wizard") + "'>" + (isDispatch ? "我派的单" : "我接的单") + "</div>";
+    h += "<div class='order-top'>";
+    h += "<div class='order-titles'>";
+    h += "<div class='order-wizard-name'>" + (meta.boardName || order.service_type || "接单需求") + "</div>";
+    h += "<div class='order-service'>" + (order.game_type || "光·遇") + "</div>";
+    h += "</div>";
+    h += "<div class='order-right'>";
+    h += "<span class='order-status " + st.cls + "'>" + st.text + "</span>";
+    h += "<div class='order-price'>¥" + (order.price || "0") + "<small>/小时</small></div>";
+    h += "</div>";
+    h += "</div>";
+    if(metaRows) {
+        h += "<div class='order-meta'>" + metaRows + "</div>";
+    }
+    h += "<div class='order-bottom'>";
+    h += "<div class='order-date'>" + formatDate(order.created_at) + "</div>";
+    h += "</div>";
+    h += "</div>";
+    h += "</div>";
+    return h;
+}
+
+function toggleCardMeta(btn) {
+    var card = btn.closest(".order-card");
+    if(!card) return;
+    var meta = card.querySelector(".order-meta");
+    if(!meta) return;
+    var expanded = meta.classList.toggle("expanded");
+    btn.classList.toggle("expanded", expanded);
+}
+
+function metaRow(label, value) {
+    return "<div class='meta-row'><span class='meta-label'>" + label + "</span><span class='meta-value'>" + escapeHtml(value) + "</span></div>";
+}
+
+function parseRequestDesc(desc) {
+    var map = { serviceType: "", subType: "", orderNo: "", boardName: "", remark: "", people: "", qty: "" };
+    if(!desc) return map;
+    var parts = String(desc).split("|");
+    for(var i = 0; i < parts.length; i++) {
+        var seg = parts[i].trim();
+        var idx = seg.indexOf("：");
+        if(idx === -1) idx = seg.indexOf(":");
+        if(idx === -1) continue;
+        var key = seg.substring(0, idx).trim();
+        var val = seg.substring(idx + 1).trim();
+        if(key === "服务类型") map.serviceType = val;
+        else if(key === "三恋类型") map.subType = val;
+        else if(key === "订单编号") map.orderNo = val;
+        else if(key === "板板") map.boardName = val;
+        else if(key === "备注") map.remark = val;
+        else if(key === "人数") map.people = val;
+        else if(key === "数量") map.qty = val;
+    }
+    return map;
+}
+
+
+function formatDate(dateStr) {
+    if(!dateStr) return "--";
+    var d = new Date(dateStr);
+    var now = new Date();
+    var diff = now - d;
+    var minutes = Math.floor(diff / 60000);
+    var hours = Math.floor(minutes / 60);
+    var days = Math.floor(hours / 24);
+    if(minutes < 1) return "\u521a\u521a";
+    if(minutes < 60) return minutes + "\u5206\u949f\u524d";
+    if(hours < 24) return hours + "\u5c0f\u65f6\u524d";
+    if(days < 7) return days + "\u5929\u524d";
+    return d.toLocaleDateString("zh-CN");
+}
+async function checkUserRoleAndShowButtons() {
+    try {
+        var userStr = localStorage.getItem("skyUser");
+        if(!userStr) {
+            var myWizardBtn = document.getElementById("myWizardBtn");
+            var addOrderFab = document.getElementById("addOrderFab");
+            if(myWizardBtn) myWizardBtn.style.display = "none";
+            if(addOrderFab) addOrderFab.style.display = "none";
+            return;
+        }
+
+        var user = JSON.parse(userStr);
+
+        // 复用 loadOrders 可能已经拉取过的 profiles 数据
+        var profile = await getCurrentUserProfile(user.id);
+        var role = profile.role || user.role || "";
+
+        var isWizard = role === "\u966a\u966a";
+        var myWizardBtn = document.getElementById("myWizardBtn");
+        var addOrderFab = document.getElementById("addOrderFab");
+        if(myWizardBtn) myWizardBtn.style.display = isWizard ? "" : "none";
+        if(addOrderFab) addOrderFab.style.display = isWizard ? "" : "none";
+
+        if(isWizard) {
+            // 从localStorage读取在线状态
+            var online = localStorage.getItem("skyOnlineStatus_" + user.id) === "true";
+            var switcher = document.getElementById("onlineSwitcher");
+            if(switcher) {
+                if(online) {
+                    switcher.classList.add("online");
+                } else {
+                    switcher.classList.remove("online");
+                }
+            }
+        }
+    } catch(e) {
+        console.error("\u89d2\u8272\u68c0\u67e5\u5931\u8d25:", e);
+        var myWizardBtn = document.getElementById("myWizardBtn");
+        var addOrderFab = document.getElementById("addOrderFab");
+        if(myWizardBtn) myWizardBtn.style.display = "none";
+        if(addOrderFab) addOrderFab.style.display = "none";
+    }
+}async function toggleOnlineStatus() {
+    try {
+        var userStr = localStorage.getItem("skyUser");
+        if(!userStr) {
+            showToast("请先登录", "error");
+            return;
+        }
+        
+        var user = JSON.parse(userStr);
+        
+        // 从localStorage读取在线状态（不依赖数据库字段）
+        var currentOnline = localStorage.getItem("skyOnlineStatus_" + user.id) === "true";
+        
+        var switcher = document.getElementById("onlineSwitcher");
+        // 乐观更新UI
+        if(switcher) {
+            if(currentOnline) {
+                switcher.classList.remove("online");
+            } else {
+                switcher.classList.add("online");
+            }
+        }
+        
+        // 保存到localStorage
+        var newStatus = !currentOnline;
+        localStorage.setItem("skyOnlineStatus_" + user.id, newStatus.toString());
+
+        // 同步到数据库：将该用户所有陪玩服务的在线状态更新为一致
+        var updateResult = await window.supabaseClient
+            .from("wizards")
+            .update({ status: newStatus ? "online" : "offline" })
+            .eq("user_id", user.id);
+
+        if(updateResult.error) {
+            console.error("同步在线状态到数据库失败:", updateResult.error);
+            showToast("状态已切换，但同步到服务器失败", "error");
+            return;
+        }
+
+        showToast(newStatus ? "已设置为在线" : "已设置为离线", "success");
+    } catch(e) {
+        console.error("切换状态异常:", e);
+        showToast("操作失败: " + (e.message || ""), "error");
+    }
+}async function openMyWizardCard() {
+    var overlay = document.getElementById("myWizardCard");
+    if(!overlay) return;
+    overlay.classList.add("active");
+    
+    var container = document.getElementById("wizardListContainer");
+    var formContainer = document.getElementById("wizardFormContainer");
+    if(currentWizardTab === "list") {
+        if(container) container.style.display = "none";
+        if(formContainer) formContainer.classList.add("active");
+        renderWizardSkillTags();
+        return;
+    }
+    if(container) container.style.display = "block";
+    if(formContainer) formContainer.classList.remove("active");
+    if(container) container.innerHTML = "<p style='text-align:center;padding:20px;'>\u52a0\u8f7d\u4e2d...</p>";
+    
+    try {
+        var userStr = localStorage.getItem("skyUser");
+        if(!userStr) return;
+        
+        var user = JSON.parse(userStr);
+        var result = await window.supabaseClient
+            .from("wizards")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false });
+        
+        var wizards = result.data || [];
+        
+        if(wizards.length === 0) {
+            container.innerHTML = "<p style='text-align:center;padding:20px;color:#999;'>\u6682\u65e0\u4e0a\u67b6\u7684\u966a\u73a9\u670d\u52a1</p>";
+            return;
+        }
+        
+        // 查看我的服务：展示全部服务
+        var filtered = wizards;
+
+        if(filtered.length === 0) {
+            container.innerHTML = "<p style='text-align:center;padding:20px;color:#999;'>\u6682\u65e0\u4e0a\u67b6\u7684\u966a\u73a9\u670d\u52a1</p>";
+            return;
+        }
+
+        var html = "";
+        // 优先使用本地切换状态，避免与数据库不同步
+        var cachedOnlineStr = localStorage.getItem("skyOnlineStatus_" + user.id);
+        for(var i = 0; i < filtered.length; i++) {
+            var w = filtered[i];
+            var isOnline = cachedOnlineStr !== null ? (cachedOnlineStr === "true") : (w.status === "online");
+            html += "<div class='wizard-item'>";
+            html += "<span class='wizard-status'><span class='status-badge " + (isOnline ? "status-online" : "status-offline") + "'>" + (isOnline ? "\u5728\u7ebf" : "\u79bb\u7ebf") + "</span></span>";
+            html += "<div class='wizard-info'>";
+            html += "<h3>" + (w.wizard_name || "\u672a\u77e5") + "</h3>";
+            html += "<p>\u4ef7\u683c: \u00a5" + (w.price || "29.9") + "/\u5c0f\u65f6</p>";
+            html += "<p class='wizard-desc'>\u4e2a\u4eba\u7b80\u4ecb: " + escapeHtml(w.description || "\u6682\u65e0\u4ecb\u7ecd") + "</p>";
+            html += "</div>";
+            html += "<div class='wizard-date'>\u53d1\u5e03\u65e5\u671f: " + formatDate(w.created_at) + "</div>";
+            html += "<div class='wizard-actions'>";
+            html += "<button class='btn-small btn-delete' onclick='deleteSingleWizard(\"" + escapeHtml(w.id) + "\", this)'><i class='fas fa-trash'></i> \u5220\u9664</button>";
+            html += "</div>";
+            html += "</div>";
+        }
+        container.innerHTML = html;
+    } catch(e) {
+        console.error("\u52a0\u8f7d\u966a\u73a9\u5217\u8868\u5931\u8d25:", e);
+        container.innerHTML = "<p style='text-align:center;padding:20px;color:#f44336;'>\u52a0\u8f7d\u5931\u8d25: " + e.message + "</p>";
+    }
+}
+
+function closeMyWizardCard() {
+    var overlay = document.getElementById("myWizardCard");
+    if(overlay) overlay.classList.remove("active");
+}
+
+function escapeHtml(text) {
+    if(!text) return "";
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function formatDate(value) {
+    if(!value) return "\u6682\u65e0";
+    var d = new Date(value);
+    if(isNaN(d.getTime())) return "\u6682\u65e0";
+    var y = d.getFullYear();
+    var m = ("0" + (d.getMonth() + 1)).slice(-2);
+    var day = ("0" + d.getDate()).slice(-2);
+    return y + "-" + m + "-" + day;
+}
+
+function switchWizardTab(tab) {
+    currentWizardTab = tab;
+    var tabs = document.querySelectorAll(".wizard-tab");
+    for(var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove("active");
+        if(tabs[i].getAttribute("data-tab") === tab) tabs[i].classList.add("active");
+    }
+    var listContainer = document.getElementById("wizardListContainer");
+    var formContainer = document.getElementById("wizardFormContainer");
+    if(listContainer) listContainer.style.display = (tab === "list") ? "none" : "block";
+    if(formContainer) {
+        if(tab === "list") {
+            formContainer.classList.add("active");
+            renderWizardSkillTags();
+        } else {
+            formContainer.classList.remove("active");
+        }
+    }
+    if(tab !== "list") openMyWizardCard();
+}
+
+function switchOrdersTab(tab) {
+    currentOrdersTab = tab;
+    var tabs = document.querySelectorAll("#myOrdersCard .wizard-tab");
+    for(var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove("active");
+        if(tabs[i].getAttribute("data-tab") === tab) tabs[i].classList.add("active");
+    }
+    var listContainer = document.getElementById("ordersCardContainer");
+    var formContainer = document.getElementById("ordersFormContainer");
+    if(listContainer) listContainer.style.display = (tab === "list") ? "none" : "block";
+    if(formContainer) {
+        if(tab === "list") {
+            formContainer.classList.add("active");
+        } else {
+            formContainer.classList.remove("active");
+        }
+    }
+    if(tab !== "list") openMyOrdersCard();
+}
+
+async function deleteSingleWizard(id, btn) {
+    if(!id) {
+        showToast("\u670d\u52a1 ID \u4e22\u5931\uff0c\u65e0\u6cd5\u5220\u9664", "error");
+        return;
+    }
+    showConfirmModal(
+        "\u5220\u9664\u786e\u8ba4",
+        "\u786e\u5b9a\u8981\u5220\u9664\u8fd9\u4e2a\u966a\u73a9\u670d\u52a1\u5417\uff1f\u5220\u9664\u540e\u4e0d\u53ef\u6062\u590d\u3002",
+        function(ctx) { doDeleteSingleWizard(ctx.id, ctx.btn); },
+        { id: id, btn: btn }
+    );
+}
+
+async function doDeleteSingleWizard(id, btn) {
+    var originalText = "";
+    if(btn) {
+        originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> \u5220\u9664\u4e2d";
+    }
+
+    try {
+        var result = await window.supabaseClient
+            .from("wizards")
+            .delete()
+            .eq("id", id);
+
+        if(result.error) throw result.error;
+
+        showToast("\u5220\u9664\u6210\u529f", "success");
+        openMyWizardCard();
+    } catch(e) {
+        console.error("\u5220\u9664\u5931\u8d25:", e);
+        var msg = e.message || "";
+        if(msg.indexOf("400") !== -1 || msg.indexOf("Bad Request") !== -1) {
+            msg = "\u8bf7\u6c42\u53c2\u6570\u9519\u8bef\uff0c\u8bf7\u5237\u65b0\u9875\u9762\u540e\u91cd\u8bd5";
+        } else if(msg.indexOf("401") !== -1 || msg.indexOf("403") !== -1) {
+            msg = "\u6743\u9650\u4e0d\u8db3\uff0c\u8bf7\u786e\u4fdd\u5df2\u767b\u5f55\u5e76\u62e5\u6709\u8be5\u8bb0\u5f55";
+        }
+        showToast("\u5220\u9664\u5931\u8d25: " + msg, "error");
+    } finally {
+        if(btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+}
+
+var confirmCallback = null;
+var confirmContext = null;
+
+function showConfirmModal(title, message, onOk, ctx) {
+    var overlay = document.getElementById("confirmModal");
+    var titleEl = document.getElementById("confirmTitle");
+    var msgEl = document.getElementById("confirmMessage");
+    if(!overlay || !titleEl || !msgEl) return;
+    titleEl.textContent = title || "\u63d0\u793a";
+    msgEl.textContent = message || "\u786e\u5b9a\u8981\u6267\u884c\u6b64\u64cd\u4f5c\u5417\uff1f";
+    confirmCallback = onOk;
+    confirmContext = ctx;
+    overlay.classList.add("active");
+}
+
+function closeConfirmModal() {
+    var overlay = document.getElementById("confirmModal");
+    if(overlay) overlay.classList.remove("active");
+    confirmCallback = null;
+    confirmContext = null;
+}
+
+function onConfirmOk() {
+    if(typeof confirmCallback === "function") {
+        confirmCallback(confirmContext);
+    }
+    closeConfirmModal();
+}
+
+async function deleteDispatchOrder(id, btn) {
+    if(!id) {
+        showToast("\u6d3e\u5355 ID \u4e22\u5931\uff0c\u65e0\u6cd5\u5220\u9664", "error");
+        return;
+    }
+    showConfirmModal(
+        "\u5220\u9664\u786e\u8ba4",
+        "\u786e\u5b9a\u8981\u5220\u9664\u8fd9\u4e2a\u6d3e\u5355\u5417\uff1f\u5220\u9664\u540e\u4e0d\u53ef\u6062\u590d\u3002",
+        function(ctx) { doDeleteDispatchOrder(ctx.id, ctx.btn); },
+        { id: id, btn: btn }
+    );
+}
+
+async function doDeleteDispatchOrder(id, btn) {
+    var originalText = "";
+    if(btn) {
+        originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> \u5220\u9664\u4e2d";
+    }
+
+    try {
+        var result = await window.supabaseClient
+            .from("dispatch_orders")
+            .delete()
+            .eq("id", id);
+
+        if(result.error) throw result.error;
+
+        showToast("\u5220\u9664\u6210\u529f", "success");
+        openMyOrdersCard();
+    } catch(e) {
+        console.error("\u5220\u9664\u6d3e\u5355\u5931\u8d25:", e);
+        var msg = e.message || "";
+        if(msg.indexOf("400") !== -1 || msg.indexOf("Bad Request") !== -1) {
+            msg = "\u8bf7\u6c42\u53c2\u6570\u9519\u8bef\uff0c\u8bf7\u5237\u65b0\u9875\u9762\u540e\u91cd\u8bd5";
+        } else if(msg.indexOf("401") !== -1 || msg.indexOf("403") !== -1) {
+            msg = "\u6743\u9650\u4e0d\u8db3\uff0c\u8bf7\u786e\u4fdd\u5df2\u767b\u5f55\u4e14\u8be5\u6d3e\u5355\u5c5e\u4e8e\u4f60";
+        }
+        showToast("\u5220\u9664\u5931\u8d25: " + msg, "error");
+    } finally {
+        if(btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+}
+
+async function viewWizardDetail(id) {
+    var overlay = document.getElementById("wizardDetailCard");
+    var container = document.getElementById("wizardDetailContainer");
+    if(!overlay || !container) return;
+
+    container.innerHTML = "<p style='text-align:center;padding:20px;'>\u52a0\u8f7d\u4e2d...</p>";
+    overlay.classList.add("active");
+
+    try {
+        var result = await window.supabaseClient
+            .from("wizards")
+            .select("*")
+            .eq("id", id)
+            .single();
+
+        var w = result.data;
+        if(!w) {
+            container.innerHTML = "<p style='text-align:center;padding:20px;color:#999;'>\u672a\u627e\u5230\u670d\u52a1\u4fe1\u606f</p>";
+            return;
+        }
+
+        var skillsHtml = "";
+        var skills = w.skills || [];
+        if(skills.length === 0 && w.service_type) skills = [w.service_type];
+        for(var i = 0; i < skills.length; i++) {
+            skillsHtml += "<span class='skill-tag'>" + skills[i] + "</span>";
+        }
+
+        var html = "";
+        html += "<div class='detail-section'><h4>\u966a\u73a9\u540d\u79f0</h4><p>" + (w.wizard_name || "\u672a\u77e5") + "</p></div>";
+        html += "<div class='detail-section'><h4>\u6e38\u620f</h4><p>" + (w.game_type || w.service_type || "\u672a\u8bbe\u7f6e") + "</p></div>";
+        html += "<div class='detail-section'><h4>\u4ef7\u683c</h4><p>\u00a5" + (w.price || "29.9") + " / \u5c0f\u65f6</p></div>";
+        html += "<div class='detail-section'><h4>\u72b6\u6001</h4><p><span class='status-badge " + (w.status === "online" ? "status-online" : "status-offline") + "'>" + (w.status === "online" ? "\u5728\u7ebf" : "\u79bb\u7ebf") + "</span></p></div>";
+        html += "<div class='detail-section'><h4>\u6280\u80fd\u6807\u7b7e</h4><div>" + (skillsHtml || "\u6682\u65e0\u6280\u80fd\u6807\u7b7e") + "</div></div>";
+        html += "<div class='detail-section'><h4>\u4ecb\u7ecd</h4><p>" + (w.description || "\u6682\u65e0\u4ecb\u7ecd") + "</p></div>";
+        container.innerHTML = html;
+    } catch(e) {
+        console.error("\u52a0\u8f7d\u670d\u52a1\u8be6\u60c5\u5931\u8d25:", e);
+        container.innerHTML = "<p style='text-align:center;padding:20px;color:#f44336;'>\u52a0\u8f7d\u5931\u8d25: " + e.message + "</p>";
+    }
+}
+
+function closeWizardDetailCard() {
+    var overlay = document.getElementById("wizardDetailCard");
+    if(overlay) overlay.classList.remove("active");
+}
+
+var WIZARD_GAME_CONFIG = {
+    "光·遇": {
+        skills: ["技术", "娱乐", "普陪", "琴陪", "树洞", "三恋", "驯龙", "替身", "打卡", "盲盒", "挂机陪", "换情头", "送心", "献祭", "录歌"]
+    },
+    "王者荣耀": {
+        skills: ["娱乐", "技术", "哄睡", "换情头", "录歌"]
+    }
+};
+
+function renderWizardSkillTags() {
+    var game = document.getElementById("wfGame").value;
+    var container = document.getElementById("wfSkills");
+    var group = document.getElementById("wfSkillsGroup");
+    var serverGroup = document.getElementById("wfServerGroup");
+    if(!container || !group || !serverGroup) return;
+    
+    if(!game || !WIZARD_GAME_CONFIG[game]) {
+        group.style.display = "none";
+        serverGroup.classList.remove("active");
+        container.innerHTML = "";
+        return;
+    }
+    
+    var skills = WIZARD_GAME_CONFIG[game].skills || [];
+    var html = "";
+    for(var i = 0; i < skills.length; i++) {
+        html += "<span class='skill-tag-selectable' onclick='toggleSkillTag(this)'>" + skills[i] + "</span>";
+    }
+    container.innerHTML = html;
+    group.style.display = "block";
+    
+    if(game === "王者荣耀") {
+        serverGroup.classList.add("active");
+    } else {
+        serverGroup.classList.remove("active");
+        document.getElementById("wfServer").value = "";
+    }
+}
+
+function onWizardGameChange() {
+    renderWizardSkillTags();
+}
+
+function toggleSkillTag(el) {
+    el.classList.toggle("selected");
+}
+
+function resetWizardForm() {
+    document.getElementById("wfName").value = "";
+    document.getElementById("wfPrice").value = "";
+    document.getElementById("wfGame").value = "";
+    document.getElementById("wfServer").value = "";
+    document.getElementById("wfIntro").value = "";
+    renderWizardSkillTags();
+}
+
+async function submitWizardForm() {
+    try {
+        var userStr = localStorage.getItem("skyUser");
+        if(!userStr) {
+            showToast("请先登录", "error");
+            return;
+        }
+        var user = JSON.parse(userStr);
+        
+        var name = document.getElementById("wfName").value.trim();
+        var price = parseFloat(document.getElementById("wfPrice").value);
+        var game = document.getElementById("wfGame").value;
+        var server = document.getElementById("wfServer").value;
+        var intro = document.getElementById("wfIntro").value.trim();
+        
+        if(!price || price <= 0) {
+            showToast("请输入有效的时薪", "error");
+            return;
+        }
+        if(!game) {
+            showToast("请选择游戏", "error");
+            return;
+        }
+        if(game === "王者荣耀" && !server) {
+            showToast("请选择区服", "error");
+            return;
+        }
+        
+        var selectedSkills = [];
+        var tags = document.querySelectorAll("#wfSkills .skill-tag-selectable.selected");
+        for(var i = 0; i < tags.length; i++) selectedSkills.push(tags[i].textContent);
+        
+        var gameType = game;
+        if(game === "王者荣耀" && server) gameType = game + " - " + server;
+        
+        var payload = {
+            user_id: user.id,
+            wizard_name: name || user.nickname || user.username || "未知",
+            price: price,
+            service_type: game,
+            game_type: gameType,
+            description: intro,
+            skills: selectedSkills,
+            status: "online"
+        };
+        
+        var result = await window.supabaseClient
+            .from("wizards")
+            .insert([payload]);
+        
+        if(result.error) throw result.error;
+        
+        showToast("上架成功", "success");
+        resetWizardForm();
+        switchWizardTab("view");
+    } catch(e) {
+        console.error("上架失败:", e);
+        showToast("上架失败: " + (e.message || ""), "error");
+    }
+}
+
+async function listWizard(id) {
+    closeAllWizardMenus();
+    try {
+        var result = await window.supabaseClient
+            .from("wizards")
+            .update({ status: "online" })
+            .eq("id", id);
+
+        if(result.error) throw result.error;
+
+        showToast("\u5df2\u4e0a\u67b6\u670d\u52a1", "success");
+        openMyWizardCard();
+    } catch(e) {
+        console.error("\u4e0a\u67b6\u5931\u8d25:", e);
+        showToast("\u4e0a\u67b6\u5931\u8d25: " + e.message, "error");
+    }
+}
+
+async function unlistWizard(id) {
+    closeAllWizardMenus();
+    try {
+        var result = await window.supabaseClient
+            .from("wizards")
+            .update({ status: "offline" })
+            .eq("id", id);
+
+        if(result.error) throw result.error;
+
+        showToast("\u5df2\u4e0b\u67b6\u670d\u52a1", "success");
+        openMyWizardCard();
+    } catch(e) {
+        console.error("\u4e0b\u67b6\u5931\u8d25:", e);
+        showToast("\u4e0b\u67b6\u5931\u8d25: " + e.message, "error");
+    }
+}
+
+async function openMyOrdersCard() {
+    var overlay = document.getElementById("myOrdersCard");
+    if(!overlay) return;
+    
+    var container = document.getElementById("ordersCardContainer");
+    var formContainer = document.getElementById("ordersFormContainer");
+    if(currentOrdersTab === "list") {
+        if(container) container.style.display = "none";
+        if(formContainer) formContainer.classList.add("active");
+        overlay.classList.add("active");
+        return;
+    }
+    if(container) container.style.display = "block";
+    if(formContainer) formContainer.classList.remove("active");
+    if(container) container.innerHTML = "<p style='text-align:center;padding:20px;'>\u52a0\u8f7d\u4e2d...</p>";
+    overlay.classList.add("active");
+    
+    try {
+        var userStr = localStorage.getItem("skyUser");
+        if(!userStr) return;
+        
+        var user = JSON.parse(userStr);
+        
+        // 获取当前用户昵称，orders 表用 wizard_name 而非 wizard_id
+        var nickname = "";
+        try {
+            var profileRes = await window.supabaseClient
+                .from("profiles")
+                .select("nickname")
+                .eq("id", user.id)
+                .maybeSingle();
+            if(profileRes.data) nickname = profileRes.data.nickname || "";
+        } catch(profileErr) {
+            console.warn("获取当前用户昵称失败:", profileErr);
+        }
+        
+        // 查看我的派单：从 dispatch_orders 表读取当前用户发布的派单
+        var result = await window.supabaseClient
+            .from("dispatch_orders")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false });
+        var orders = result.data || [];
+
+        if(orders.length === 0) {
+            container.innerHTML = "<p style='text-align:center;padding:20px;color:#999;'>\u6682\u65e0\u6d3e\u5355\u8bb0\u5f55</p>";
+            return;
+        }
+
+        var html = "";
+        for(var i = 0; i < orders.length; i++) {
+            var o = orders[i];
+            var st = getDispatchStatus(o);
+            var meta = parseRequestDesc(o.description);
+            var title = escapeHtml(o.request_title || o.nickname || "\u672a\u547d\u540d");
+            var infoParts = [
+                o.game_type,
+                meta.serviceType,
+                meta.subType,
+                o.server,
+                meta.boardName,
+                meta.people ? "\u4eba\u6570\uff1a" + meta.people : "",
+                meta.qty ? "\u6570\u91cf\uff1a" + meta.qty : "",
+                meta.remark
+            ].filter(function(x){ return x; });
+            var info = infoParts.length > 0 ? escapeHtml(infoParts.join(" · ")) : "\u6682\u65e0\u8be6\u60c5";
+            var price = (o.price !== null && o.price !== undefined) ? Number(o.price).toFixed(2) : "0.00";
+
+            html += "<div class='wizard-item'>";
+            html += "<span class='wizard-status'><span class='status-badge " + st.cls + "'>" + st.text + "</span></span>";
+            html += "<div class='wizard-info'>";
+            html += "<h3>" + title + "</h3>";
+            html += "<p>\u4ef7\u683c: \u00a5" + price + "</p>";
+            html += "<p class='wizard-desc'>" + info + "</p>";
+            html += "</div>";
+            html += "<div class='wizard-date'>\u53d1\u5e03\u65e5\u671f: " + formatDate(o.created_at) + "</div>";
+            html += "<div class='wizard-actions'>";
+            html += "<button class='btn-small btn-delete' onclick='deleteDispatchOrder(\"" + escapeHtml(o.id) + "\", this)'><i class='fas fa-trash'></i> \u5220\u9664</button>";
+            html += "</div>";
+            html += "</div>";
+        }
+        container.innerHTML = html;
+    } catch(e) {
+        console.error("\u52a0\u8f7d\u6d3e\u5355\u5931\u8d25:", e);
+        container.innerHTML = "<p style='text-align:center;padding:20px;color:#f44336;'>\u52a0\u8f7d\u5931\u8d25: " + e.message + "</p>";
+    }
+}
+
+function resetDispatchForm() {
+    document.getElementById("dispatchGame").value = "";
+    document.getElementById("dispatchServerGroup").style.display = "none";
+    document.getElementById("dispatchServer").innerHTML = "<option value=''>请先选择游戏</option>";
+    document.getElementById("dispatchServer").value = "";
+    var typeSel = document.getElementById("dispatchType");
+    typeSel.innerHTML = "<option value=''>请先选择游戏</option>";
+    typeSel.value = "";
+    var subTypeGroup = document.getElementById("dispatchSubTypeGroup");
+    if(subTypeGroup) subTypeGroup.style.display = "none";
+    var subTypeSel = document.getElementById("dispatchSubType");
+    if(subTypeSel) subTypeSel.value = "";
+    var qtyGroup = document.getElementById("dispatchQtyGroup");
+    if(qtyGroup) qtyGroup.style.display = "none";
+    document.getElementById("dispatchQty").value = "1";
+    var priceInput = document.getElementById("dispatchPrice");
+    priceInput.readOnly = false;
+    priceInput.style.backgroundColor = "";
+    priceInput.value = "";
+    document.getElementById("dispatchBoard").value = "";
+    document.getElementById("dispatchTitle").value = "";
+    document.getElementById("dispatchPeople").value = "";
+    document.getElementById("dispatchTime").value = "";
+    document.getElementById("dispatchRequirement").value = "";
+}
+
+function updateDispatchServerOptions() {
+    var game = document.getElementById("dispatchGame").value;
+    var serverSel = document.getElementById("dispatchServer");
+    var typeSel = document.getElementById("dispatchType");
+
+    // 选择游戏前隐藏区服，选择后显示
+    var serverGroup = document.getElementById("dispatchServerGroup");
+    var subTypeGroup = document.getElementById("dispatchSubTypeGroup");
+    if(!game) {
+        if(serverGroup) serverGroup.style.display = "none";
+        serverSel.innerHTML = "<option value=''>请先选择游戏</option>";
+        serverSel.value = "";
+        typeSel.innerHTML = "<option value=''>请先选择游戏</option>";
+        typeSel.value = "";
+        if(subTypeGroup) subTypeGroup.style.display = "none";
+        return;
+    }
+    if(serverGroup) serverGroup.style.display = "";
+    if(subTypeGroup) subTypeGroup.style.display = "none";
+
+    var serverOptions = [];
+    var typeOptions = [];
+    if(game === "光·遇") {
+        serverOptions = ["iOS", "Android", "渠道服"];
+        typeOptions = ["技术", "娱乐", "普陪", "琴陪", "树洞", "三恋", "驯龙", "替身", "打卡", "盲盒", "挂机陪", "换情头", "送心", "献祭", "录歌"];
+    } else if(game === "王者荣耀") {
+        serverOptions = ["iOS 微信区", "iOS QQ区", "Android 微信区", "Android QQ区"];
+        typeOptions = ["娱乐", "技术", "哄睡", "换情头", "录歌"];
+    }
+
+    var svHtml = "<option value=''>请选择区服</option>";
+    for(var i = 0; i < serverOptions.length; i++) {
+        svHtml += "<option value='" + serverOptions[i] + "'>" + serverOptions[i] + "</option>";
+    }
+    serverSel.innerHTML = svHtml;
+    serverSel.value = "";
+
+    var tpHtml = "<option value=''>请选择类型</option>";
+    for(var j = 0; j < typeOptions.length; j++) {
+        tpHtml += "<option value='" + typeOptions[j] + "'>" + typeOptions[j] + "</option>";
+    }
+    typeSel.innerHTML = tpHtml;
+    typeSel.value = "";
+}
+
+function onDispatchTypeChange() {
+    var game = document.getElementById("dispatchGame").value;
+    var type = document.getElementById("dispatchType").value;
+    var qtyGroup = document.getElementById("dispatchQtyGroup");
+    var subTypeGroup = document.getElementById("dispatchSubTypeGroup");
+    var subTypeSel = document.getElementById("dispatchSubType");
+    var priceInput = document.getElementById("dispatchPrice");
+    var qtyInput = document.getElementById("dispatchQty");
+
+    // 光·遇 + 三恋：显示三恋类型选择
+    if(game === "光·遇" && type === "三恋") {
+        if(subTypeGroup) subTypeGroup.style.display = "";
+    } else {
+        if(subTypeGroup) subTypeGroup.style.display = "none";
+        if(subTypeSel) subTypeSel.value = "";
+    }
+
+    if(game === "光·遇" && type === "送心") {
+        if(qtyGroup) qtyGroup.style.display = "";
+        priceInput.readOnly = true;
+        priceInput.style.backgroundColor = "#f2f2f2";
+        // 数量默认 1，金额 = 数量 × 0.3
+        var qty = parseInt(qtyInput.value, 10);
+        if(isNaN(qty) || qty < 1) { qty = 1; qtyInput.value = 1; }
+        priceInput.value = (qty * 0.3).toFixed(2);
+    } else {
+        if(qtyGroup) qtyGroup.style.display = "none";
+        priceInput.readOnly = false;
+        priceInput.style.backgroundColor = "";
+        priceInput.value = "";
+    }
+}
+
+function onDispatchQtyChange() {
+    var qtyInput = document.getElementById("dispatchQty");
+    var priceInput = document.getElementById("dispatchPrice");
+    var qty = parseInt(qtyInput.value, 10);
+    if(isNaN(qty) || qty < 1) { qty = 1; qtyInput.value = 1; }
+    priceInput.value = (qty * 0.3).toFixed(2);
+}
+
+async function submitDispatchOrder() {
+    try {
+        var session = null;
+        if (typeof getCurrentSession === "function") {
+            session = await getCurrentSession();
+        }
+        if (!session) {
+            showToast("请先登录", "error");
+            return;
+        }
+        var user = session.user;
+        
+        var profileRes = await window.supabaseClient
+            .from("profiles")
+            .select("nickname")
+            .eq("id", user.id)
+            .maybeSingle();
+        if (profileRes.error) throw profileRes.error;
+        var nickname = (profileRes.data && profileRes.data.nickname) || (user.email ? user.email.split("@")[0] : "用户");
+        
+        var gameType = document.getElementById("dispatchGame").value;
+        var server = document.getElementById("dispatchServer").value;
+        var serviceType = document.getElementById("dispatchType").value.trim();
+        var subType = document.getElementById("dispatchSubType").value.trim();
+        var qty = document.getElementById("dispatchQty").value.trim();
+        var price = parseFloat(document.getElementById("dispatchPrice").value);
+        var boardName = document.getElementById("dispatchBoard").value.trim();
+        var requestTitle = document.getElementById("dispatchTitle").value.trim();
+        var people = document.getElementById("dispatchPeople").value.trim();
+        var orderTime = document.getElementById("dispatchTime").value;
+        var remark = document.getElementById("dispatchRequirement").value.trim();
+
+        if(!gameType) { showToast("请选择游戏", "error"); return; }
+        if(!server) { showToast("请选择区服", "error"); return; }
+        if(gameType === "光·遇" && serviceType === "三恋" && !subType) { showToast("请选择三恋类型", "error"); return; }
+        if(gameType === "光·遇" && serviceType === "送心") {
+            var qtyNum = parseInt(qty, 10);
+            if(isNaN(qtyNum) || qtyNum < 1) { showToast("数量不能为0，请输入有效数量", "error"); return; }
+        }
+        if(!requestTitle) { showToast("请输入称呼", "error"); return; }
+        if(isNaN(price) || price < 0) { showToast("请输入有效的金额", "error"); return; }
+
+        var descParts = [];
+        if(serviceType) descParts.push("服务类型：" + serviceType);
+        if(gameType === "光·遇" && serviceType === "三恋" && subType) descParts.push("三恋类型：" + subType);
+        if(server) descParts.push("区服：" + server);
+        if(boardName) descParts.push("板板：" + boardName);
+        if(gameType === "光·遇" && serviceType === "送心" && qty) descParts.push("数量：" + qty);
+        if(remark) descParts.push("备注：" + remark);
+        if(people) descParts.push("人数：" + people);
+        var description = descParts.join(" | ");
+        
+        var payload = {
+            user_id: user.id,
+            nickname: nickname,
+            request_title: requestTitle,
+            game_type: gameType,
+            server: server,
+            price: price,
+            status: "pending",
+            hours: 1,
+            created_at: orderTime ? new Date(orderTime).toISOString() : new Date().toISOString()
+        };
+        if(description) payload.description = description;
+        
+        var result = await window.supabaseClient
+            .from("dispatch_orders")
+            .insert([payload]);
+        
+        if(result.error) throw result.error;
+        
+        showToast("上架成功", "success");
+        resetDispatchForm();
+        switchOrdersTab("view");
+        openMyOrdersCard();
+    } catch(e) {
+        console.error("上架派单失败:", e);
+        var msg = e.message || "";
+        if(msg.indexOf("permission denied") !== -1 || msg.indexOf("42501") !== -1) {
+            showToast("提交失败：数据库未授予 authenticated 角色 dispatch_orders 表的 INSERT 权限", "error");
+        } else {
+            showToast("提交失败: " + msg, "error");
+        }
+    }
+}
+
+function closeMyOrdersCard() {
+    var overlay = document.getElementById("myOrdersCard");
+    if(overlay) overlay.classList.remove("active");
+}
+
+// \u521d\u59cb\u5316
+document.addEventListener("DOMContentLoaded", function() {
+    if(typeof window.supabaseClient !== "undefined") {
+        initPage();
+    } else {
+        setTimeout(function() {
+            if(typeof window.supabaseClient !== "undefined") {
+                initPage();
+            }
+        }, 500);
+    }
+});
+
+function initPage() {
+    // 并行加载订单数据与角色按钮，减少首屏等待时间
+    loadOrders();
+    checkUserRoleAndShowButtons();
+}
+
+function openAddOrderModal() {
+    var overlay = document.getElementById("addOrderOverlay");
+    if(!overlay) return;
+    fillCurrentWizardName();
+    var timeInput = document.getElementById("addOrderTime");
+    if(timeInput) {
+        var now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        timeInput.value = now.toISOString().slice(0, 16);
+    }
+    overlay.classList.add("active");
+}
+
+function closeAddOrderModal() {
+    var overlay = document.getElementById("addOrderOverlay");
+    if(overlay) overlay.classList.remove("active");
+}
+
+async function fillCurrentWizardName() {
+    try {
+        var userStr = localStorage.getItem("skyUser");
+        if(!userStr) return;
+        var user = JSON.parse(userStr);
+        var input = document.getElementById("addWizardName");
+        if(!input) return;
+        if(user.nickname || user.username) {
+            input.value = user.nickname || user.username;
+            return;
+        }
+        var res = await window.supabaseClient
+            .from("profiles")
+            .select("nickname")
+            .eq("id", user.id)
+            .maybeSingle();
+        if(res.data && res.data.nickname) input.value = res.data.nickname;
+    } catch(e) {
+        console.warn("填充陪玩名称失败:", e);
+    }
+}
+
+async function submitAddOrder() {
+    try {
+        // 必须先登录，获取 session 才能以真实用户身份提交
+        var session = null;
+        if (typeof getCurrentSession === "function") {
+            session = await getCurrentSession();
+        }
+        if (!session) {
+            showToast("请先登录", "error");
+            return;
+        }
+        var user = session.user;
+
+        // 只有陪陪身份才能添加接单；同时取出昵称用于 order_requests.nickname
+        var profileRes = await window.supabaseClient
+            .from("profiles")
+            .select("role,nickname")
+            .eq("id", user.id)
+            .maybeSingle();
+        if (profileRes.error) throw profileRes.error;
+        if (!profileRes.data || profileRes.data.role !== "陪陪") {
+            showToast("只有陪陪身份才能添加接单", "error");
+            return;
+        }
+        var nickname = profileRes.data.nickname || (user.email ? user.email.split("@")[0] : "陪陪");
+
+        var orderNo = document.getElementById("addOrderNo").value.trim();
+        var requestTitle = document.getElementById("addRequestTitle").value.trim();
+        var serviceType = document.getElementById("addServiceType").value.trim();
+        var gameType = document.getElementById("addGameType").value;
+        var boardName = document.getElementById("addBoardName").value.trim();
+        var price = parseFloat(document.getElementById("addPrice").value);
+        var orderTime = document.getElementById("addOrderTime").value;
+        var remark = document.getElementById("addRemark").value.trim();
+
+        if(!requestTitle) { showToast("请输入需求标题", "error"); return; }
+        if(!serviceType) { showToast("请输入服务类型", "error"); return; }
+        if(!gameType) { showToast("请选择游戏类型", "error"); return; }
+        if(isNaN(price) || price < 0) { showToast("请输入有效的价格", "error"); return; }
+
+        var descParts = [];
+        if(serviceType) descParts.push("服务类型：" + serviceType);
+        if(boardName) descParts.push("板板：" + boardName);
+        if(remark) descParts.push("备注：" + remark);
+        if(orderNo) descParts.push("订单编号：" + orderNo);
+        var description = descParts.join(" | ");
+
+        var payload = {
+            user_id: user.id,
+            nickname: nickname,
+            request_title: requestTitle,
+            game_type: gameType,
+            price: price,
+            status: "completed",
+            hours: 1,
+            created_at: orderTime ? new Date(orderTime).toISOString() : new Date().toISOString()
+        };
+        if(description) payload.description = description;
+
+        var result = await window.supabaseClient
+            .from("order_requests")
+            .insert([payload]);
+
+        if(result.error) throw result.error;
+
+        showToast("提交成功", "success");
+        closeAddOrderModal();
+        document.getElementById("addOrderForm").reset();
+        fillCurrentWizardName();
+    } catch(e) {
+        console.error("提交订单失败:", e);
+        var msg = e.message || "";
+        if(msg.indexOf("permission denied") !== -1 || msg.indexOf("42501") !== -1) {
+            showToast("提交失败：数据库未授予 authenticated 角色 order_requests 表的 INSERT 权限，请在 Supabase SQL Editor 中执行授权 SQL", "error");
+        } else {
+            showToast("提交失败: " + msg, "error");
+        }
+    }
+}
+
+window.openAddOrderModal = openAddOrderModal;
+window.closeAddOrderModal = closeAddOrderModal;
+window.submitAddOrder = submitAddOrder;
+window.openMyWizardCard = openMyWizardCard;
+window.closeMyWizardCard = closeMyWizardCard;
+window.openMyOrdersCard = openMyOrdersCard;
+window.closeMyOrdersCard = closeMyOrdersCard;
+window.switchOrdersTab = switchOrdersTab;
+window.submitDispatchOrder = submitDispatchOrder;
+window.deleteDispatchOrder = deleteDispatchOrder;
+window.deleteSingleWizard = deleteSingleWizard;
+window.closeConfirmModal = closeConfirmModal;
+window.onConfirmOk = onConfirmOk;
+window.resetDispatchForm = resetDispatchForm;
+window.updateDispatchServerOptions = updateDispatchServerOptions;
+window.onDispatchTypeChange = onDispatchTypeChange;
+window.onDispatchQtyChange = onDispatchQtyChange;
+window.closeWizardDetailCard = closeWizardDetailCard;
+window.viewWizardDetail = viewWizardDetail;
+window.listWizard = listWizard;
+window.unlistWizard = unlistWizard;
+window.switchWizardTab = switchWizardTab;
+window.toggleOnlineStatus = toggleOnlineStatus;
+window.toggleCardMeta = toggleCardMeta;
+window.switchTab = switchTab;
+window.loadOrders = loadOrders;
+window.onWizardGameChange = onWizardGameChange;
+window.toggleSkillTag = toggleSkillTag;
+window.resetWizardForm = resetWizardForm;
+window.submitWizardForm = submitWizardForm;
+</script>
+</body>
+</html>
