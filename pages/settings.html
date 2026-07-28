@@ -414,7 +414,15 @@
                         if(imgEl&&imgEl.src&&!imgEl.src.includes('fas fa-user')){
                             avatarUrl=imgEl.src;
                         }
-                        var updateData={nickname:document.getElementById('editNickname').value,sky_id:document.getElementById('editSkyId').value,game_type:document.getElementById('editGameType').value,wangzhe_id:document.getElementById('editWangzheId').value,server:document.getElementById('editServer').value};
+                        var nicknameInput = document.getElementById('editNickname').value.trim();
+                        if (!nicknameInput) { showNotification('昵称不能为空', 'error'); return; }
+                        var [dupNick, dupUser] = await Promise.all([
+                            window.supabaseClient.from('profiles').select('id').eq('nickname', nicknameInput).neq('id', userId).maybeSingle(),
+                            window.supabaseClient.from('profiles').select('id').eq('username', nicknameInput).neq('id', userId).maybeSingle()
+                        ]);
+                        if (dupNick.data || dupUser.data) { showNotification('该名称已被占用，请更换其他昵称', 'error'); return; }
+
+                        var updateData={nickname:nicknameInput,sky_id:document.getElementById('editSkyId').value,game_type:document.getElementById('editGameType').value,wangzhe_id:document.getElementById('editWangzheId').value,server:document.getElementById('editServer').value};
                         if(avatarUrl)updateData.avatar_url=avatarUrl;
                         var res=await window.supabaseClient.from('profiles').update(updateData).eq('id',userId);
                         if(res.error)throw res.error;
@@ -424,7 +432,7 @@
                             if (updateData.sky_id) su.sky_id = updateData.sky_id;
                             if (updateData.wangzhe_id !== undefined) su.wangzhe_id = updateData.wangzhe_id;
                             if (updateData.server) su.server = updateData.server;
-                            if (updateData.nickname) su.username = updateData.nickname;
+                            if (updateData.nickname) { su.username = updateData.nickname; su.nickname = updateData.nickname; }
                             if (updateData.avatar_url) su.avatar = updateData.avatar_url;
                             localStorage.setItem('skyUser', JSON.stringify(su));
                         } catch (ex) {}
@@ -450,6 +458,7 @@
             inner.appendChild(createInputGroup("当前密码","currentPwd","请输入当前密码"));
             inner.appendChild(createInputGroup("新密码","newPwd","请输入新密码（至少6位）"));
             inner.appendChild(createInputGroup("确认新密码","confirmPwd","请再次输入新密码"));
+            inner.appendChild(createInputGroup("注册邮箱","verifyEmail","请输入注册邮箱验证身份","email"));
             var btnRow=document.createElement("div");
             btnRow.style.cssText="display:flex;gap:12px;padding:0 30px 25px;";
             var cancelBtn=document.createElement("button");
@@ -459,18 +468,20 @@
             var submitBtn=document.createElement("button");
             submitBtn.textContent="确认修改";
             submitBtn.style.cssText="flex:1;background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;border:none;border-radius:10px;padding:11px 0;font-size:0.95rem;font-weight:600;cursor:pointer;";
-            submitBtn.onclick=function(){
+            submitBtn.onclick=async function(){
                 var current=document.getElementById("currentPwd").value;
                 var newP=document.getElementById("newPwd").value;
                 var confirm=document.getElementById("confirmPwd").value;
+                var verifyEmail=document.getElementById("verifyEmail").value.trim();
                 if(!current){showMsg(card,"请输入当前密码","#f44336");return;}
                 if(!newP||newP.length<6){showMsg(card,"新密码至少6位","#f44336");return;}
                 if(newP!==confirm){showMsg(card,"两次密码不一致","#f44336");return;}
                 if(current===newP){showMsg(card,"新密码不能与当前密码相同","#f44336");return;}
+                if(!verifyEmail){showMsg(card,"请输入注册邮箱","#f44336");return;}
                 submitBtn.textContent="修改中...";submitBtn.disabled=true;
-                changePassword(current,newP,function(success,msg){
+                changePassword(current,newP,verifyEmail,function(success,msg){
                     submitBtn.textContent="确认修改";submitBtn.disabled=false;
-                    if(success){overlay.remove();showMsg(card,"密码修改成功","#43e97b");setTimeout(function(){window.location.href="../index.html";},1500);}
+                    if(success){overlay.remove();showNotification("密码修改成功","success");setTimeout(function(){window.location.href="../index.html";},1500);}
                     else{showMsg(card,msg||"修改失败","#f44336");}
                 });
             };
@@ -480,14 +491,14 @@
             overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
         }
 
-        function createInputGroup(labelText,inputId,placeholder){
+        function createInputGroup(labelText,inputId,placeholder,inputType){
             var div=document.createElement("div");
             div.style.cssText="margin-bottom:16px;";
             var label=document.createElement("label");
             label.style.cssText="display:block;margin-bottom:6px;font-size:0.85rem;color:#6b7280;";
             label.textContent=labelText;
             var input=document.createElement("input");
-            input.type="password";input.id=inputId;input.placeholder=placeholder;
+            input.type=inputType||"password";input.id=inputId;input.placeholder=placeholder;
             input.style.cssText="width:100%;padding:10px 14px;border:1px solid #e5e7eb;border-radius:10px;font-size:0.95rem;box-sizing:border-box;outline:none;transition:border 0.2s;";
             input.addEventListener("focus",function(){this.style.borderColor="#4facfe";});
             input.addEventListener("blur",function(){this.style.borderColor="#e5e7eb";});
@@ -501,13 +512,19 @@
             setTimeout(function(){if(div.parentNode)div.remove();},3000);
         }
 
-        function changePassword(currentPwd,newPwd,callback){
+        function changePassword(currentPwd,newPwd,verifyEmail,callback){
             if(typeof window.supabaseClient==="undefined"||!window.supabaseClient){callback(false,"系统初始化中，请稍后再试");return;}
             window.supabaseClient.auth.getUser().then(function(userRes){
                 if(!userRes.data.user){callback(false,"请先登录");return;}
-                window.supabaseClient.auth.updateUser({password:newPwd}).then(function(res){
-                    if(res.error){callback(false,res.error.message);}else{callback(true,"success");}
-                }).catch(function(err){callback(false,err.message||"修改失败");});
+                var userEmail=userRes.data.user.email;
+                if(userEmail!==verifyEmail){callback(false,"注册邮箱与当前账号不匹配");return;}
+                // 用当前密码登录一次，验证当前密码是否正确
+                window.supabaseClient.auth.signInWithPassword({email:userEmail,password:currentPwd}).then(function(signInRes){
+                    if(signInRes.error){callback(false,"当前密码不正确");return;}
+                    window.supabaseClient.auth.updateUser({password:newPwd}).then(function(res){
+                        if(res.error){callback(false,res.error.message);}else{callback(true,"success");}
+                    }).catch(function(err){callback(false,err.message||"修改失败");});
+                }).catch(function(err){callback(false,err.message||"当前密码校验失败");});
             }).catch(function(err){callback(false,err.message||"获取用户信息失败");});
         }
     </script>

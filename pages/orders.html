@@ -381,7 +381,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">人数</label>
-                    <input type="number" id="dispatchPeople" class="form-input" placeholder="请输入人数" min="1" step="1">
+                    <input type="number" id="dispatchPeople" class="form-input" placeholder="请输入人数" min="1" step="1" oninput="onDispatchPeopleInput()">
                 </div>
                 <div class="form-group">
                     <label class="form-label">时间</label>
@@ -1355,6 +1355,51 @@ async function doDeleteDispatchOrder(id, btn) {
     }
 }
 
+async function completeDispatchOrder(id, btn) {
+    if(!id) {
+        showToast("\u6d3e\u5355 ID \u4e22\u5931\uff0c\u65e0\u6cd5\u5b8c\u6210", "error");
+        return;
+    }
+    showConfirmModal(
+        "\u5b8c\u6210\u8ba2\u5355",
+        "\u786e\u5b9a\u8981\u5c06\u8be5\u6d3e\u5355\u6807\u8bb0\u4e3a\u5df2\u5b8c\u6210\u5417\uff1f",
+        function(ctx) { doCompleteDispatchOrder(ctx.id, ctx.btn); },
+        { id: id, btn: btn }
+    );
+}
+
+async function doCompleteDispatchOrder(id, btn) {
+    var originalText = "";
+    if(btn) {
+        originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> \u5904\u7406\u4e2d";
+    }
+    try {
+        var result = await window.supabaseClient
+            .from("dispatch_orders")
+            .update({ status: "\u5df2\u5b8c\u6210" })
+            .eq("id", id);
+        if(result.error) throw result.error;
+        showToast("\u8ba2\u5355\u5df2\u5b8c\u6210", "success");
+        openMyOrdersCard();
+    } catch(e) {
+        console.error("\u5b8c\u6210\u6d3e\u5355\u5931\u8d25:", e);
+        var msg = e.message || "";
+        if(msg.indexOf("400") !== -1 || msg.indexOf("Bad Request") !== -1) {
+            msg = "\u8bf7\u6c42\u53c2\u6570\u9519\u8bef\uff0c\u8bf7\u5237\u65b0\u9875\u9762\u540e\u91cd\u8bd5";
+        } else if(msg.indexOf("401") !== -1 || msg.indexOf("403") !== -1 || msg.indexOf("permission denied") !== -1 || msg.indexOf("42501") !== -1) {
+            msg = "\u6743\u9650\u4e0d\u8db3\uff0c\u8bf7\u786e\u4fdd\u5df2\u767b\u5f55\u4e14\u8be5\u6d3e\u5355\u5c5e\u4e8e\u4f60";
+        }
+        showToast("\u5b8c\u6210\u5931\u8d25: " + msg, "error");
+    } finally {
+        if(btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+}
+
 async function viewWizardDetail(id) {
     var overlay = document.getElementById("wizardDetailCard");
     var container = document.getElementById("wizardDetailContainer");
@@ -1632,6 +1677,9 @@ async function openMyOrdersCard() {
             html += "</div>";
             html += "<div class='wizard-date'>\u53d1\u5e03\u65e5\u671f: " + formatDate(o.created_at) + "</div>";
             html += "<div class='wizard-actions'>";
+            if(st.text === "\u8fdb\u884c\u4e2d") {
+                html += "<button class='btn-small' style='background:linear-gradient(135deg,#43e97b,#38f9d7);color:#fff;border:none;border-radius:8px;margin-right:8px;' onclick='completeDispatchOrder(\"" + escapeHtml(o.id) + "\", this)'><i class='fas fa-check'></i> \u5b8c\u6210</button>";
+            }
             html += "<button class='btn-small btn-delete' onclick='deleteDispatchOrder(\"" + escapeHtml(o.id) + "\", this)'><i class='fas fa-trash'></i> \u5220\u9664</button>";
             html += "</div>";
             html += "</div>";
@@ -1769,6 +1817,19 @@ function onDispatchQtyChange() {
     if(isNaN(qty) || qty < 1) { qty = 1; qtyInput.value = 1; }
     priceInput.value = (qty * 0.3).toFixed(2);
     calcDispatchCoupon();
+    onDispatchPeopleInput();
+}
+
+function onDispatchPeopleInput() {
+    var type = document.getElementById("dispatchType").value;
+    if(type !== "送心") return;
+    var peopleInput = document.getElementById("dispatchPeople");
+    var qtyInput = document.getElementById("dispatchQty");
+    if(!peopleInput || !qtyInput) return;
+    var people = parseInt(peopleInput.value, 10);
+    var qty = parseInt(qtyInput.value, 10) || 1;
+    if(isNaN(people) || people < 1) { peopleInput.value = ""; return; }
+    if(people > qty) { peopleInput.value = qty; }
 }
 
 function toggleDispatchCouponSection() {
@@ -1940,6 +2001,9 @@ async function submitDispatchOrder() {
         if(gameType === "光·遇" && serviceType === "送心") {
             var qtyNum = parseInt(qty, 10);
             if(isNaN(qtyNum) || qtyNum < 1) { showToast("数量不能为0，请输入有效数量", "error"); return; }
+            var peopleNum = parseInt(people, 10);
+            if(isNaN(peopleNum) || peopleNum < 1) { showToast("人数不能为0或负数", "error"); return; }
+            if(peopleNum > qtyNum) { showToast("人数不能超过数量", "error"); return; }
         }
         if(!requestTitle) { showToast("请输入称呼", "error"); return; }
         if(isNaN(price) || price < 0) { showToast("请输入有效的金额", "error"); return; }

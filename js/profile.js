@@ -259,6 +259,7 @@ const wEl = document.getElementById('wangzheIdValue');
 
             user.server = profile.server;
             user.username = profile.nickname || displayName;
+            if (profile.nickname) user.nickname = profile.nickname;
             if(profile.avatar_url) user.avatar = profile.avatar_url;
             localStorage.setItem('skyUser', JSON.stringify(user));
 
@@ -398,8 +399,9 @@ async function loadStats() {
         const favoritesCount = (favoritesRes.data || []).length;
         const balance = parseFloat(profile.balance) || 0;
 
-        // 同步余额到 localStorage
+        // 同步余额与昵称到 localStorage
         user.balance = balance;
+        if (profile.nickname) { user.nickname = profile.nickname; user.username = profile.nickname; }
         localStorage.setItem('skyUser', JSON.stringify(user));
 
         const orderEl = document.getElementById('profileOrderCount');
