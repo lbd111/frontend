@@ -11,14 +11,6 @@ function formatVipExpire(expireAt) {
         }
 // BJ陪玩团 - 个人中心交互
 // ============================================
-<<<<<<< HEAD
-=======
-
-function showMyOrders() {
-    const modal = document.getElementById('ordersModal');
-    if (modal) { modal.classList.add('active'); document.body.style.overflow = 'hidden'; }
-}
->>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
 
 function showCoupons() {
     const modal = document.getElementById('couponsModal');
@@ -121,22 +113,35 @@ async function loadCouponsList() {
     const list = document.getElementById('dynamicCouponsList');
     if (!list) return;
 
-    if (error || !coupons || coupons.length === 0) {
+    if (error) {
+        list.innerHTML = '<div class="coupon-empty"><i class="fas fa-ticket-alt"></i><p>加载失败</p></div>';
+        return;
+    }
+
+    const cleanCoupons = typeof deleteExpiredCoupons === 'function'
+        ? await deleteExpiredCoupons(coupons || [])
+        : (coupons || []);
+
+    if (!cleanCoupons || cleanCoupons.length === 0) {
         list.innerHTML = '<div class="coupon-empty"><i class="fas fa-ticket-alt"></i><p>暂无优惠券</p></div>';
         return;
     }
 
     let html = '';
-    coupons.forEach(c => {
-        const amount = c.amount || 0;
+    cleanCoupons.forEach(c => {
+        const amount = parseFloat(c.amount) || 0;
         const condition = c.condition || '';
         const expireDate = c.expire_date || '长期有效';
         const used = c.used || false;
         const statusClass = used ? 'used' : 'active';
         const statusText = used ? '已使用' : '未使用';
+        const isPercent = c.type === 'percent';
+        const amountHtml = isPercent
+            ? '<div class="coupon-amount">' + Math.round((1 - amount) * 100) + '折</div>'
+            : '<div class="coupon-amount">￥' + amount.toFixed(2) + '</div>';
         html += '<div class="coupon-item ' + statusClass + '">' +
             '<div class="coupon-left">' +
-            '<div class="coupon-amount">￥' + amount.toFixed(2) + '</div>' +
+            amountHtml +
             '<div class="coupon-condition">' + condition + '</div>' +
             '</div>' +
             '<div class="coupon-right">' +
@@ -205,10 +210,6 @@ const wEl = document.getElementById('wangzheIdValue');
                 avatarContainer.innerHTML = '<img src="' + user.avatar + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
             }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
             const skyIdEl = document.getElementById('skyIdValue');
             if (skyIdEl) skyIdEl.textContent = profile.sky_id || '未设置';
             var wMeta1 = document.getElementById('metaWangzheId'); var wEl1 = document.getElementById('wangzheIdValue'); if (wMeta1 && wEl1) { wMeta1.style.display = 'inline'; wEl1.textContent = profile.wangzhe_id || '未设置'; }
@@ -260,7 +261,12 @@ const wEl = document.getElementById('wangzheIdValue');
             user.username = profile.nickname || displayName;
             if(profile.avatar_url) user.avatar = profile.avatar_url;
             localStorage.setItem('skyUser', JSON.stringify(user));
-        
+
+            // 同步刷新顶部导航栏头像/昵称
+            if (typeof window.updateNavUser === 'function') {
+                window.updateNavUser();
+            }
+
             // Show role from profile data
             const roleEl = document.getElementById('roleIdDisplay');
             if (roleEl) {
@@ -288,7 +294,6 @@ const wEl = document.getElementById('wangzheIdValue');
             if (regTimeEl) {
                 regTimeEl.textContent = user.register_time ? new Date(user.register_time).toLocaleString('zh-CN').replace(/\//g, '-') : new Date().toLocaleDateString('zh-CN');
             }
-<<<<<<< HEAD
             // Display rating from localStorage
             const ratingEl2 = document.getElementById('ratingValue');
             const metaRating2 = document.getElementById('metaRating');
@@ -304,12 +309,6 @@ const wEl = document.getElementById('wangzheIdValue');
             }
             // Also display avatar from localStorage if no profile avatar
             
-=======
-            // Also display avatar from localStorage if no profile avatar
-            
-            
-
->>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
             // Show role (banban/peipei)
             const roleEl = document.getElementById('roleIdDisplay');
             if (roleEl) {
@@ -356,48 +355,63 @@ async function loadStats() {
             return;
         }
 
-        // 统计我的订单：与 orders.html「全部」标签保持一致
-        // 包括：我下单的(orders.user_id) + 我接单的(orders.wizard_name) + 我发布的接单(order_requests.user_id) + 我发布的派单(dispatch_orders.user_id)
-        let nickname = '';
-        try {
-            const profileRes = await window.supabaseClient
-                .from('profiles')
-                .select('nickname')
-                .eq('id', user.id)
-                .maybeSingle();
-            if (profileRes.data) nickname = profileRes.data.nickname || '';
-        } catch(e) {}
+        // 并行查询：用户资料、普通订单、接单求助、派的单、优惠券、收藏
+        // 注意：Supabase 查询构建器不是原生 Promise，不能直接用 .catch()
+        const [profileRes, ordersRes, requestsRes, dispatchRes, couponsRes, favoritesRes] = await Promise.all([
+            (async () => { try { return await window.supabaseClient.from('profiles').select('nickname, balance').eq('id', user.id).maybeSingle(); } catch(e) { return { data: null, error: e }; } })(),
+            (async () => { try { return await window.supabaseClient.from('orders').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await window.supabaseClient.from('order_requests').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await window.supabaseClient.from('coupons').select('*').eq('user_id', user.id).eq('used', false); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await window.supabaseClient.from('favorites').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })()
+        ]);
 
-        const boardPromise = window.supabaseClient.from('orders').select('id').eq('user_id', user.id);
-        const wizardPromise = nickname
-            ? window.supabaseClient.from('orders').select('id').eq('wizard_name', nickname)
-            : Promise.resolve({ data: [] });
-        const reqPromise = window.supabaseClient.from('order_requests').select('id').eq('user_id', user.id);
-        const dispPromise = window.supabaseClient.from('dispatch_orders').select('id').eq('user_id', user.id);
+        const profile = profileRes.data || {};
+        const nickname = profile.nickname || user.nickname || '';
 
-        const [boardRes, wizardRes, reqRes, dispRes] = await Promise.all([boardPromise, wizardPromise, reqPromise, dispPromise]);
-        const idSet = {};
-        (boardRes.data || []).forEach(o => { if(o.id) idSet['o_' + o.id] = true; });
-        (wizardRes.data || []).forEach(o => { if(o.id) idSet['o_' + o.id] = true; });
-        (reqRes.data || []).forEach(o => { if(o.id) idSet['r_' + o.id] = true; });
-        (dispRes.data || []).forEach(o => { if(o.id) idSet['d_' + o.id] = true; });
-        const ordersCount = Object.keys(idSet).length;
+        // 若有昵称，再查作为陪陪接取的普通订单
+        let wizardOrders = [];
+        if (nickname) {
+            try {
+                const res = await window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname);
+                wizardOrders = res.data || [];
+            } catch(e) { wizardOrders = []; }
+        }
 
-        const coupons = await supabaseGet('coupons', ['user_id=eq.' + user.id, 'used=eq.false']);
-        const couponsCount = coupons.data ? coupons.data.length : 0;
+        // 合并所有「我的订单」并去重（按原表标识）
+        const seen = {};
+        const allOrders = [];
+        function addOrder(item, role) {
+            const key = role + '_' + (item.id || item.uuid);
+            if (seen[key]) return;
+            seen[key] = true;
+            item.order_role = role;
+            allOrders.push(item);
+        }
+        (ordersRes.data || []).forEach(o => addOrder(o, 'board'));
+        (wizardOrders || []).forEach(o => addOrder(o, 'wizard'));
+        (requestsRes.data || []).forEach(r => addOrder(r, 'request'));
+        (dispatchRes.data || []).forEach(d => addOrder(d, 'dispatch'));
 
-        const favorites = await supabaseGet('favorites', ['user_id=eq.' + user.id]);
-        const favoritesCount = favorites.data ? favorites.data.length : 0;
+        const ordersCount = allOrders.length;
+        const couponsCount = (couponsRes.data || []).length;
+        const favoritesCount = (favoritesRes.data || []).length;
+        const balance = parseFloat(profile.balance) || 0;
 
-        const balance = await syncBalanceFromDB();
+        // 同步余额到 localStorage
+        user.balance = balance;
+        localStorage.setItem('skyUser', JSON.stringify(user));
 
-        const statCards = document.querySelectorAll('.stat-card');
-        if (statCards[0]) { const v = statCards[0].querySelector('.stat-value'); if (v) v.textContent = ordersCount; }
-        if (statCards[1]) { const v = statCards[1].querySelector('.stat-value'); if (v) v.textContent = favoritesCount; }
-        if (statCards[2]) { const v = statCards[2].querySelector('.stat-value'); if (v) v.textContent = couponsCount; }
-        if (statCards[3]) { const v = statCards[3].querySelector('.stat-value'); if (v) v.textContent = '\uFFE5' + (balance || 0).toFixed(2); }
+        const orderEl = document.getElementById('profileOrderCount');
+        if (orderEl) orderEl.textContent = ordersCount;
+        const favEl = document.getElementById('profileFavoriteCount');
+        if (favEl) favEl.textContent = favoritesCount;
+        const couponEl = document.getElementById('profileCouponCount');
+        if (couponEl) couponEl.textContent = couponsCount;
+        const balanceEl = document.getElementById('profileBalanceValue');
+        if (balanceEl) balanceEl.textContent = '\uFFE5' + balance.toFixed(2);
 
-        console.log('统计数据加载完成');
+        console.log('统计数据加载完成:', { ordersCount, couponsCount, favoritesCount, balance });
     } catch (err) {
         console.error('加载统计失败:', err);
     }

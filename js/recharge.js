@@ -2,7 +2,7 @@
 // BJ陪玩团 - 充值中心交互
 // ============================================
 
-let selectedRechargeAmount = 50;
+let selectedRechargeAmount = 1;
 
 // --- 选择充值方案 ---
 function selectPlan(card, amount) {
@@ -68,6 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const firstCard = document.querySelector('.plan-card:not(.custom)');
     if (firstCard) {
         firstCard.style.borderColor = 'var(--primary)';
+        const onclickAttr = firstCard.getAttribute('onclick');
+        const match = onclickAttr && onclickAttr.match(/selectPlan\(this,\s*([\d.]+)\)/);
+        if (match) {
+            selectedRechargeAmount = parseFloat(match[1]);
+        }
     }
 
     // 从数据库加载余额并更新页面

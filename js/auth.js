@@ -39,22 +39,12 @@ async function checkAuthStatus() {
     try {
         const session = await getCurrentSession();
         if (session) {
-<<<<<<< HEAD
-            // 默认使用邮箱前缀作为显示名称，优先从 profiles 读取 nickname
-            let displayName = session.user.email?.split('@')[0] || '玩家';
-
-            let avatar = '';
-            try {
-                const pr = await window.supabaseClient.from('profiles').select('nickname,avatar_url').eq('id', session.user.id).single();
-                if (pr.data?.nickname) displayName = pr.data.nickname;
-=======
             // 默认使用邮箱前缀作为显示名称
             const displayName = session.user.email?.split('@')[0] || '玩家';
 
             let avatar = '';
             try {
                 const pr = await window.supabaseClient.from('profiles').select('avatar_url').eq('id', session.user.id).single();
->>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
                 if (pr.data?.avatar_url) avatar = pr.data.avatar_url;
             } catch(e) {}
             

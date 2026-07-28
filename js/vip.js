@@ -182,10 +182,18 @@ async function activateVip() {
 
     // 扣款 + 开通
     const newBalance = (currentBalance - VIP_PRICE_MONTHLY).toFixed(2);
+    const now = new Date();
+    const vipExpireAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const firstCouponExpire = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const { error: updateErr } = await window.supabaseClient
         .from('profiles')
-        .update({ level: "VIP会员", balance: newBalance, vip_expire_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() })
+        .update({
+            level: "VIP会员",
+            balance: newBalance,
+            vip_expire_at: vipExpireAt,
+            vip_coupon_last_granted_at: now.toISOString()
+        })
         .eq('id', user.id);
 
     if (updateErr) {
@@ -195,19 +203,20 @@ async function activateVip() {
 
     // 更新 localStorage
     user.level = 'VIP会员';
-
-    user.vip_expire_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    user.vip_expire_at = vipExpireAt;
+    user.vip_coupon_last_granted_at = now.toISOString();
     localStorage.setItem('skyUser', JSON.stringify(user));
 
-    // 发放首周优惠券
+    // 发放首周 95 折无门槛优惠券
     try {
         await window.supabaseClient
             .from('coupons')
             .insert({
                 user_id: user.id,
-
+                type: 'percent',
                 amount: 0.05,
                 condition: '无门槛',
+                expire_date: firstCouponExpire,
                 used: false
             });
     } catch (e) {

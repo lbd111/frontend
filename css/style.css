@@ -1187,6 +1187,12 @@ section {
     transform: scale(0.9);
     transition: var(--transition);
     box-shadow: var(--shadow-lg);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.modal::-webkit-scrollbar {
+    display: none;
 }
 
 .modal-overlay.active .modal {
@@ -1215,6 +1221,36 @@ section {
     font-size: 1.6rem;
     color: var(--text-dark);
     margin-bottom: 24px;
+}
+
+.order-modal {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+
+.order-modal .modal-header {
+    flex-shrink: 0;
+    position: relative;
+    padding: 24px 40px 16px;
+    background: var(--bg-white);
+    z-index: 10;
+}
+
+.order-modal .modal-header h2 {
+    margin-bottom: 0;
+}
+
+.order-modal #orderForm {
+    overflow-y: auto;
+    padding: 24px 40px 40px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.order-modal #orderForm::-webkit-scrollbar {
+    display: none;
 }
 
 .modal-tabs {

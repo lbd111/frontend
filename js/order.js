@@ -129,18 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-// 计算订单总价
-function calcOrderTotal() {
-    const hoursInput = document.querySelector('#orderForm input[type="number"]');
-    const totalPriceEl = document.getElementById('orderTotalPrice');
-    if (hoursInput && totalPriceEl) {
-        const hours = parseInt(hoursInput.value) || 1;
-        const total = (currentWizardPrice * hours).toFixed(2);
-        totalPriceEl.textContent = '￥' + total;
-    }
-}
-
-
 // --- 当前游戏类型 ---
 window.currentGame = 'sky';
 

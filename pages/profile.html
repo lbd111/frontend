@@ -16,12 +16,73 @@
 
     <link rel="stylesheet" href="../css/profile.css">
 
+    <link rel="stylesheet" href="../css/order.css">
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         .my-orders-page { background: #f5f7fa; display: flex; flex-direction: column; min-height: 100vh; margin: 0; padding: 0; }
-    
-        .footer { margin-top: auto !important; }</style>
+
+        .footer { margin-top: auto !important; }
+
+        /* 与 orders.html 保持一致的最近订单卡片样式 */
+        .order-card { background: #ffffff; border-radius: 14px; padding: 16px; margin-bottom: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); display: flex; align-items: flex-start; gap: 14px; position: relative; transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        .order-card:hover { transform: translateY(-5px); box-shadow: 0 10px 26px rgba(0,0,0,0.12); }
+        .order-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #74c0fc 0%, #4dabf7 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.3rem; flex-shrink: 0; }
+        .order-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+        .order-top { display: flex; justify-content: space-between; align-items: flex-start; }
+        .order-titles { min-width: 0; }
+        .order-wizard-name { font-size: 1.05rem; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+        .order-service { font-size: 0.8rem; color: #888; }
+        .order-right { text-align: right; flex-shrink: 0; }
+        .order-status { padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; display: inline-block; }
+        .order-price { font-size: 1.05rem; font-weight: 700; color: var(--primary); margin-top: 6px; }
+        .order-price small { font-size: 0.75rem; font-weight: 400; color: #999; margin-left: 2px; }
+        .order-bottom { display: flex; justify-content: flex-end; align-items: center; font-size: 0.75rem; color: #999; }
+        .order-meta { display: none; flex-direction: column; gap: 6px; margin-top: 4px; padding-top: 10px; border-top: 1px dashed #eee; }
+        .order-meta.expanded { display: flex; }
+        .card-avatar-col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .card-toggle-btn { width: 22px; height: 22px; border-radius: 50%; border: none; background: #f5f7fa; color: #888; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; transition: transform 0.25s ease, background 0.2s ease; }
+        .card-toggle-btn:hover { background: #e8e8e8; color: #555; }
+        .card-toggle-btn.expanded { transform: rotate(180deg); }
+        .meta-row { display: flex; gap: 8px; font-size: 0.8rem; line-height: 1.45; }
+        .meta-label { flex-shrink: 0; width: 60px; color: #999; }
+        .meta-value { flex: 1; min-width: 0; color: #444; word-break: break-all; }
+        .role-tag { align-self: flex-start; font-size: 0.7rem; padding: 2px 9px; border-radius: 10px; margin-bottom: 8px; font-weight: 600; line-height: 1.4; }
+        .role-tag.board { background: rgba(79,195,247,0.15); color: var(--primary); }
+        .role-tag.wizard { background: rgba(255,152,0,0.15); color: #ef6c00; }
+        .role-tag.dispatch { background: rgba(76,175,80,0.15); color: #2e7d32; }
+        .board-card { border-left: 4px solid #4FC3F7; }
+        .wizard-card { border-left: 4px solid #FF9800; cursor: default; }
+        .wizard-card.dispatch-card { border-left-color: #4CAF50; }
+        .status-pending { background: #FFF3E0; color: #FF9800; }
+        .status-progress { background: #E3F2FD; color: #2196F3; }
+        .status-completed { background: #E8F5E9; color: #4CAF50; }
+        .status-cancelled { background: #FFEBEE; color: #f44336; }
+
+        /* 我的收藏弹窗 */
+        .favorites-modal { max-width: 420px; width: 90%; }
+        .fav-tabs { display: flex; border-bottom: 1px solid #eee; margin-bottom: 12px; }
+        .fav-tab { flex: 1; padding: 10px; background: transparent; border: none; border-bottom: 2px solid transparent; font-size: 0.9rem; color: #666; cursor: pointer; transition: all 0.2s ease; }
+        .fav-tab.active { color: #ee5a5a; border-bottom-color: #ee5a5a; font-weight: 600; }
+        .favorites-list { max-height: 60vh; overflow-y: auto; padding: 4px; }
+        .favorite-item { position: relative; display: flex; align-items: center; gap: 14px; padding: 12px; background: #f8fafc; border-radius: 12px; margin-bottom: 10px; transition: background 0.2s ease; }
+        .favorite-item:hover { background: #f0f4f8; }
+        .favorite-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #74c0fc 0%, #4dabf7 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; flex-shrink: 0; overflow: hidden; }
+        .favorite-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .favorite-info { flex: 1; min-width: 0; padding-right: 44px; }
+        .favorite-name { font-size: 0.95rem; font-weight: 600; color: #1a1a2e; margin-bottom: 4px; }
+        .favorite-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+        .fav-tag { font-size: 0.7rem; padding: 2px 7px; border-radius: 10px; font-weight: 500; line-height: 1.3; }
+        .fav-tag.game { background: #e7f5ff; color: #1971c2; }
+        .fav-tag.skill { background: #fff0f0; color: #c92a2a; }
+        .fav-game-badge { position: absolute; top: 10px; right: 12px; font-size: 0.7rem; padding: 3px 9px; border-radius: 10px; background: #e7f5ff; color: #1971c2; font-weight: 600; white-space: nowrap; }
+        .favorite-remove { position: absolute; bottom: 10px; right: 12px; width: 32px; height: 32px; border-radius: 50%; border: none; background: #ffebee; color: #f44336; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; transition: background 0.2s ease; }
+        .favorite-remove:hover { background: #ffcdd2; }
+        .favorite-empty { text-align: center; padding: 40px 20px; color: #999; }
+        .favorite-empty i { font-size: 2.5rem; margin-bottom: 12px; color: #ddd; }
+        .favorite-empty p { margin: 0; font-size: 0.9rem; }
+    </style>
 </head>
 
 <body class="my-orders-page"><script>
@@ -145,11 +206,7 @@
 
                 <div class="stat-card">
 
-<<<<<<< HEAD
                     <div class="stat-value" id="profileOrderCount">0</div>
-=======
-                    <div class="stat-value">0</div>
->>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
 
                     <div class="stat-label">我的订单</div>
 
@@ -157,7 +214,7 @@
 
                 <div class="stat-card">
 
-                    <div class="stat-value">0</div>
+                    <div class="stat-value" id="profileFavoriteCount">0</div>
 
                     <div class="stat-label">收藏陪玩</div>
 
@@ -165,7 +222,7 @@
 
                 <div class="stat-card">
 
-                    <div class="stat-value">0</div>
+                    <div class="stat-value" id="profileCouponCount">0</div>
 
                     <div class="stat-label">优惠券</div>
 
@@ -173,7 +230,7 @@
 
                 <div class="stat-card">
 
-                    <div class="stat-value">￥0.00</div>
+                    <div class="stat-value" id="profileBalanceValue">￥0.00</div>
 
                     <div class="stat-label">账户余额</div>
 
@@ -222,11 +279,11 @@
 
                 </div>
 
-                <div class="menu-item" onclick="showSettings()">
+                <div class="menu-item" onclick="showFavorites()">
 
-                    <div class="menu-icon"><i class="fas fa-cog"></i></div>
+                    <div class="menu-icon" style="background: linear-gradient(135deg, #ff6b6b, #ee5a5a);"><i class="fas fa-heart" style="color:white;"></i></div>
 
-                    <span>设置</span>
+                    <span>我的收藏</span>
 
                     <i class="fas fa-chevron-right arrow"></i>
 
@@ -241,7 +298,7 @@
         <div class="container">
             <h3 class="section-title-sm"><i class="fas fa-history"></i> 最近订单</h3>
             <div class="orders-list" id="recentOrdersList">
-                <div class="order-item"><p style="color:#999;text-align:center;padding:20px;">暂无订单</p></div>
+                <p style="color:#999;text-align:center;padding:20px;">暂无订单</p>
             </div>
         </div>
     </section>
@@ -257,6 +314,24 @@
             <div class="coupons-list" id="dynamicCouponsList">
                 <div class="coupon-empty">
                     <i class="fas fa-ticket-alt"></i>
+                    <p>加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 我的收藏弹窗 -->
+    <div class="modal-overlay" id="favoritesModal">
+        <div class="modal favorites-modal">
+            <button class="modal-close" onclick="closeFavoritesModal()">&times;</button>
+            <h2><i class="fas fa-heart" style="color:#ee5a5a;"></i> 我的收藏</h2>
+            <div class="fav-tabs" id="favTabs">
+                <button class="fav-tab active" data-role="wizard" onclick="switchFavTab('wizard')">收藏的陪陪</button>
+                <button class="fav-tab" data-role="board" onclick="switchFavTab('board')">收藏的板板</button>
+            </div>
+            <div class="favorites-list" id="dynamicFavoritesList">
+                <div class="favorite-empty">
+                    <i class="fas fa-heart"></i>
                     <p>加载中...</p>
                 </div>
             </div>
@@ -370,25 +445,40 @@
         links.forEach(function(l){
             var h=l.getAttribute('href');
             if(isInPages){
-                // Already in pages/, href="order.html" -> pages/order.html ✅
-                // href="index.html" -> pages/index.html (wrong!), fix to ../index.html
                 if(h==='index.html'){
                     l.href='../index.html';
                 }
             }else{
-                // At root, href="order.html" -> root/order.html (wrong!)
-                // Fix: prepend pages/
                 if(h!=='index.html'){
                     l.href='pages/'+h;
                 }
             }
         });
     })();
-<<<<<<< HEAD
 
+    // ===== 与 orders.html 保持一致的订单卡片渲染辅助函数 =====
+    function escapeHtml(text) {
+        if(text == null) return '';
+        return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
 
-    function parseRecentDesc(desc) {
-        var map = { boardName: '' };
+    function formatDate(dateStr) {
+        if(!dateStr) return '--';
+        var d = new Date(dateStr);
+        var now = new Date();
+        var diff = now - d;
+        var minutes = Math.floor(diff / 60000);
+        var hours = Math.floor(minutes / 60);
+        var days = Math.floor(hours / 24);
+        if(minutes < 1) return '刚刚';
+        if(minutes < 60) return minutes + '分钟前';
+        if(hours < 24) return hours + '小时前';
+        if(days < 7) return days + '天前';
+        return d.toLocaleDateString('zh-CN');
+    }
+
+    function parseRequestDesc(desc) {
+        var map = { serviceType: '', subType: '', orderNo: '', boardName: '', remark: '', people: '', qty: '' };
         if(!desc) return map;
         var parts = String(desc).split('|');
         for(var i = 0; i < parts.length; i++) {
@@ -398,9 +488,142 @@
             if(idx === -1) continue;
             var key = seg.substring(0, idx).trim();
             var val = seg.substring(idx + 1).trim();
-            if(key === '板板') map.boardName = val;
+            if(key === '服务类型') map.serviceType = val;
+            else if(key === '三恋类型') map.subType = val;
+            else if(key === '订单编号') map.orderNo = val;
+            else if(key === '板板') map.boardName = val;
+            else if(key === '备注') map.remark = val;
+            else if(key === '人数') map.people = val;
+            else if(key === '数量') map.qty = val;
         }
         return map;
+    }
+
+    function metaRow(label, value) {
+        return '<div class="meta-row"><span class="meta-label">' + label + '</span><span class="meta-value">' + escapeHtml(value) + '</span></div>';
+    }
+
+    function formatPrice(price, isHeart) {
+        var p = parseFloat(price || 0).toFixed(2);
+        if (isHeart) {
+            return '¥' + p;
+        }
+        return '¥' + p + '<small>/小时</small>';
+    }
+
+    function getOrderStatus(order) {
+        var statusClass = 'status-pending';
+        var statusText = '待支付';
+        if(order.status === 'completed') { statusClass = 'status-completed'; statusText = '已完成'; }
+        else if(order.status === 'cancelled') { statusClass = 'status-cancelled'; statusText = '已取消'; }
+        else if(order.status === 'progress') { statusClass = 'status-progress'; statusText = '进行中'; }
+        return { cls: statusClass, text: statusText };
+    }
+
+    function getDispatchStatus(order) {
+        var s = (order.status || '').toLowerCase();
+        if(s === 'completed' || s === '已完成') return { cls: 'status-completed', text: '已完成' };
+        if(s === 'progress' || s === '进行中') return { cls: 'status-progress', text: '进行中' };
+        return { cls: 'status-pending', text: '待接单' };
+    }
+
+    function renderBoardCard(order, avatarMap) {
+        var st = getOrderStatus(order);
+        var avatarUrl = (avatarMap && avatarMap[order.wizard_name]) ? avatarMap[order.wizard_name] : '';
+        var avatarHtml = avatarUrl
+            ? '<img src="' + avatarUrl + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'
+            : '<i class="fas fa-user"></i>';
+        var metaRows = '';
+        if(order.service_type) metaRows += metaRow('服务类型', order.service_type);
+        if(order.order_no) metaRows += metaRow('订单编号', order.order_no);
+        if(order.board_name) metaRows += metaRow('板板名称', order.board_name);
+        if(order.remark) metaRows += metaRow('备注', order.remark);
+        var hasMeta = !!metaRows;
+        var avatarCol = hasMeta
+            ? '<div class="card-avatar-col"><div class="order-avatar">' + avatarHtml + '</div><button class="card-toggle-btn" onclick="toggleCardMeta(this, event)"><i class="fas fa-chevron-down"></i></button></div>'
+            : '<div class="order-avatar">' + avatarHtml + '</div>';
+        var h = '';
+        h += '<div class="order-card board-card">';
+        h += avatarCol;
+        h += '<div class="order-main">';
+        h += '<div class="role-tag board">我下单的</div>';
+        h += '<div class="order-top">';
+        h += '<div class="order-titles">';
+        h += '<div class="order-wizard-name">' + (order.wizard_name || '未知陪玩') + '</div>';
+        h += '<div class="order-service">' + (order.game_type || '光·遇') + '</div>';
+        h += '</div>';
+        h += '<div class="order-right">';
+        h += '<span class="order-status ' + st.cls + '">' + st.text + '</span>';
+        h += '<div class="order-price">' + formatPrice(order.price, order.service_type === '送心') + '</div>';
+        h += '</div>';
+        h += '</div>';
+        if(metaRows) {
+            h += '<div class="order-meta">' + metaRows + '</div>';
+        }
+        h += '<div class="order-bottom">';
+        h += '<div class="order-date">' + formatDate(order.created_at) + '</div>';
+        h += '</div>';
+        h += '</div>';
+        h += '</div>';
+        return h;
+    }
+
+    function renderWizardCard(order, avatarMap) {
+        var isDispatch = order.order_role === 'dispatch';
+        var st = isDispatch ? getDispatchStatus(order) : getOrderStatus(order);
+        var meta = parseRequestDesc(order.remark);
+        var avatarKey = meta.boardName || order.wizard_name || '';
+        var avatarUrl = (avatarMap && avatarKey && avatarMap[avatarKey]) ? avatarMap[avatarKey] : '';
+        var avatarHtml = avatarUrl
+            ? '<img src="' + avatarUrl + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'
+            : '<i class="fas fa-handshake"></i>';
+        var metaRows = '';
+        if(meta.serviceType) metaRows += metaRow('服务类型', meta.serviceType);
+        if(meta.subType) metaRows += metaRow('三恋类型', meta.subType);
+        if(meta.orderNo) metaRows += metaRow('订单编号', meta.orderNo);
+        if(order.service_type) metaRows += metaRow('需求标题', order.service_type);
+        if(order.server) metaRows += metaRow('区服', order.server);
+        if(meta.people) metaRows += metaRow('人数', meta.people);
+        if(meta.qty) metaRows += metaRow('数量', meta.qty);
+        if(meta.remark) metaRows += metaRow('备注', meta.remark);
+        var h = '';
+        var hasMeta = !!metaRows;
+        var avatarCol = hasMeta
+            ? '<div class="card-avatar-col"><div class="order-avatar">' + avatarHtml + '</div><button class="card-toggle-btn" onclick="toggleCardMeta(this, event)"><i class="fas fa-chevron-down"></i></button></div>'
+            : '<div class="order-avatar">' + avatarHtml + '</div>';
+        h += '<div class="order-card wizard-card' + (isDispatch ? ' dispatch-card' : '') + '">';
+        h += avatarCol;
+        h += '<div class="order-main">';
+        h += '<div class="role-tag ' + (isDispatch ? 'dispatch' : 'wizard') + '">' + (isDispatch ? '我派的单' : '我接的单') + '</div>';
+        h += '<div class="order-top">';
+        h += '<div class="order-titles">';
+        h += '<div class="order-wizard-name">' + (meta.boardName || order.service_type || '接单需求') + '</div>';
+        h += '<div class="order-service">' + (order.game_type || '光·遇') + '</div>';
+        h += '</div>';
+        h += '<div class="order-right">';
+        h += '<span class="order-status ' + st.cls + '">' + st.text + '</span>';
+        h += '<div class="order-price">' + formatPrice(order.price, order.service_type === '送心' || meta.serviceType === '送心') + '</div>';
+        h += '</div>';
+        h += '</div>';
+        if(metaRows) {
+            h += '<div class="order-meta">' + metaRows + '</div>';
+        }
+        h += '<div class="order-bottom">';
+        h += '<div class="order-date">' + formatDate(order.created_at) + '</div>';
+        h += '</div>';
+        h += '</div>';
+        h += '</div>';
+        return h;
+    }
+
+    function toggleCardMeta(btn, ev) {
+        if(ev && ev.stopPropagation) ev.stopPropagation();
+        var card = btn.closest('.order-card');
+        if(!card) return;
+        var meta = card.querySelector('.order-meta');
+        if(!meta) return;
+        var expanded = meta.classList.toggle('expanded');
+        btn.classList.toggle('expanded', expanded);
     }
 
     async function loadRecentOrders() {
@@ -409,202 +632,280 @@
             if (!userStr) return;
             const user = JSON.parse(userStr);
             const userId = user.id || user.user_id || user.sub;
-            if (!userId || !window.supabaseClient) return;
+            if (!userId) return;
 
-            // 获取昵称用于查询我接的 orders 表订单
-            let nickname = '';
-            try {
-                const profileRes = await window.supabaseClient
-                    .from('profiles')
-                    .select('nickname')
-                    .eq('id', userId)
-                    .maybeSingle();
-                if (profileRes.data) nickname = profileRes.data.nickname || '';
-            } catch(e) {}
-
-            // 同步 orders.html「全部」标签数据源
-            const boardPromise = window.supabaseClient
-                .from('orders')
-                .select('*')
-                .eq('user_id', userId);
-            const wizardPromise = nickname
-                ? window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname)
-                : Promise.resolve({ data: [] });
-            const reqPromise = window.supabaseClient
-                .from('order_requests')
-                .select('*')
-                .eq('user_id', userId);
-            const dispPromise = window.supabaseClient
-                .from('dispatch_orders')
-                .select('*')
-                .eq('user_id', userId);
-
-            const [boardRes, wizardRes, reqRes, dispRes] = await Promise.all([boardPromise, wizardPromise, reqPromise, dispPromise]);
-
-            // 合并并统一字段
-            var all = [];
-            (boardRes.data || []).forEach(o => {
-                o.order_role = 'board';
-                all.push(o);
-            });
-            (wizardRes.data || []).forEach(o => {
-                o.order_role = 'wizard';
-                all.push(o);
-            });
-            (reqRes.data || []).forEach(r => {
-                all.push({
-                    id: 'req_' + r.id,
-                    order_role: 'wizard',
-                    board_name: parseRecentDesc(r.description).boardName,
-                    wizard_name: r.nickname,
-                    service_type: r.request_title,
-                    game_type: r.game_type,
-                    price: r.price,
-                    status: r.status,
-                    created_at: r.created_at
-                });
-            });
-            (dispRes.data || []).forEach(r => {
-                all.push({
-                    id: 'disp_' + r.id,
-                    order_role: 'wizard',
-                    board_name: parseRecentDesc(r.description).boardName,
-                    user_id: r.user_id,
-                    wizard_name: r.nickname,
-                    service_type: r.request_title,
-                    game_type: r.game_type,
-                    price: r.price,
-                    status: r.status,
-                    created_at: r.created_at
-                });
-            });
-
-            // 只保留 5 天内，最多 2 单，按时间倒序
-            const now = Date.now();
-            const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
-            const filtered = all
-                .filter(o => {
-                    if(!o.created_at) return false;
-                    return (now - new Date(o.created_at).getTime()) <= fiveDaysMs;
-                })
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                .slice(0, 2);
-
-            // 批量查询头像
-            const namesToQuery = [];
-            const idsToQuery = [];
-            filtered.forEach(o => {
-                if (o.order_role === 'board') {
-                    if (o.wizard_name) namesToQuery.push(o.wizard_name);
-                } else if (o.order_role === 'wizard') {
-                    if (String(o.id).startsWith('req_')) {
-                        if (o.board_name) namesToQuery.push(o.board_name);
-                    } else {
-                        if (o.user_id) idsToQuery.push(o.user_id);
-                    }
-                }
-            });
-            const avatarByName = {};
-            const avatarById = {};
-            const [nameProfileRes, idProfileRes] = await Promise.all([
-                namesToQuery.length
-                    ? window.supabaseClient.from('profiles').select('nickname,avatar_url').in('nickname', namesToQuery)
-                    : Promise.resolve({ data: [] }),
-                idsToQuery.length
-                    ? window.supabaseClient.from('profiles').select('id,avatar_url').in('id', idsToQuery)
-                    : Promise.resolve({ data: [] })
+            // 并行查询所有与当前用户相关的订单来源
+            const [profileRes, ordersRes, requestsRes, dispatchRes] = await Promise.all([
+                (async () => { try { return await window.supabaseClient.from('profiles').select('nickname').eq('id', userId).maybeSingle(); } catch(e) { return { data: null, error: e }; } })(),
+                (async () => { try { return await window.supabaseClient.from('orders').select('*').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })(),
+                (async () => { try { return await window.supabaseClient.from('order_requests').select('*').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })(),
+                (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })()
             ]);
-            (nameProfileRes.data || []).forEach(p => { if (p.nickname) avatarByName[p.nickname] = p.avatar_url || ''; });
-            (idProfileRes.data || []).forEach(p => { if (p.id) avatarById[p.id] = p.avatar_url || ''; });
+
+            const nickname = profileRes.data && profileRes.data.nickname ? profileRes.data.nickname : '';
+            let wizardOrders = [];
+            if (nickname) {
+                try {
+                    const res = await window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname);
+                    wizardOrders = res.data || [];
+                } catch(e) { wizardOrders = []; }
+            }
+
+            // 合并、去重并按时间倒序取前 3
+            const seen = {};
+            const all = [];
+            function add(item, role) {
+                const key = role + '_' + (item.id || '');
+                if (seen[key]) return;
+                seen[key] = true;
+                item.order_role = role;
+                // 统一 remark 字段，方便 parseRequestDesc 解析
+                if(role === 'request' || role === 'dispatch') {
+                    item.remark = item.description || item.remark || '';
+                }
+                all.push(item);
+            }
+            (ordersRes.data || []).forEach(o => add(o, 'board'));
+            (wizardOrders || []).forEach(o => add(o, 'wizard'));
+            (requestsRes.data || []).forEach(r => add(r, 'request'));
+            (dispatchRes.data || []).forEach(d => add(d, 'dispatch'));
+
+            all.sort(function(a, b) {
+                return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+            });
+            const orders = all.slice(0, 3);
 
             const container = document.getElementById('recentOrdersList');
             if (!container) return;
 
-            if (!filtered.length) {
-                container.innerHTML = '<div class="order-item"><p style="color:#999;text-align:center;padding:20px;">暂无最近订单</p></div>';
+            if (!orders.length) {
+                container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">暂无订单记录</p>';
                 return;
             }
 
-            container.innerHTML = '';
-            filtered.forEach(o => {
-                const st = getRecentStatus(o.status);
-                const timeAgo = formatTimeAgo(o.created_at);
-                const price = parseFloat(o.price || 0).toFixed(2);
-                const game = o.game_type || '';
-                const desc = game + (timeAgo ? ' · ' + timeAgo : '');
-                const title = o.order_role === 'wizard'
-                    ? (o.board_name || '接单需求')
-                    : (o.wizard_name || '陪玩');
-
-                let avatarUrl = '';
-                if (o.order_role === 'board') {
-                    avatarUrl = avatarByName[o.wizard_name] || '';
-                } else if (o.order_role === 'wizard') {
-                    if (String(o.id).startsWith('req_')) {
-                        avatarUrl = avatarByName[o.board_name] || '';
-                    } else {
-                        avatarUrl = avatarById[o.user_id] || '';
-                    }
+            // 批量获取头像
+            const nameSet = {};
+            orders.forEach(function(o) {
+                if(o.order_role === 'board' && o.wizard_name) nameSet[o.wizard_name] = true;
+                if(o.order_role === 'wizard' || o.order_role === 'request' || o.order_role === 'dispatch') {
+                    var meta = parseRequestDesc(o.remark);
+                    if(meta.boardName) nameSet[meta.boardName] = true;
+                    if(o.wizard_name) nameSet[o.wizard_name] = true;
                 }
-                const avatarHtml = avatarUrl
-                    ? '<img src="' + escapeHtml(avatarUrl) + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'
-                    : '<i class="fas fa-user-circle"></i>';
+            });
+            const names = Object.keys(nameSet);
+            const avatarMap = {};
+            if(names.length > 0) {
+                try {
+                    var profRes = await window.supabaseClient.from('profiles').select('nickname, avatar_url').in('nickname', names);
+                    (profRes.data || []).forEach(function(p) { avatarMap[p.nickname] = p.avatar_url || ''; });
+                } catch(e) {}
+            }
 
-                const item = document.createElement('div');
-                item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #eee;cursor:pointer;';
-                item.onclick = () => { window.location.href = '../pages/orders.html'; };
-                item.innerHTML =
-                    '<div class="order-wizard-info">' +
-                        '<div class="order-avatar">' + avatarHtml + '</div>' +
-                        '<div><h4>' + escapeHtml(title) + '</h4>' +
-                        '<p>' + escapeHtml(desc) + '</p></div>' +
-                    '</div>' +
-                    '<div class="order-status ' + st.cls + '">' + st.text + '</div>' +
-                    '<div class="order-price" style="font-weight:700;color:var(--primary);">¥' + price + '</div>';
-                container.appendChild(item);
+            container.innerHTML = '';
+            orders.forEach(o => {
+                var html = '';
+                if(o.order_role === 'board') {
+                    html = renderBoardCard(o, avatarMap);
+                } else {
+                    html = renderWizardCard(o, avatarMap);
+                }
+                var wrap = document.createElement('div');
+                wrap.style.cssText = 'margin-bottom:8px;cursor:pointer;';
+                wrap.onclick = () => { window.location.href = '../pages/orders.html'; };
+                wrap.innerHTML = html;
+                container.appendChild(wrap);
             });
         } catch(e) {
             console.error('loadRecentOrders:', e);
         }
     }
 
-    function getRecentStatus(status) {
-        if(status === 'completed') return { cls: 'status-completed', text: '已完成' };
-        if(status === 'progress') return { cls: 'status-progress', text: '进行中' };
-        if(status === 'cancelled') return { cls: 'status-cancelled', text: '已取消' };
-        return { cls: 'status-pending', text: '待支付' };
-    }
+    // ===== 我的收藏弹窗 =====
+    var currentFavTab = 'wizard';
+    var favCache = [];
+    var favProfileMap = {};
 
-    function formatTimeAgo(dateStr) {
-        if(!dateStr) return '';
+    async function showFavorites() {
+        const modal = document.getElementById('favoritesModal');
+        const list = document.getElementById('dynamicFavoritesList');
+        if (!modal || !list) return;
+        modal.classList.add('active');
+        list.innerHTML = '<div class="favorite-empty"><i class="fas fa-heart"></i><p>加载中...</p></div>';
         try {
-            const created = new Date(dateStr);
-            const diffMs = Date.now() - created.getTime();
-            const diffMin = Math.floor(diffMs / 60000);
-            const diffHr = Math.floor(diffMs / 3600000);
-            const diffDay = Math.floor(diffMs / 86400000);
-            if(diffMin < 60) return '刚刚';
-            if(diffMin < 1440) return diffHr + '小时前';
-            return diffDay + '天前';
-        } catch(e) { return ''; }
+            const favorites = await (window.loadFavorites ? window.loadFavorites() : []);
+            favCache = favorites || [];
+            favProfileMap = {};
+            function isUuid(v) {
+                return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+            }
+            const ids = [];
+            const names = [];
+            favCache.forEach(f => {
+                if (f.wizard_id && isUuid(f.wizard_id)) ids.push(f.wizard_id);
+                if (f.wizard_name) names.push(f.wizard_name);
+            });
+            if (window.supabaseClient && (ids.length > 0 || names.length > 0)) {
+                try {
+                    const promises = [];
+                    if (ids.length > 0) {
+                        promises.push((async () => {
+                            try {
+                                return await window.supabaseClient
+                                    .from('profiles')
+                                    .select('id, role, nickname, avatar_url')
+                                    .in('id', ids);
+                            } catch (e) { return { data: [] }; }
+                        })());
+                    }
+                    if (names.length > 0) {
+                        promises.push((async () => {
+                            try {
+                                return await window.supabaseClient
+                                    .from('profiles')
+                                    .select('id, role, nickname, avatar_url')
+                                    .in('nickname', names);
+                            } catch (e) { return { data: [] }; }
+                        })());
+                    }
+                    const results = await Promise.all(promises);
+                    results.forEach(res => {
+                        (res.data || []).forEach(p => {
+                            favProfileMap[p.id] = p;
+                            if (p.nickname) favProfileMap[p.nickname] = p;
+                        });
+                    });
+                } catch (e) { console.warn('获取收藏资料失败:', e); }
+            }
+            console.log('[showFavorites] favCache=', favCache, 'favProfileMap=', favProfileMap);
+            renderFavoritesByTab(currentFavTab);
+        } catch (e) {
+            console.error('加载收藏失败:', e);
+            list.innerHTML = '<div class="favorite-empty"><i class="fas fa-heart"></i><p>加载失败，请重试</p></div>';
+        }
     }
 
-    function escapeHtml(str) {
-        if(str == null) return '';
-        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    function closeFavoritesModal() {
+        const modal = document.getElementById('favoritesModal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    function switchFavTab(role) {
+        currentFavTab = role;
+        renderFavoritesByTab(role);
+    }
+
+    function renderFavoritesByTab(role) {
+        const list = document.getElementById('dynamicFavoritesList');
+        if (!list) return;
+
+        const tabs = document.querySelectorAll('#favTabs .fav-tab');
+        tabs.forEach(btn => {
+            if (btn.dataset.role === role) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+
+        // 先按角色拆分为两组；未查到资料、role 为空，或 role 不是 'board' 时，默认归入陪陪
+        const wizardList = favCache.filter(f => {
+            const p = favProfileMap[f.wizard_id] || favProfileMap[f.wizard_name] || null;
+            console.log('[renderFavoritesByTab] match p=', p, 'for wizard_id=', f.wizard_id, 'wizard_name=', f.wizard_name);
+            if (!p || !p.role) return true;
+            return p.role !== 'board';
+        });
+        const boardList = favCache.filter(f => {
+            const p = favProfileMap[f.wizard_id] || favProfileMap[f.wizard_name] || null;
+            return p && p.role === 'board';
+        });
+
+        console.log('[renderFavoritesByTab] favCache=', favCache, 'favProfileMap keys=', Object.keys(favProfileMap), 'wizardList=', wizardList, 'boardList=', boardList);
+        if (favCache && favCache.length > 0) {
+            console.log('[renderFavoritesByTab] favCache[0] 字段:', JSON.stringify(favCache[0]));
+        }
+
+        let filtered = role === 'board' ? boardList : wizardList;
+
+        // 如果当前 tab 为空，另一个 tab 有数据，自动切换过去
+        if (filtered.length === 0 && role === 'wizard' && boardList.length > 0) {
+            return renderFavoritesByTab('board');
+        }
+        if (filtered.length === 0 && role === 'board' && wizardList.length > 0) {
+            return renderFavoritesByTab('wizard');
+        }
+
+        console.log('[renderFavoritesByTab] role=' + role + ' filtered.length=' + filtered.length);
+
+        if (filtered.length === 0) {
+            const emptyText = role === 'board' ? '暂无收藏板板' : '暂无收藏陪陪';
+            list.innerHTML = '<div class="favorite-empty"><i class="fas fa-heart"></i><p>' + emptyText + '</p></div>';
+            console.log('[renderFavoritesByTab] 空状态 html=', list.innerHTML);
+            return;
+        }
+
+        const html = filtered.map(f => {
+            const p = favProfileMap[f.wizard_id] || favProfileMap[f.wizard_name] || null;
+            const name = escapeHtml((p && p.nickname) || f.wizard_name || '未知用户');
+            const avatarUrl = p ? p.avatar_url : '';
+            const avatarHtml = avatarUrl
+                ? '<img src="' + avatarUrl + '" alt="">'
+                : '<i class="fas fa-user"></i>';
+            let skills = [];
+            try {
+                skills = Array.isArray(f.skills) ? f.skills : (f.skills ? JSON.parse(f.skills) : []);
+            } catch (e) { skills = []; }
+            const gameType = f.game_type || '';
+            const fid = String(f.id || '').replace(/'/g, '\\\'');
+            const gameBadge = gameType ? '<span class="fav-game-badge">' + escapeHtml(gameType) + '</span>' : '';
+            const skillsTags = skills.map(s => '<span class="fav-tag skill">' + escapeHtml(String(s)) + '</span>').join('');
+            return '<div class="favorite-item">' +
+                gameBadge +
+                '<div class="favorite-avatar">' + avatarHtml + '</div>' +
+                '<div class="favorite-info">' +
+                    '<div class="favorite-name">' + name + '</div>' +
+                    (skillsTags ? '<div class="favorite-tags">' + skillsTags + '</div>' : '') +
+                '</div>' +
+                '<button class="favorite-remove" onclick="removeFavoriteItem(event, \'' + fid + '\')" title="取消收藏">' +
+                    '<i class="fas fa-trash-alt"></i>' +
+                '</button>' +
+            '</div>';
+        }).join('');
+
+        console.log('[renderFavoritesByTab] 生成 html 长度=' + html.length);
+        list.innerHTML = html;
+        console.log('[renderFavoritesByTab] 设置后 list.innerHTML 长度=' + list.innerHTML.length);
+    }
+
+    async function removeFavoriteItem(ev, favoriteId) {
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        if (!favoriteId) return;
+        try {
+            const removeFn = window.removeFavorite || removeFavorite;
+            if (typeof removeFn !== 'function') {
+                if (typeof showNotification === 'function') showNotification('取消收藏功能不可用', 'error');
+                else alert('取消收藏功能不可用');
+                return;
+            }
+            const ok = await removeFn(favoriteId);
+            if (ok) {
+                showFavorites();
+                if (typeof showNotification === 'function') showNotification('已取消收藏', 'success');
+            } else {
+                if (typeof showNotification === 'function') showNotification('取消收藏失败', 'error');
+                else alert('取消收藏失败');
+            }
+        } catch (e) {
+            console.error('取消收藏失败:', e);
+            if (typeof showNotification === 'function') showNotification('取消收藏失败', 'error');
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        function init() {
-            loadRecentOrders();
-        }
         if (window.supabaseClient) {
-            init();
+            loadRecentOrders();
         } else {
             const checkInterval = setInterval(() => {
                 if (window.supabaseClient) {
                     clearInterval(checkInterval);
-                    init();
+                    loadRecentOrders();
                 }
             }, 200);
             setTimeout(() => clearInterval(checkInterval), 5000);
@@ -613,33 +914,3 @@
 </script>
 </body>
 </html>
-=======
-    </script>
-</body>
-
-</html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60

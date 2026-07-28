@@ -369,7 +369,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">金额（元）<span class="required">*</span></label>
-                    <input type="number" id="dispatchPrice" class="form-input" placeholder="请输入金额" min="0" step="0.01">
+                    <input type="number" id="dispatchPrice" class="form-input" placeholder="请输入金额" min="0" step="0.01" oninput="calcDispatchCoupon()">
                 </div>
                 <div class="form-group">
                     <label class="form-label">板板</label>
@@ -391,8 +391,16 @@
                     <label class="form-label">要求</label>
                     <textarea id="dispatchRequirement" class="form-textarea" placeholder="可选要求说明"></textarea>
                 </div>
+                <div class="form-group" id="dispatchCouponSection" style="display:none;">
+                    <label class="form-label">优惠券</label>
+                    <select id="dispatchCouponSelect" class="form-select" onchange="onDispatchCouponChange()">
+                        <option value="">暂无优惠券可用</option>
+                    </select>
+                    <div id="dispatchFinalPriceRow" style="margin-top:8px;font-size:0.95rem;color:#333;">
+                        应付金额：<span id="dispatchFinalPrice" style="font-weight:700;color:var(--primary);">￥0.00</span>
+                    </div>
+                </div>
                 <div class="form-actions">
-                    <button type="button" class="btn btn-cancel" onclick="resetDispatchForm()">取消</button>
                     <button type="button" class="btn btn-submit" onclick="submitDispatchOrder()"><i class="fas fa-check"></i> 立即上架</button>
                 </div>
             </div>
@@ -565,6 +573,9 @@ var currentTab = "all";
 var currentWizardTab = "view";
 var currentOrdersTab = "view";
 
+// 我的订单内存缓存：同一次页面访问内切换标签不再请求网络
+var ordersCache = null;
+
 function switchTab(tab, btn) {
     currentTab = tab;
     var buttons = document.querySelectorAll(".tab-btn");
@@ -572,7 +583,13 @@ function switchTab(tab, btn) {
         buttons[i].classList.remove("active");
     }
     if(btn) btn.classList.add("active");
-    loadOrders();
+
+    if(ordersCache && ordersCache.orders) {
+        updateStats(ordersCache.orders);
+        renderOrders(ordersCache.orders, ordersCache.avatarMap || {});
+    } else {
+        loadOrders();
+    }
 }
 
 // 当前用户资料缓存（避免 loadOrders 与 checkUserRoleAndShowButtons 重复查询 profiles）
@@ -620,14 +637,28 @@ async function loadOrders() {
             return;
         }
 
-        // 并行发起：作为板板的订单 + 用户资料 + 接单请求 + 派的单
-        var [orders1Res, profile, requestsRes, dispatchRes] = await Promise.all([
+        // 内存缓存命中直接渲染，避免重复请求
+        if(ordersCache && ordersCache.orders) {
+            updateStats(ordersCache.orders);
+            renderOrders(ordersCache.orders, ordersCache.avatarMap || {});
+            return;
+        }
+
+        // 显示 loading
+        document.getElementById("emptyState").style.display = "none";
+        document.getElementById("ordersList").innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>加载中...</p></div>';
+
+        // 用 localStorage 里的 username 预查 wizard_name 订单，常与 nickname 一致
+        var guessedNickname = user.username || "";
+
+        // 第一批并行：profile + 作为板板的订单 + 接单请求 + 派的单 + 预查的陪陪订单
+        var promises = [
+            getCurrentUserProfile(user.id),
             window.supabaseClient
                 .from("orders")
                 .select("*")
                 .eq("user_id", user.id)
                 .order("created_at", { ascending: false }),
-            getCurrentUserProfile(user.id),
             window.supabaseClient
                 .from("order_requests")
                 .select("*")
@@ -638,12 +669,24 @@ async function loadOrders() {
                 .select("*")
                 .eq("user_id", user.id)
                 .order("created_at", { ascending: false })
-        ]);
+        ];
+        if(guessedNickname) {
+            promises.push(window.supabaseClient
+                .from("orders")
+                .select("*")
+                .eq("wizard_name", guessedNickname)
+                .order("created_at", { ascending: false }));
+        }
+
+        var results = await Promise.all(promises);
+        var profile = results[0];
+        var orders1Res = results[1];
+        var requestsRes = results[2];
+        var dispatchRes = results[3];
+        var guessedOrdersRes = guessedNickname ? results[4] : { data: [] };
 
         var orders1 = orders1Res.data || [];
         for(var i = 0; i < orders1.length; i++) { orders1[i].order_role = "board"; }
-
-        var nickname = profile.nickname || "";
 
         // 组装「我接的单 / 我派的单」列表
         var orders2 = [];
@@ -683,20 +726,25 @@ async function loadOrders() {
         }
 
         // 查询作为陪陪的订单(wizard_name)
-        if(nickname) {
+        var nickname = profile.nickname || "";
+        var wizardOrders = [];
+        if(nickname && nickname !== guessedNickname) {
             var result2 = await window.supabaseClient
                 .from("orders")
                 .select("*")
                 .eq("wizard_name", nickname)
                 .order("created_at", { ascending: false });
-            var rawOrders2 = result2.data || [];
-            var existingIds = {};
-            for(var i = 0; i < orders1.length; i++) { existingIds[orders1[i].id] = true; }
-            for(var i = 0; i < rawOrders2.length; i++) {
-                if(!existingIds[rawOrders2[i].id]) {
-                    rawOrders2[i].order_role = "wizard";
-                    orders2.push(rawOrders2[i]);
-                }
+            wizardOrders = result2.data || [];
+        } else if(guessedNickname) {
+            wizardOrders = guessedOrdersRes.data || [];
+        }
+
+        var existingIds = {};
+        for(var i = 0; i < orders1.length; i++) { existingIds[orders1[i].id] = true; }
+        for(var i = 0; i < wizardOrders.length; i++) {
+            if(!existingIds[wizardOrders[i].id]) {
+                wizardOrders[i].order_role = "wizard";
+                orders2.push(wizardOrders[i]);
             }
         }
 
@@ -704,7 +752,14 @@ async function loadOrders() {
         var orders = orders1.concat(orders2);
         orders.sort(function(a, b){ return new Date(b.created_at) - new Date(a.created_at); });
 
-        // 收集所有陪玩名字，从 profiles 表批量获取头像
+        // 先渲染文字内容，让用户秒看到订单列表
+        updateStats(orders);
+        renderOrders(orders, {});
+
+        // 缓存结果（无头像版本）
+        ordersCache = { orders: orders, avatarMap: {} };
+
+        // 后台批量获取头像，拿到后再刷新一次
         var nameSet = {};
         for(var n = 0; n < orders.length; n++) {
             if(orders[n].wizard_name) nameSet[orders[n].wizard_name] = true;
@@ -714,7 +769,6 @@ async function loadOrders() {
                 if(meta.boardName) nameSet[meta.boardName] = true;
             }
         }
-        var avatarMap = {};
         var names = Object.keys(nameSet);
         if(names.length > 0) {
             try {
@@ -723,17 +777,17 @@ async function loadOrders() {
                     .select("nickname, avatar_url")
                     .in("nickname", names);
                 if(profRes.data) {
+                    var avatarMap = {};
                     for(var p = 0; p < profRes.data.length; p++) {
                         avatarMap[profRes.data[p].nickname] = profRes.data[p].avatar_url || "";
                     }
+                    ordersCache.avatarMap = avatarMap;
+                    renderOrders(orders, avatarMap);
                 }
             } catch(profErr) {
                 console.warn("批量获取头像失败:", profErr);
             }
         }
-
-        updateStats(orders);
-        renderOrders(orders, avatarMap);
     } catch(e) {
         console.error("=== 加载订单发生异常 ===");
         console.error("错误对象:", e);
@@ -1589,6 +1643,12 @@ async function openMyOrdersCard() {
     }
 }
 
+// 我的派单优惠券相关
+var dispatchAllCoupons = [];
+var dispatchAvailableCoupons = [];
+var dispatchCurrentCoupon = null;
+var dispatchCouponAutoSelect = true;
+
 function resetDispatchForm() {
     document.getElementById("dispatchGame").value = "";
     document.getElementById("dispatchServerGroup").style.display = "none";
@@ -1613,6 +1673,12 @@ function resetDispatchForm() {
     document.getElementById("dispatchPeople").value = "";
     document.getElementById("dispatchTime").value = "";
     document.getElementById("dispatchRequirement").value = "";
+    var couponSection = document.getElementById("dispatchCouponSection");
+    if(couponSection) couponSection.style.display = "none";
+    dispatchAllCoupons = [];
+    dispatchAvailableCoupons = [];
+    dispatchCurrentCoupon = null;
+    dispatchCouponAutoSelect = true;
 }
 
 function updateDispatchServerOptions() {
@@ -1685,12 +1751,15 @@ function onDispatchTypeChange() {
         var qty = parseInt(qtyInput.value, 10);
         if(isNaN(qty) || qty < 1) { qty = 1; qtyInput.value = 1; }
         priceInput.value = (qty * 0.3).toFixed(2);
+        loadDispatchCoupons();
     } else {
         if(qtyGroup) qtyGroup.style.display = "none";
         priceInput.readOnly = false;
         priceInput.style.backgroundColor = "";
         priceInput.value = "";
     }
+
+    toggleDispatchCouponSection();
 }
 
 function onDispatchQtyChange() {
@@ -1699,6 +1768,138 @@ function onDispatchQtyChange() {
     var qty = parseInt(qtyInput.value, 10);
     if(isNaN(qty) || qty < 1) { qty = 1; qtyInput.value = 1; }
     priceInput.value = (qty * 0.3).toFixed(2);
+    calcDispatchCoupon();
+}
+
+function toggleDispatchCouponSection() {
+    var type = document.getElementById("dispatchType").value;
+    var section = document.getElementById("dispatchCouponSection");
+    if(!section) return;
+    section.style.display = (type === "送心") ? "" : "none";
+}
+
+async function loadDispatchCoupons() {
+    if(!window.supabaseClient) return;
+    var userStr = localStorage.getItem("skyUser");
+    if(!userStr) return;
+    var user = JSON.parse(userStr);
+    if(!user || !user.id) return;
+
+    try {
+        var res = await window.supabaseClient
+            .from("coupons")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("used", false)
+            .order("expire_date", { ascending: true });
+        if(res.error) throw res.error;
+        var coupons = res.data || [];
+        if(typeof deleteExpiredCoupons === "function") {
+            coupons = await deleteExpiredCoupons(coupons);
+        }
+        dispatchAllCoupons = coupons;
+        calcDispatchCoupon();
+    } catch(e) {
+        console.error("加载派单优惠券失败:", e);
+    }
+}
+
+function onDispatchCouponChange() {
+    var select = document.getElementById("dispatchCouponSelect");
+    if(!select) return;
+    var selectedId = select.value;
+    if(!selectedId) {
+        dispatchCurrentCoupon = null;
+        dispatchCouponAutoSelect = false;
+    } else {
+        dispatchCurrentCoupon = dispatchAvailableCoupons.find(function(c) { return String(c.id) === String(selectedId); }) || null;
+        dispatchCouponAutoSelect = true;
+    }
+    calcDispatchCoupon();
+}
+
+function calcDispatchCoupon() {
+    var select = document.getElementById("dispatchCouponSelect");
+    var finalPriceEl = document.getElementById("dispatchFinalPrice");
+    if(!select || !finalPriceEl) return;
+
+    var price = parseFloat(document.getElementById("dispatchPrice").value) || 0;
+    var validCoupons = [];
+    if(typeof isCouponApplicable === "function") {
+        validCoupons = dispatchAllCoupons.filter(function(c) { return isCouponApplicable(c, price); });
+    } else {
+        validCoupons = dispatchAllCoupons.filter(function(c) {
+            if(!c || c.used) return false;
+            var cond = c.condition || "无门槛";
+            var minAmount = 0;
+            var match = cond.match(/满\s*([\d.]+)/);
+            if(match) minAmount = parseFloat(match[1]) || 0;
+            if(c.expire_date && new Date(c.expire_date) < new Date()) return false;
+            return price >= minAmount;
+        });
+    }
+    dispatchAvailableCoupons = validCoupons;
+
+    if(validCoupons.length === 0) {
+        select.innerHTML = "<option value=''>暂无优惠券可用</option>";
+        select.disabled = true;
+        dispatchCurrentCoupon = null;
+    } else {
+        select.disabled = false;
+        select.innerHTML = "<option value=''>不使用优惠券</option>";
+        validCoupons.forEach(function(c) {
+            var amount = parseFloat(c.amount) || 0;
+            var conditionText = c.condition || "无门槛";
+            var expireText = c.expire_date ? ("到期：" + c.expire_date) : "长期有效";
+            var text;
+            if(c.type === "percent") {
+                var discount = Math.round((1 - amount) * 100);
+                text = discount + "折券 (" + conditionText + "，" + expireText + ")";
+            } else {
+                text = "满减 ¥" + amount.toFixed(2) + " (" + conditionText + "，" + expireText + ")";
+            }
+            var option = document.createElement("option");
+            option.value = c.id;
+            option.textContent = text;
+            select.appendChild(option);
+        });
+
+        if(dispatchCurrentCoupon && dispatchAvailableCoupons.some(function(c) { return String(c.id) === String(dispatchCurrentCoupon.id); })) {
+            select.value = dispatchCurrentCoupon.id;
+        } else if(dispatchCouponAutoSelect) {
+            dispatchCurrentCoupon = validCoupons[0];
+            select.value = dispatchCurrentCoupon.id;
+        } else {
+            dispatchCurrentCoupon = null;
+            select.value = "";
+        }
+    }
+
+    var finalPrice = price;
+    if(dispatchCurrentCoupon) {
+        var amount = parseFloat(dispatchCurrentCoupon.amount) || 0;
+        if(dispatchCurrentCoupon.type === "percent") {
+            finalPrice = price * (1 - amount);
+        } else {
+            finalPrice = price - amount;
+        }
+    }
+    finalPrice = Math.max(0, finalPrice);
+    finalPriceEl.textContent = "￥" + finalPrice.toFixed(2);
+}
+
+function getDispatchFinalPrice() {
+    var price = parseFloat(document.getElementById("dispatchPrice").value) || 0;
+    var finalPrice = price;
+    if(dispatchCurrentCoupon) {
+        var amount = parseFloat(dispatchCurrentCoupon.amount) || 0;
+        if(dispatchCurrentCoupon.type === "percent") {
+            finalPrice = price * (1 - amount);
+        } else {
+            finalPrice = price - amount;
+        }
+    }
+    return Math.max(0, finalPrice);
 }
 
 async function submitDispatchOrder() {
@@ -1743,6 +1944,40 @@ async function submitDispatchOrder() {
         if(!requestTitle) { showToast("请输入称呼", "error"); return; }
         if(isNaN(price) || price < 0) { showToast("请输入有效的金额", "error"); return; }
 
+        // 送心服务：从账户余额扣除应付金额，扣除成功后才能发布
+        var finalPrice = price;
+        var couponId = null;
+        if(serviceType === "送心") {
+            finalPrice = getDispatchFinalPrice();
+            couponId = dispatchCurrentCoupon ? dispatchCurrentCoupon.id : null;
+
+            var balanceRes = await window.supabaseClient
+                .from("profiles")
+                .select("balance")
+                .eq("id", user.id)
+                .maybeSingle();
+            if(balanceRes.error) throw balanceRes.error;
+            var currentBalance = parseFloat(balanceRes.data && balanceRes.data.balance) || 0;
+            if(currentBalance < finalPrice) {
+                showToast("余额不足，请前往充值中心充值", "error");
+                return;
+            }
+
+            var newBalance = currentBalance - finalPrice;
+            var deductRes = await window.supabaseClient
+                .from("profiles")
+                .update({ balance: newBalance })
+                .eq("id", user.id);
+            if(deductRes.error) throw deductRes.error;
+
+            // 同步本地余额
+            try {
+                var skyUser = JSON.parse(localStorage.getItem("skyUser") || "{}");
+                skyUser.balance = newBalance;
+                localStorage.setItem("skyUser", JSON.stringify(skyUser));
+            } catch(ex) {}
+        }
+
         var descParts = [];
         if(serviceType) descParts.push("服务类型：" + serviceType);
         if(gameType === "光·遇" && serviceType === "三恋" && subType) descParts.push("三恋类型：" + subType);
@@ -1769,10 +2004,43 @@ async function submitDispatchOrder() {
         var result = await window.supabaseClient
             .from("dispatch_orders")
             .insert([payload]);
-        
-        if(result.error) throw result.error;
-        
-        showToast("上架成功", "success");
+
+        if(result.error) {
+            // 发布失败时回滚余额（送心服务）
+            if(serviceType === "送心") {
+                try {
+                    await window.supabaseClient
+                        .from("profiles")
+                        .update({ balance: currentBalance })
+                        .eq("id", user.id);
+                    var skyUserRollback = JSON.parse(localStorage.getItem("skyUser") || "{}");
+                    skyUserRollback.balance = currentBalance;
+                    localStorage.setItem("skyUser", JSON.stringify(skyUserRollback));
+                } catch(rollbackErr) {
+                    console.error("派单发布失败后回滚余额失败:", rollbackErr);
+                }
+            }
+            throw result.error;
+        }
+
+        // 发布成功：标记优惠券为已使用
+        if(serviceType === "送心" && couponId) {
+            try {
+                await window.supabaseClient
+                    .from("coupons")
+                    .update({ used: true })
+                    .eq("id", couponId)
+                    .eq("user_id", user.id);
+            } catch(couponErr) {
+                console.error("标记派单优惠券已用失败:", couponErr);
+            }
+        }
+
+        if(serviceType === "送心") {
+            showToast("上架成功，已扣除余额 ￥" + finalPrice.toFixed(2), "success");
+        } else {
+            showToast("上架成功", "success");
+        }
         resetDispatchForm();
         switchOrdersTab("view");
         openMyOrdersCard();
