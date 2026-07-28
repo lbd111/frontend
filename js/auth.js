@@ -39,19 +39,26 @@ async function checkAuthStatus() {
     try {
         const session = await getCurrentSession();
         if (session) {
-            // 默认使用邮箱前缀作为显示名称
-            const displayName = session.user.email?.split('@')[0] || '玩家';
+            // 优先保留本地已有昵称/头像，避免刷新时先闪回邮箱前缀
+            const existing = JSON.parse(localStorage.getItem('skyUser') || '{}');
 
-            let avatar = '';
+            // 兜底默认使用邮箱前缀作为显示名称
+            let displayName = existing.nickname || existing.username || session.user.email?.split('@')[0] || '玩家';
+            let avatar = existing.avatar || '';
+
             try {
-                const pr = await window.supabaseClient.from('profiles').select('avatar_url').eq('id', session.user.id).single();
-                if (pr.data?.avatar_url) avatar = pr.data.avatar_url;
+                const pr = await window.supabaseClient.from('profiles').select('nickname, avatar_url').eq('id', session.user.id).single();
+                if (pr.data) {
+                    if (pr.data.nickname) displayName = pr.data.nickname;
+                    if (pr.data.avatar_url) avatar = pr.data.avatar_url;
+                }
             } catch(e) {}
-            
+
             const user = {
                 id: session.user.id,
                 email: session.user.email,
                 username: displayName,
+                nickname: displayName,
                 game_id: session.user.user_metadata?.game_id || '',
                 avatar: avatar
             };

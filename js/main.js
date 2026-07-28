@@ -1031,7 +1031,7 @@ function renderNavActions(userData) {
         basePath = 'pages/';
     }
 
-    var userName = userData.username || userData.nickname || userData.name || '用户';
+    var userName = userData.nickname || userData.username || userData.name || '用户';
     var displayName = userName.length > 6 ? userName.substring(0, 6) + '...' : userName;
 
     var avatarHtml = '';
