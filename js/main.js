@@ -1,7 +1,11 @@
 ﻿// ============================================
+<<<<<<< HEAD
 
 // BJ陪玩团 - 主交互脚本
 
+=======
+// BJ陪玩团 - 主交互脚本
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
 // ============================================
 
 
@@ -362,9 +366,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loginForm) {
 
         loginForm.addEventListener('submit', (e) => {
+<<<<<<< HEAD
 
             if (e && e.preventDefault) e.preventDefault();
 
+=======
+            if (e && e.preventDefault) e.preventDefault();
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
             closeLoginModal();
 
         });
@@ -380,9 +388,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (registerForm) {
 
         registerForm.addEventListener('submit', (e) => {
+<<<<<<< HEAD
 
             if (e && e.preventDefault) e.preventDefault();
 
+=======
+            if (e && e.preventDefault) e.preventDefault();
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
             closeLoginModal();
 
         });
@@ -398,9 +410,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (orderForm) {
 
         orderForm.addEventListener('submit', (e) => {
+<<<<<<< HEAD
 
             if (e && e.preventDefault) e.preventDefault();
 
+=======
+            if (e && e.preventDefault) e.preventDefault();
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
             closeOrderModal();
 
             orderForm.reset();
@@ -468,9 +484,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('a[href^=\"#\"]').forEach(anchor => {
 
         anchor.addEventListener('click', function(e) {
+<<<<<<< HEAD
 
             if (e && e.preventDefault) e.preventDefault();
 
+=======
+            if (e && e.preventDefault) e.preventDefault();
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
             const target = document.querySelector(this.getAttribute('href'));
 
             if (target) {
@@ -563,6 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 用户菜单 ---
 
+<<<<<<< HEAD
         function toggleUserMenu() {
             var dropdown = document.getElementById('userDropdown');
             if (dropdown) {
@@ -572,6 +593,17 @@ document.addEventListener('DOMContentLoaded', () => {
             var panel = document.getElementById('notificationPanel');
             if (panel) {
                 panel.style.display = 'none';
+=======
+    async function handleLogout(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        try { await window.supabaseClient.auth.signOut(); } catch(err) {}
+        localStorage.removeItem('skyUser');
+        localStorage.removeItem('skyUserList');
+        var keys = Object.keys(localStorage);
+        for (var i = 0; i < keys.length; i++) {
+            if (keys[i].startsWith('sb-') || keys[i].indexOf('supabase') !== -1) {
+                localStorage.removeItem(keys[i]);
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
             }
         }
         window.toggleUserMenu = toggleUserMenu;
@@ -736,7 +768,11 @@ function updateNavUser() {
 
         if (user) {
             var userData = JSON.parse(user);
+<<<<<<< HEAD
             var userName = userData.username || userData.nickname || userData.name || '用户';
+=======
+            var userName = userData.username || userData.nickname || userData.name || '玩家';
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
             var displayName = userName.length > 6 ? userName.substring(0, 6) + '...' : userName;
             var authUrl = navActions.getAttribute('data-auth-url') || basePath + 'auth.html';
 
@@ -1304,8 +1340,12 @@ async function syncBalanceFromDB() {
 
 }
 
+<<<<<<< HEAD
 
 
 window.syncBalanceFromDB = syncBalanceFromDB;
 
 
+=======
+window.syncBalanceFromDB = syncBalanceFromDB;
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60

@@ -177,8 +177,13 @@ async function submitApplication(gameType, form, fileInputId, agreeCheckboxId) {
     // Metadata
     data.game_type = gameType;
     data.username = userObj.username || userObj.email.split('@')[0] || 'user';
+<<<<<<< HEAD
     // user_email not in schema
     // user_id not in schema
+=======
+    data.user_email = userObj.email || "";
+    data.user_id = userObj.id || "";
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
     data.apply_time = new Date().toISOString();
     data.status = 'pending';
 
@@ -248,4 +253,8 @@ async function submitApplication(gameType, form, fileInputId, agreeCheckboxId) {
         console.error('Submit error:', err);
         showToast('提交失败: ' + err.message, 'error');
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60

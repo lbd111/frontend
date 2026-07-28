@@ -11,6 +11,14 @@ function formatVipExpire(expireAt) {
         }
 // BJ陪玩团 - 个人中心交互
 // ============================================
+<<<<<<< HEAD
+=======
+
+function showMyOrders() {
+    const modal = document.getElementById('ordersModal');
+    if (modal) { modal.classList.add('active'); document.body.style.overflow = 'hidden'; }
+}
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
 
 function showCoupons() {
     const modal = document.getElementById('couponsModal');
@@ -197,6 +205,10 @@ const wEl = document.getElementById('wangzheIdValue');
                 avatarContainer.innerHTML = '<img src="' + user.avatar + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
             }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
             const skyIdEl = document.getElementById('skyIdValue');
             if (skyIdEl) skyIdEl.textContent = profile.sky_id || '未设置';
             var wMeta1 = document.getElementById('metaWangzheId'); var wEl1 = document.getElementById('wangzheIdValue'); if (wMeta1 && wEl1) { wMeta1.style.display = 'inline'; wEl1.textContent = profile.wangzhe_id || '未设置'; }
@@ -276,6 +288,7 @@ const wEl = document.getElementById('wangzheIdValue');
             if (regTimeEl) {
                 regTimeEl.textContent = user.register_time ? new Date(user.register_time).toLocaleString('zh-CN').replace(/\//g, '-') : new Date().toLocaleDateString('zh-CN');
             }
+<<<<<<< HEAD
             // Display rating from localStorage
             const ratingEl2 = document.getElementById('ratingValue');
             const metaRating2 = document.getElementById('metaRating');
@@ -291,6 +304,12 @@ const wEl = document.getElementById('wangzheIdValue');
             }
             // Also display avatar from localStorage if no profile avatar
             
+=======
+            // Also display avatar from localStorage if no profile avatar
+            
+            
+
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
             // Show role (banban/peipei)
             const roleEl = document.getElementById('roleIdDisplay');
             if (roleEl) {

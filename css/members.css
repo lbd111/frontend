@@ -116,7 +116,11 @@
     .overview-grid { grid-template-columns: repeat(2, 1fr); }
     .filter-row { flex-direction: column; }
     .search-box { min-width: 100% !important; flex: 1 !important; }
+<<<<<<< HEAD
     .members-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important; }
+=======
+    .members-grid { grid-template-columns: 1fr; }
+>>>>>>> 81eaf05274c4310a05a8f2c485cc0d9183e48c60
 }
 @media (max-width: 480px) {
     .overview-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
