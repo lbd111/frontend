@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>设置 - BJ陪玩团</title>
-    <link rel="stylesheet" href="../css/style.css?v=202607291846">
+    <link rel="stylesheet" href="../css/style.css?v=202607302113">
     <link rel="stylesheet" href="../css/profile.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../js/supabase-config.js?v=20260719"></script>
-    <script src="../js/main.js?v=202607300051"></script>
+    <script src="../js/supabase-config.js?v=202607302113"></script>
+    <script src="../js/main.js?v=202607302113"></script>
     <style>
         .settings-page { max-width: 700px; margin: 0 auto; padding: 30px 20px; }
         .settings-header { display: flex; align-items: center; gap: 15px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--border); }
@@ -284,7 +284,23 @@
             overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
         }
 
-        function handleDeleteAccountSettings() {
+        async function handleDeleteAccountSettings() {
+            var currentEmail = "";
+            try {
+                var sessionRes = await window.supabaseClient.auth.getSession();
+                currentEmail = (sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.email) || "";
+            } catch(e) {}
+            if(!currentEmail) {
+                try {
+                    var skyUser = JSON.parse(localStorage.getItem("skyUser") || "{}");
+                    currentEmail = skyUser.email || "";
+                } catch(e) {}
+            }
+            if(!currentEmail) {
+                showNotification("无法获取当前账号邮箱，请重新登录后再试", "error");
+                return;
+            }
+
             var overlay=document.createElement("div");
             overlay.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:9999;";
             var card=document.createElement("div");
@@ -293,7 +309,34 @@
             inner.style.cssText="padding:35px 30px;text-align:center;";
             inner.innerHTML="<div style='width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#f44336,#e57373);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:2rem;color:white;'>&#10008;</div>";
             inner.innerHTML+="<h3 style='margin:0 0 10px;font-size:1.2rem;color:#1a1a2e;'>注销账号</h3>";
-            inner.innerHTML+="<p style='margin:0 0 28px;color:#8892a4;font-size:0.9rem;line-height:1.7;'>注销账号将永久删除您的所有数据，包括资料、订单、优惠券等，且不可恢复！<br>确定要注销吗？</p>";
+            inner.innerHTML+="<p style='margin:0 0 18px;color:#8892a4;font-size:0.9rem;line-height:1.7;'>注销账号将永久删除您的所有数据，包括资料、订单、优惠券等，且不可恢复！<br>请重新输入登录邮箱与密码以确认注销。</p>";
+
+            var inputWrap=document.createElement("div");
+            inputWrap.style.cssText="margin:0 0 12px;text-align:left;";
+            var emailInput=document.createElement("input");
+            emailInput.type="email";
+            emailInput.placeholder="请输入登录邮箱";
+            emailInput.style.cssText="width:100%;padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:0.95rem;box-sizing:border-box;outline:none;transition:border-color 0.2s;";
+            emailInput.onfocus=function(){this.style.borderColor="#4a90e2";}
+            emailInput.onblur=function(){this.style.borderColor="#e2e8f0";}
+            inputWrap.appendChild(emailInput);
+            inner.appendChild(inputWrap);
+
+            var pwdWrap=document.createElement("div");
+            pwdWrap.style.cssText="margin:0 0 12px;text-align:left;";
+            var pwdInput=document.createElement("input");
+            pwdInput.type="password";
+            pwdInput.placeholder="请输入登录密码";
+            pwdInput.style.cssText="width:100%;padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:0.95rem;box-sizing:border-box;outline:none;transition:border-color 0.2s;";
+            pwdInput.onfocus=function(){this.style.borderColor="#4a90e2";}
+            pwdInput.onblur=function(){this.style.borderColor="#e2e8f0";}
+            pwdWrap.appendChild(pwdInput);
+            inner.appendChild(pwdWrap);
+
+            var errorEl=document.createElement("div");
+            errorEl.style.cssText="color:#e53e3e;font-size:0.85rem;min-height:20px;margin-bottom:14px;text-align:center;";
+            inner.appendChild(errorEl);
+
             var btnRow=document.createElement("div");
             btnRow.style.cssText="display:flex;gap:12px;padding:0 30px 25px;";
             var cancelBtn=document.createElement("button");
@@ -304,11 +347,22 @@
             confirmBtn.textContent="确认注销";
             confirmBtn.style.cssText="flex:1;background:linear-gradient(135deg,#f44336,#e57373);color:white;border:none;border-radius:10px;padding:11px 0;font-size:0.95rem;font-weight:600;cursor:pointer;";
             confirmBtn.onclick=function(){
-                overlay.remove();
-                var keys=Object.keys(localStorage);
-                for(var i=0;i<keys.length;i++){localStorage.removeItem(keys[i]);}
-                if(window.supabaseClient&&window.supabaseClient.auth){window.supabaseClient.auth.signOut().catch(function(){});}
-                setTimeout(function(){window.location.href="../index.html";},500);
+                var val=(emailInput.value || "").trim().toLowerCase();
+                var pwd=(pwdInput.value || "").trim();
+                if(val !== currentEmail.toLowerCase()) {
+                    errorEl.textContent="邮箱不正确，请输入当前登录邮箱";
+                    emailInput.style.borderColor="#e53e3e";
+                    return;
+                }
+                if(!pwd) {
+                    errorEl.textContent="请输入登录密码以确认注销";
+                    pwdInput.style.borderColor="#e53e3e";
+                    return;
+                }
+                errorEl.textContent="";
+                emailInput.style.borderColor="#e2e8f0";
+                pwdInput.style.borderColor="#e2e8f0";
+                performDeleteAccount(currentEmail, pwd, overlay, confirmBtn);
             };
             btnRow.appendChild(cancelBtn);
             btnRow.appendChild(confirmBtn);
@@ -316,7 +370,44 @@
             card.appendChild(inner);
             overlay.appendChild(card);
             document.body.appendChild(overlay);
+            emailInput.focus();
             overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+        }
+
+        async function performDeleteAccount(email, password, overlay, btn) {
+            if(btn) {
+                btn.disabled=true;
+                btn.innerHTML="注销中...";
+            }
+            try {
+                // 1. 重新输入密码验证（获取 fresh token，满足敏感操作要求）
+                var signInRes = await window.supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                if(signInRes.error || !signInRes.data || !signInRes.data.session) {
+                    throw new Error((signInRes.error && signInRes.error.message) || "密码验证失败");
+                }
+                // 2. 调用数据库安全函数删除当前账号（含 auth.users 与关联数据）
+                var rpcRes = await window.supabaseClient.rpc("delete_my_account");
+                if(rpcRes.error) {
+                    throw new Error(rpcRes.error.message || "注销失败");
+                }
+                // 3. 清理本地状态
+                var keys=Object.keys(localStorage);
+                for(var i=0;i<keys.length;i++){localStorage.removeItem(keys[i]);}
+                if(window.supabaseClient&&window.supabaseClient.auth){window.supabaseClient.auth.signOut().catch(function(){});}
+                if(overlay) overlay.remove();
+                showNotification("账号已注销", "success");
+                setTimeout(function(){window.location.href="../index.html";},800);
+            } catch(e) {
+                console.error("注销账号失败:", e);
+                showNotification("注销失败: " + (e.message || "请稍后重试"), "error");
+                if(btn) {
+                    btn.disabled=false;
+                    btn.textContent="确认注销";
+                }
+            }
         }
 
         function showEditProfile() {
