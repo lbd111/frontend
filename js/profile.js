@@ -356,13 +356,24 @@ async function loadStats() {
             return;
         }
 
-        // 并行查询：用户资料、普通订单、接单求助、派的单、优惠券、收藏
+        // 并行查询：用户资料、普通订单、接单求助、派的单、我接的单、组队接单、优惠券、收藏
         // 注意：Supabase 查询构建器不是原生 Promise，不能直接用 .catch()
-        const [profileRes, ordersRes, requestsRes, dispatchRes, couponsRes, favoritesRes] = await Promise.all([
+        const [profileRes, ordersRes, wizardOrdersRes, myRequestPostsRes, myRequestAcceptsRes, myDispatchPostsRes, myDispatchAcceptsRes, teamMemberRes, couponsRes, favoritesRes] = await Promise.all([
             (async () => { try { return await window.supabaseClient.from('profiles').select('nickname, balance').eq('id', user.id).maybeSingle(); } catch(e) { return { data: null, error: e }; } })(),
             (async () => { try { return await window.supabaseClient.from('orders').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { 
+                try { 
+                    const pr = await window.supabaseClient.from('profiles').select('nickname').eq('id', user.id).maybeSingle();
+                    const nickname = pr.data && pr.data.nickname ? pr.data.nickname : (user.nickname || '');
+                    if(!nickname) return { data: [] };
+                    return await window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname);
+                } catch(e) { return { data: [], error: e }; } 
+            })(),
             (async () => { try { return await window.supabaseClient.from('order_requests').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await window.supabaseClient.from('order_requests').select('*').eq('accepted_by', user.id); } catch(e) { return { data: [], error: e }; } })(),
             (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('accepted_by', user.id); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await window.supabaseClient.from('dispatch_team_members').select('dispatch_order_id').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
             (async () => { try { return await window.supabaseClient.from('coupons').select('*').eq('user_id', user.id).eq('used', false); } catch(e) { return { data: [], error: e }; } })(),
             (async () => { try { return await window.supabaseClient.from('favorites').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })()
         ]);
@@ -370,19 +381,24 @@ async function loadStats() {
         const profile = profileRes.data || {};
         const nickname = profile.nickname || user.nickname || '';
 
-        // 若有昵称，再查作为陪陪接取的普通订单
-        let wizardOrders = [];
-        if (nickname) {
+        // 通过 dispatch_team_members 查找我加入的组队派单
+        const teamDispatchIds = (teamMemberRes.data || []).map(m => m.dispatch_order_id).filter(Boolean);
+        let teamDispatchRes = { data: [] };
+        if(teamDispatchIds.length > 0) {
             try {
-                const res = await window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname);
-                wizardOrders = res.data || [];
-            } catch(e) { wizardOrders = []; }
+                teamDispatchRes = await window.supabaseClient.from('dispatch_orders').select('*').in('id', teamDispatchIds);
+            } catch(e) { teamDispatchRes = { data: [] }; }
         }
 
         // 合并所有「我的订单」并去重（按原表标识）
         const seen = {};
+        const seenSourceIds = {};
         const allOrders = [];
-        function addOrder(item, role) {
+        function addOrder(item, role, sourceTable, sourceId) {
+            // 按原始表+原始id去重：手动录入的接单会同时命中 user_id 与 accepted_by，优先归为「我接的单」
+            const srcKey = (sourceTable || role) + '_' + (sourceId || item.id || item.uuid);
+            if (seenSourceIds[srcKey]) return;
+            seenSourceIds[srcKey] = true;
             const key = role + '_' + (item.id || item.uuid);
             if (seen[key]) return;
             seen[key] = true;
@@ -390,9 +406,13 @@ async function loadStats() {
             allOrders.push(item);
         }
         (ordersRes.data || []).forEach(o => addOrder(o, 'board'));
-        (wizardOrders || []).forEach(o => addOrder(o, 'wizard'));
-        (requestsRes.data || []).forEach(r => addOrder(r, 'request'));
-        (dispatchRes.data || []).forEach(d => addOrder(d, 'dispatch'));
+        (wizardOrdersRes.data || []).forEach(o => addOrder(o, 'wizard'));
+        // order_requests 统一视为「我接的单」
+        (myRequestAcceptsRes.data || []).forEach(r => addOrder({...r, id: 'req_' + r.id}, 'wizard', 'order_requests', r.id));
+        (myRequestPostsRes.data || []).forEach(r => addOrder({...r, id: 'req_post_' + r.id}, 'wizard', 'order_requests', r.id));
+        (myDispatchAcceptsRes.data || []).forEach(d => addOrder({...d, id: 'disp_' + d.id}, 'wizard', 'dispatch_orders', d.id));
+        (myDispatchPostsRes.data || []).forEach(d => addOrder({...d, id: 'disp_post_' + d.id}, 'dispatch', 'dispatch_orders', d.id));
+        (teamDispatchRes.data || []).forEach(d => addOrder({...d, id: 'disp_' + d.id}, 'wizard', 'dispatch_orders', d.id));
 
         const ordersCount = allOrders.length;
         const couponsCount = (couponsRes.data || []).length;

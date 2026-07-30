@@ -10,7 +10,7 @@
 
 </script>    
 
-<script src='../js/supabase-config.js?v=202607240001'>
+<script src='../js/supabase-config.js?v=202607301400'>
 
 </script>
 
@@ -22,7 +22,7 @@
 
 </title>    
 
-<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/style.css?v=202607301400">
 
 <link rel="stylesheet" href="../css/profile.css">    
 
@@ -1142,6 +1142,20 @@
 
 <label>
 
+<i class="fas fa-envelope">
+
+</i> 我的邮箱
+
+</label>                    
+
+<input type="text" id="orderEmail" placeholder="当前账号邮箱" readonly style="background-color:#f5f7fa;cursor:not-allowed;">
+
+</div>
+
+<div class="form-group">                    
+
+<label>
+
 <i class="fas fa-comment">
 
 </i> 备注信息
@@ -1361,15 +1375,38 @@
 
 </footer>    
 
-<script src="../js/main.js?v=202607282230">
+<script src="../js/main.js?v=202607301400">
 
 </script>    
 
-<script src="../js/order.js?v=202607282210">
+<script src="../js/order.js?v=202607301400">
 
 </script>    
 
 <script>// 加载点单大厅的陪玩列表（从 Supabase）
+
+        // 记录当前用户已下单的陪玩名称集合（进行中/已完成），用于禁用「立即点单」按钮
+        window.orderedWizards = window.orderedWizards || new Set();
+
+        // 下单成功后调用：把对应陪玩卡片按钮改为「已接单」并禁用
+        window.markWizardOrdered = function(name) {
+            if (!name) return;
+            window.orderedWizards.add(name);
+            document.querySelectorAll('.wizard-list-card').forEach(function(card) {
+                const nameEl = card.querySelector('.card-info h3');
+                if (nameEl && nameEl.textContent.trim() === name) {
+                    const btn = card.querySelector('.card-footer button[data-wname]');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.style.background = '#ccc';
+                        btn.style.color = '#fff';
+                        btn.style.border = 'none';
+                        btn.style.cursor = 'not-allowed';
+                        btn.innerHTML = "<i class='fas fa-check'></i> 已接单";
+                    }
+                }
+            });
+        };
 
         // Handle quick order click with avatar from data attribute
 
@@ -1382,6 +1419,8 @@
             const encodedAvatar = btn.getAttribute('data-wavatar') || '';
 
             var skills = btn.getAttribute('data-wskills') || '';
+
+            const wizardId = btn.getAttribute('data-wizard-id') || '';
 
             const avatar = decodeURIComponent(encodedAvatar) || '';
 
@@ -1407,13 +1446,13 @@
 
                 if (typeof showNotification === 'function') showNotification('不能给自己下单', 'error');
 
-                else alert('不能给自己下单');
+                else showNotification('不能给自己下单', 'error');
 
                 return;
 
             }
 
-            showOrderModal(name, price, avatar, skills);
+            showOrderModal(name, price, avatar, skills, wizardId);
 
         }
 
@@ -1576,7 +1615,7 @@
 
             const userStr = localStorage.getItem('skyUser');
             if (!userStr) {
-                alert('请先登录');
+                showNotification('请先登录', 'error');
                 return;
             }
 
@@ -1587,7 +1626,7 @@
                 if (typeof showNotification === 'function') {
                     showNotification('不能收藏自己', 'error');
                 } else {
-                    alert('不能收藏自己');
+                    showNotification('不能收藏自己', 'error');
                 }
                 return;
             }
@@ -1756,6 +1795,10 @@
                         for (const skill of reqSkills) {
                             if (_skillToCat[skill] === targetCat) return true;
                         }
+                        // 兼容旧数据：skills 为空时从 description 解析
+                        const meta = parseRequestDesc(item.description);
+                        if (_skillToCat[meta.serviceType] === targetCat) return true;
+                        if (_skillToCat[meta.subType] === targetCat) return true;
                         return false;
                     }
                     const meta = parseRequestDesc(item.description);
@@ -1785,14 +1828,25 @@
 
                     if (item._source === 'request') {
                         const r = item;
-                        const skillTags = (r.skills && r.skills.length > 0)
-                            ? r.skills.map(s => '<span class="skill">' + escapeHtml(s) + '</span>').join('')
-                            : '';
+                        // 兼容旧数据：skills 为空时从 description 解析服务类型
+                        const legacyMeta = parseRequestDesc(r.description);
+                        const skillList = (r.skills && r.skills.length > 0)
+                            ? r.skills
+                            : (legacyMeta.serviceType ? [legacyMeta.serviceType] : []);
+                        const skillTags = skillList
+                            .map(s => '<span class="skill">' + escapeHtml(s) + '</span>')
+                            .join('');
+                        // description 只存备注；旧数据通过解析获取备注内容
+                        const remarkText = r.description && !legacyMeta.serviceType && !legacyMeta.boardName
+                            ? r.description
+                            : (legacyMeta.remark || '');
                         const priceInfo = r.price ? '¥' + r.price + '/小时' : '面议';
                         const hoursInfo = r.hours ? r.hours + '小时' : '';
                         const avatarHtml = avatarMap[r.nickname]
                             ? '<img src="' + avatarMap[r.nickname] + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'
                             : '<i class="fas fa-user-circle"></i>';
+                        const boardName = r.client_name || legacyMeta.boardName || '';
+                        const orderNo = r.order_no || legacyMeta.orderNo || '';
 
                         card.innerHTML = `
                             <div class="card-header" style="position:relative;">
@@ -1802,7 +1856,9 @@
                             </div>
                             <div class="card-body">
                                 <h4 style="margin:0 0 8px 0;font-size:1rem;">${escapeHtml(r.request_title)}</h4>
-                                <p class="card-desc" style="font-size:0.85rem;margin-bottom:8px;">${escapeHtml(r.description) || '暂无描述'}</p>
+                                ${boardName ? '<p class="card-board" style="font-size:0.85rem;margin-bottom:8px;color:#666;"><i class="fas fa-crown"></i> 板板：' + escapeHtml(boardName) + '</p>' : ''}
+                                ${orderNo ? '<p class="card-order-no" style="font-size:0.85rem;margin-bottom:8px;color:#666;"><i class="fas fa-hashtag"></i> 订单编号：' + escapeHtml(orderNo) + '</p>' : ''}
+                                <p class="card-desc" style="font-size:0.85rem;margin-bottom:8px;">${escapeHtml(remarkText) || '暂无描述'}</p>
                                 <div class="card-skills">${skillTags}</div>
                                 <div class="serve-details" style="display:flex;gap:16px;font-size:0.8rem;color:#666;margin-top:4px;">
                                     ${hoursInfo ? '<span><i class="fas fa-clock"></i> '+hoursInfo+'</span>' : ''}
@@ -1888,14 +1944,14 @@
             
             const { data: { session } } = await window.supabaseClient.auth.getSession();
             if (!session) {
-                alert('请先登录');
+                showNotification('请先登录', 'error');
                 return;
             }
 
             const ownerId = btn.getAttribute('data-owner');
             if (ownerId && ownerId === session.user.id) {
                 if (typeof showNotification === 'function') showNotification('不能接自己发布的订单', 'error');
-                else alert('不能接自己发布的订单');
+                else showNotification('不能接自己发布的订单', 'error');
                 return;
             }
 
@@ -1905,15 +1961,15 @@
                 
                 window.supabaseClient
                     .from('order_requests')
-                    .update({ status: 'accepted', accepted_by: session.user.id })
+                    .update({ status: 'accepted', accepted_by: session.user.id, accepted_at: new Date().toISOString() })
                     .eq('id', requestId)
                     .then(({ error }) => {
                         if (error) {
-                            alert('接单失败: ' + error.message);
+                            showNotification('接单失败: ' + error.message, 'error');
                             btn.disabled = false;
                             btn.textContent = '立即接单';
                         } else {
-                            alert('接单成功！请等待对方联系你。');
+                            showNotification('接单成功！请等待对方联系你。', 'success');
                             // Remove the card
                             const card = btn.closest('.serve-request-card');
                             if (card) card.remove();
@@ -1929,14 +1985,14 @@
             if (!dispatchId) return;
             const { data: { session } } = await window.supabaseClient.auth.getSession();
             if (!session) {
-                alert('请先登录');
+                showNotification('请先登录', 'error');
                 return;
             }
 
             const ownerId = btn.getAttribute('data-owner');
             if (ownerId && ownerId === session.user.id) {
                 if (typeof showNotification === 'function') showNotification('不能接自己发布的订单', 'error');
-                else alert('不能接自己发布的订单');
+                else showNotification('不能接自己发布的订单', 'error');
                 return;
             }
 
@@ -1982,17 +2038,17 @@
             try {
                 const { error } = await window.supabaseClient
                     .from('dispatch_orders')
-                    .update({ status: 'progress', accepted_by: (await window.supabaseClient.auth.getSession()).data.session.user.id })
+                    .update({ status: 'progress', accepted_by: (await window.supabaseClient.auth.getSession()).data.session.user.id, accepted_at: new Date().toISOString() })
                     .eq('id', dispatchId);
 
                 if (error) {
-                    alert('接单失败: ' + error.message);
+                    showNotification('接单失败: ' + error.message, 'error');
                     btn.disabled = false;
                     btn.innerHTML = originalHtml;
                     return;
                 }
 
-                alert('接单成功！请等待对方联系你。');
+                showNotification('接单成功！请等待对方联系你。', 'success');
                 const card = btn.closest('.serve-request-card');
                 if (card) card.remove();
                 serveCache = null; // 标记缓存失效
@@ -2066,12 +2122,31 @@
             const isFull = members.length >= people;
 
             const priceLabel = detail.serviceType === '送心' ? '元' : '元/小时';
+            const isHeartOrder = detail.serviceType === '送心';
+            const totalQty = parseInt(detail.qty, 10) || 0;
+            const sumExisting = members.reduce((sum, m) => sum + (parseInt(m.heart_qty, 10) || 0), 0);
+            const remainingQty = Math.max(0, totalQty - sumExisting);
+            const remainingSlots = Math.max(0, people - members.length - 1);
+            const rawMaxHeartQty = isHeartOrder ? remainingQty - remainingSlots : 0;
+            const canJoinHeart = !isHeartOrder || rawMaxHeartQty >= 1;
+            const maxHeartQty = isHeartOrder ? Math.max(1, rawMaxHeartQty) : 0;
+            const heartRowsHtml = isHeartOrder ? `
+                <div class="detail-row"><span class="detail-label">总需数量</span><span class="detail-value">${totalQty} 心</span></div>
+                <div class="detail-row"><span class="detail-label">剩余数量</span><span class="detail-value">${remainingQty} 心</span></div>
+                <div class="detail-row" style="align-items:flex-start;">
+                    <span class="detail-label">你可送心</span>
+                    <span class="detail-value">
+                        <input type="number" id="teamHeartQtyInput" min="1" max="${maxHeartQty}" value="${Math.min(1, maxHeartQty)}" style="width:70px;padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:0.9rem;">
+                        <span style="margin-left:6px;font-size:0.8rem;color:#999;">最多 ${maxHeartQty} 心</span>
+                    </span>
+                </div>
+            ` : '';
             const memberHtml = members.length > 0
                 ? members.map(m => {
                     const avatarHtml = m.avatar_url
                         ? '<img src="' + escapeHtml(m.avatar_url) + '" class="team-member-avatar" alt="">'
                         : '<i class="fas fa-user-circle"></i>';
-                    return '<div class="team-member">' + avatarHtml + ' ' + escapeHtml(m.nickname || '未知') + '</div>';
+                    return '<div class="team-member">' + avatarHtml + ' ' + escapeHtml(m.nickname || '未知') + (isHeartOrder ? ' <span style="color:#ff6b6b;font-size:0.8rem;">(' + (parseInt(m.heart_qty, 10) || 0) + '心)</span>' : '') + '</div>';
                 }).join('')
                 : '<p style="color:#999;font-size:0.85rem;">暂无成员，等待第一个接单者</p>';
 
@@ -2081,6 +2156,7 @@
                 <div class="detail-row"><span class="detail-label">称呼</span><span class="detail-value">${escapeHtml(detail.request_title) || '-'}</span></div>
                 <div class="detail-row"><span class="detail-label">服务类型</span><span class="detail-value">${escapeHtml(detail.serviceType)}${detail.subType ? ' / ' + escapeHtml(detail.subType) : ''}</span></div>
                 <div class="detail-row"><span class="detail-label">区服</span><span class="detail-value">${escapeHtml(detail.server) || '-'}</span></div>
+                ${heartRowsHtml}
                 <div class="detail-row"><span class="detail-label">价格</span><span class="detail-value">${detail.price ? '¥' + detail.price + priceLabel : '面议'}</span></div>
                 <div class="detail-row"><span class="detail-label">需要人数</span><span class="detail-value">${people}人</span></div>
                 <div class="team-progress">
@@ -2100,6 +2176,10 @@
                     joinBtn.disabled = true;
                     joinBtn.className = 'btn btn-done';
                     joinBtn.innerHTML = '<i class="fas fa-check"></i> 已加入';
+                } else if (!canJoinHeart) {
+                    joinBtn.disabled = true;
+                    joinBtn.className = 'btn btn-done';
+                    joinBtn.innerHTML = '<i class="fas fa-times"></i> 心数不足';
                 } else {
                     joinBtn.disabled = false;
                     joinBtn.className = 'btn btn-join';
@@ -2131,7 +2211,12 @@
             try {
                 const { data: { session } } = await window.supabaseClient.auth.getSession();
                 if (!session) {
-                    alert('请先登录');
+                    showNotification('请先登录', 'error');
+                    if (joinBtn) {
+                        joinBtn.disabled = false;
+                        joinBtn.className = 'btn btn-join';
+                        joinBtn.innerHTML = '<i class="fas fa-user-plus"></i> 加入接单';
+                    }
                     return;
                 }
 
@@ -2141,21 +2226,46 @@
                     .eq('id', dispatchId)
                     .single();
                 if (ownerRow && ownerRow.user_id && ownerRow.user_id === session.user.id) {
-                    if (typeof showNotification === 'function') showNotification('不能接自己发布的订单', 'error');
-                    else alert('不能接自己发布的订单');
+                    showNotification('不能接自己发布的订单', 'error');
+                    if (joinBtn) {
+                        joinBtn.disabled = false;
+                        joinBtn.className = 'btn btn-join';
+                        joinBtn.innerHTML = '<i class="fas fa-user-plus"></i> 加入接单';
+                    }
                     return;
                 }
 
+                // 送心单：校验每人可送心数量
+                let heartQty = null;
+                if (detail.serviceType === '送心') {
+                    const heartInput = document.getElementById('teamHeartQtyInput');
+                    const inputQty = heartInput ? (parseInt(heartInput.value, 10) || 0) : 0;
+                    const members = await loadTeamMembers(dispatchId);
+                    const totalQty = parseInt(detail.qty, 10) || 0;
+                    const sumExisting = members.reduce((sum, m) => sum + (parseInt(m.heart_qty, 10) || 0), 0);
+                    const remainingSlots = Math.max(0, people - members.length - 1);
+                    const maxHeartQty = totalQty - sumExisting - remainingSlots;
+                    if (inputQty < 1 || inputQty > maxHeartQty) {
+                        showNotification('请输入 1-' + maxHeartQty + ' 之间的送心数量', 'error');
+                        await renderTeamDispatchModal(dispatchId, detail, meta, people);
+                        return;
+                    }
+                    heartQty = inputQty;
+                }
+
+                const insertData = {
+                    dispatch_order_id: dispatchId,
+                    user_id: session.user.id,
+                    nickname: session.user.user_metadata && session.user.user_metadata.nickname ? session.user.user_metadata.nickname : (session.user.email || '未知')
+                };
+                if (heartQty !== null) insertData.heart_qty = heartQty;
+
                 const { error: insertError } = await window.supabaseClient
                     .from('dispatch_team_members')
-                    .insert({
-                        dispatch_order_id: dispatchId,
-                        user_id: session.user.id,
-                        nickname: session.user.user_metadata && session.user.user_metadata.nickname ? session.user.user_metadata.nickname : (session.user.email || '未知')
-                    });
+                    .insert(insertData);
 
                 if (insertError) {
-                    alert('加入失败: ' + insertError.message);
+                    showNotification('加入失败: ' + insertError.message, 'error');
                     await renderTeamDispatchModal(dispatchId, detail, meta, people);
                     return;
                 }
@@ -2164,11 +2274,11 @@
                 if (members.length >= people) {
                     const { error: updateError } = await window.supabaseClient
                         .from('dispatch_orders')
-                        .update({ status: 'progress', accepted_by: session.user.id })
+                        .update({ status: 'progress', accepted_by: session.user.id, accepted_at: new Date().toISOString() })
                         .eq('id', dispatchId);
 
                     if (updateError) {
-                        alert('组队成功，但更新订单状态失败: ' + updateError.message);
+                        showNotification('组队成功，但更新订单状态失败: ' + updateError.message, 'error');
                         await renderTeamDispatchModal(dispatchId, detail, meta, people);
                         return;
                     }
@@ -2189,17 +2299,17 @@
                             document.querySelector('#dispatchConfirmModal .btn-confirm').style.display = '';
                         }, 2000);
                     } else {
-                        alert('组合接单完成！订单已进入进行中状态。');
+                        showNotification('组合接单完成！订单已进入进行中状态。', 'success');
                     }
                 } else {
+                    await renderTeamDispatchModal(dispatchId, detail, meta, people);
+                }
+            } catch (e) {
+                console.error('加入组合接单异常:', e);
+                alert('加入异常: ' + (e.message || '未知错误'));
                 await renderTeamDispatchModal(dispatchId, detail, meta, people);
             }
-        } catch (e) {
-            console.error('加入组合接单异常:', e);
-            alert('加入异常: ' + (e.message || '未知错误'));
-            await renderTeamDispatchModal(dispatchId, detail, meta, people);
         }
-    }
 
     async function leaveTeamDispatch() {
         if (!pendingDispatchBtn) return;
@@ -2207,7 +2317,7 @@
         try {
             const { data: { session } } = await window.supabaseClient.auth.getSession();
             if (!session) {
-                alert('请先登录');
+                showNotification('请先登录', 'error');
                 return;
             }
 
@@ -2218,7 +2328,7 @@
                 .eq('user_id', session.user.id);
 
             if (error) {
-                alert('退出组队失败: ' + error.message);
+                showNotification('退出组队失败: ' + error.message, 'error');
                 return;
             }
 
@@ -2406,6 +2516,27 @@ async function loadWizardList() {
 
                 }
 
+                // 查询当前用户已下单的陪玩名称（状态不为待支付/已取消）
+                window.orderedWizards.clear();
+                try {
+                    const userStr = localStorage.getItem('skyUser');
+                    const user = userStr ? JSON.parse(userStr) : null;
+                    if (user && user.id) {
+                        const { data: myOrders } = await window.supabaseClient
+                            .from('orders')
+                            .select('wizard_name, status')
+                            .eq('user_id', user.id)
+                            .not('status', 'in', '("待支付","已取消")');
+                        if (myOrders) {
+                            myOrders.forEach(function(o) {
+                                if (o.wizard_name) window.orderedWizards.add(o.wizard_name);
+                            });
+                        }
+                    }
+                } catch(e) {
+                    console.warn('加载已下单记录失败:', e);
+                }
+
                 // 只展示已上架（在线）的服务
                 wizards = wizards.filter(w => w.status === 'online');
 
@@ -2529,11 +2660,9 @@ async function loadWizardList() {
 
                                 ${buildFavoriteBtn(w.wizard_name, w.wizard_name, w.skills || [], w.game_type)}
 
-                                <button class="btn btn-primary btn-small" data-wname="${w.wizard_name}" data-wprice="${(w.price || 29.9)}" data-wskills='${(w.skills ? JSON.stringify(w.skills) : '')}' data-wavatar="${encodeURIComponent(w._avatar || '')}" onclick="handleQuickOrder(this)">
-
-                                    <i class='fas fa-cart-plus'></i> 立即点单
-
-                                </button>
+                                ${window.orderedWizards.has(w.wizard_name)
+                                    ? `<button class="btn btn-small" disabled style="background:#ccc;color:#fff;border:none;cursor:not-allowed;"><i class='fas fa-check'></i> 已接单</button>`
+                                    : `<button class="btn btn-primary btn-small" data-wname="${w.wizard_name}" data-wprice="${(w.price || 29.9)}" data-wskills='${(w.skills ? JSON.stringify(w.skills) : '')}' data-wavatar="${encodeURIComponent(w._avatar || '')}" data-wizard-id="${w.user_id || ''}" onclick="handleQuickOrder(this)"><i class='fas fa-cart-plus'></i> 立即点单</button>`}
 
                             </div>
 

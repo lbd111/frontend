@@ -1,13 +1,13 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src='../js/supabase-config.js?v=202607240001'></script>
-<script src='../js/auth.js?v=202607282230'></script>
+<script src='../js/supabase-config.js?v=202607301455'></script>
+    <script src='../js/auth.js?v=202607301455'></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>我的订单 - BJ陪玩团</title>
-<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/style.css?v=202607301455">
 <link rel="stylesheet" href="../css/profile.css">
 <link rel="stylesheet" href="../css/order.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -168,7 +168,31 @@
 .add-order-modal .form-actions .btn { flex: 1; padding: 12px 20px; border-radius: 10px; border: none; font-size: 0.95rem; cursor: pointer; transition: var(--transition); text-align: center; }
 .add-order-modal .btn-submit { background: linear-gradient(90deg, #4FC3F7 0%, #29B6F6 100%); color: white; font-weight: 600; }
 .add-order-modal .btn-submit:hover { opacity: 0.92; }
-@media (max-width: 768px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .action-buttons { flex-direction: column; align-items: center; } .wizard-item { flex-direction: column; align-items: flex-start; } .form-actions { flex-direction: column; } .add-order-fab { right: 16px; bottom: 80px; width: 52px; height: 52px; } .add-order-modal .card-modal-body { max-height: 60vh; } }
+/* 组队派单收益分配弹窗 */
+.allocation-modal { max-width: 420px; width: 90%; padding: 0; overflow: hidden; }
+.allocation-modal-header { padding: 24px 24px 16px; text-align: center; position: relative; background: white; border-bottom: 1px solid #f0f0f0; }
+.allocation-modal-header h3 { margin: 0; font-size: 1.15rem; color: #333; }
+.allocation-subtitle { margin: 8px 0 0; font-size: 0.9rem; color: #666; }
+.allocation-subtitle strong { color: #f44336; font-size: 1.1rem; }
+.allocation-modal-body { padding: 20px 24px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.allocation-modal-body::-webkit-scrollbar { display: none; }
+.allocation-hint { font-size: 0.85rem; color: #888; margin: 0 0 16px; }
+.allocation-member { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: #f8faff; border-radius: 10px; }
+.allocation-member-avatar { width: 36px; height: 36px; border-radius: 50%; background: #e3f2fd; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 0.9rem; flex-shrink: 0; overflow: hidden; }
+.allocation-member-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.allocation-member-info { flex: 1; min-width: 0; }
+.allocation-member-name { font-size: 0.95rem; color: #333; font-weight: 500; }
+.allocation-member-input { width: 100px; padding: 8px 10px; border: 1px solid #e0e0e0; border-radius: 8px; text-align: right; font-size: 0.95rem; box-sizing: border-box; }
+.allocation-member-input:focus { outline: none; border-color: var(--primary); }
+.allocation-summary { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f0f0f0; font-size: 0.9rem; color: #666; }
+.allocation-error { color: #f44336; font-size: 0.85rem; margin-top: 12px; min-height: 1.2em; text-align: center; }
+.allocation-modal-footer { display: flex; gap: 12px; padding: 16px 24px 24px; background: white; }
+.allocation-modal-footer .btn { flex: 1; padding: 12px 20px; border-radius: 10px; border: none; font-size: 0.95rem; cursor: pointer; transition: var(--transition); text-align: center; }
+.allocation-modal-footer .btn-cancel { background: #f0f0f0; color: #666; }
+.allocation-modal-footer .btn-cancel:hover { background: #e0e0e0; }
+.allocation-modal-footer .btn-submit { background: linear-gradient(90deg, #4FC3F7 0%, #29B6F6 100%); color: white; font-weight: 600; }
+.allocation-modal-footer .btn-submit:hover { opacity: 0.92; }
+@media (max-width: 768px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .action-buttons { flex-direction: column; align-items: center; } .wizard-item { flex-direction: column; align-items: flex-start; } .form-actions { flex-direction: column; } .add-order-fab { right: 16px; bottom: 80px; width: 52px; height: 52px; } .add-order-modal .card-modal-body { max-height: 60vh; } .allocation-modal-body { max-height: 45vh; } }
 </style>
 </head>
 <body class="my-orders-page">
@@ -305,6 +329,10 @@
                 </select>
             </div>
             <div class="form-group">
+                <label class="form-label">我的邮箱</label>
+                <input type="text" id="wfEmail" class="form-input" placeholder="当前账号邮箱" readonly style="background-color:#f5f7fa;cursor:not-allowed;">
+            </div>
+            <div class="form-group">
                 <label class="form-label">个人简介</label>
                 <textarea id="wfIntro" class="form-textarea" placeholder="简单介绍自己..."></textarea>
             </div>
@@ -313,8 +341,7 @@
                 <div id="wfSkills" class="skill-tags"></div>
             </div>
             <div class="form-actions">
-                <button type="button" class="btn btn-cancel" onclick="resetWizardForm()">取消</button>
-                <button type="button" class="btn btn-submit" onclick="submitWizardForm()"><i class="fas fa-check"></i> 立即上架</button>
+                <button type="button" class="btn btn-submit" onclick="submitWizardForm()" style="width:100%;"><i class="fas fa-check"></i> 立即上架</button>
             </div>
         </div>
         </div>
@@ -376,8 +403,8 @@
                     <input type="text" id="dispatchBoard" class="form-input" placeholder="请输入板板名称">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">称呼<span class="required">*</span></label>
-                    <input type="text" id="dispatchTitle" class="form-input" placeholder="请输入称呼">
+                    <label class="form-label">邮箱<span class="required">*</span></label>
+                    <input type="text" id="dispatchTitle" class="form-input" placeholder="当前账号邮箱" readonly style="background-color:#f5f7fa;cursor:not-allowed;">
                 </div>
                 <div class="form-group">
                     <label class="form-label">人数</label>
@@ -419,6 +446,30 @@
     </div>
 </div>
 
+<!-- 组队派单收益分配弹窗 -->
+<div class="card-overlay" id="dispatchAllocationModal">
+    <div class="card-modal allocation-modal">
+        <div class="allocation-modal-header">
+            <span class="modal-close" onclick="closeDispatchAllocationModal()">&times;</span>
+            <h3><i class="fas fa-coins"></i> 分配收益</h3>
+            <p class="allocation-subtitle">订单金额：<strong id="dispatchAllocationTotal">￥0.00</strong></p>
+        </div>
+        <div class="allocation-modal-body">
+            <p class="allocation-hint">请输入每位组队成员的收益金额，每人至少分到 0.01 元</p>
+            <div id="dispatchAllocationMembers"></div>
+            <div class="allocation-summary">
+                <span>已分配：<strong id="dispatchAllocationUsed">￥0.00</strong></span>
+                <span>剩余：<strong id="dispatchAllocationRemain">￥0.00</strong></span>
+            </div>
+            <div id="dispatchAllocationError" class="allocation-error"></div>
+        </div>
+        <div class="allocation-modal-footer">
+            <button type="button" class="btn btn-cancel" onclick="closeDispatchAllocationModal()">取消</button>
+            <button type="button" class="btn btn-submit" id="dispatchAllocationConfirmBtn" onclick="onConfirmDispatchAllocation()">确认分配</button>
+        </div>
+    </div>
+</div>
+
 <div class="card-overlay" id="wizardDetailCard">
     <div class="card-modal">
         <span class="modal-close" onclick="closeWizardDetailCard()">&times;</span>
@@ -442,8 +493,8 @@
                     <input type="text" id="addOrderNo" class="form-input" placeholder="请输入订单编号">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">需求标题<span class="required">*</span></label>
-                    <input type="text" id="addRequestTitle" class="form-input" placeholder="请输入需求标题">
+                    <label class="form-label">邮箱<span class="required">*</span></label>
+                    <input type="text" id="addRequestTitle" class="form-input" placeholder="请输入邮箱">
                 </div>
                 <div class="form-group">
                     <label class="form-label">陪玩名称</label>
@@ -521,7 +572,7 @@
     </div>
 </footer>
 
-<script src="../js/main.js?v=202607282230"></script>
+<script src="../js/main.js?v=202607301455"></script>
 
 <div id="toastContainer"></div>
 
@@ -575,6 +626,7 @@ var currentOrdersTab = "view";
 
 // 我的订单内存缓存：同一次页面访问内切换标签不再请求网络
 var ordersCache = null;
+var statsTimer = null; // 累计金额定时刷新器
 
 function switchTab(tab, btn) {
     currentTab = tab;
@@ -587,6 +639,7 @@ function switchTab(tab, btn) {
     if(ordersCache && ordersCache.orders) {
         updateStats(ordersCache.orders);
         renderOrders(ordersCache.orders, ordersCache.avatarMap || {});
+        startStatsTimer();
     } else {
         loadOrders();
     }
@@ -648,146 +701,276 @@ async function loadOrders() {
         document.getElementById("emptyState").style.display = "none";
         document.getElementById("ordersList").innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>加载中...</p></div>';
 
-        // 用 localStorage 里的 username 预查 wizard_name 订单，常与 nickname 一致
-        var guessedNickname = user.username || "";
+        // 获取用户资料（含 nickname，用于查 orders.wizard_name）
+        var profile = await getCurrentUserProfile(user.id);
+        var nickname = profile.nickname || user.username || "";
 
-        // 第一批并行：profile + 作为板板的订单 + 接单请求 + 派的单 + 预查的陪陪订单
-        var promises = [
-            getCurrentUserProfile(user.id),
-            window.supabaseClient
-                .from("orders")
-                .select("*")
-                .eq("user_id", user.id)
-                .order("created_at", { ascending: false }),
-            window.supabaseClient
-                .from("order_requests")
-                .select("*")
-                .eq("user_id", user.id)
-                .order("created_at", { ascending: false }),
-            window.supabaseClient
+        // 并行查询各类订单：把「我派的单」和「我接的单」分开查，避免角色混淆
+        var [
+            boardOrdersRes,
+            wizardOrdersRes,
+            myRequestPostsRes,
+            myRequestAcceptsRes,
+            myDispatchPostsRes,
+            myDispatchAcceptsRes,
+            teamMemberRes
+        ] = await Promise.all([
+            window.supabaseClient.from("orders").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+            nickname ? window.supabaseClient.from("orders").select("*").eq("wizard_name", nickname).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+            window.supabaseClient.from("order_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+            window.supabaseClient.from("order_requests").select("*").eq("accepted_by", user.id).order("created_at", { ascending: false }),
+            window.supabaseClient.from("dispatch_orders").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+            window.supabaseClient.from("dispatch_orders").select("*").eq("accepted_by", user.id).order("created_at", { ascending: false }),
+            window.supabaseClient.from("dispatch_team_members").select("dispatch_order_id").eq("user_id", user.id)
+        ]);
+
+        // 通过 dispatch_team_members 查找我加入的组队派单
+        var teamDispatchIds = (teamMemberRes.data || []).map(function(m) { return m.dispatch_order_id; }).filter(Boolean);
+        var teamDispatchRes = { data: [] };
+        if(teamDispatchIds.length > 0) {
+            teamDispatchRes = await window.supabaseClient
                 .from("dispatch_orders")
                 .select("*")
-                .eq("user_id", user.id)
-                .order("created_at", { ascending: false })
-        ];
-        if(guessedNickname) {
-            promises.push(window.supabaseClient
-                .from("orders")
-                .select("*")
-                .eq("wizard_name", guessedNickname)
-                .order("created_at", { ascending: false }));
+                .in("id", teamDispatchIds)
+                .order("created_at", { ascending: false });
         }
 
-        var results = await Promise.all(promises);
-        var profile = results[0];
-        var orders1Res = results[1];
-        var requestsRes = results[2];
-        var dispatchRes = results[3];
-        var guessedOrdersRes = guessedNickname ? results[4] : { data: [] };
-
-        var orders1 = orders1Res.data || [];
-        for(var i = 0; i < orders1.length; i++) { orders1[i].order_role = "board"; }
-
-        // 组装「我接的单 / 我派的单」列表
         var orders2 = [];
+        var seenSourceIds = {}; // 用原始表+原始id去重，避免 accepted_by 和 team_members 重复
 
-        // order_requests 数据
-        var rawRequests = requestsRes.data || [];
-        for(var i = 0; i < rawRequests.length; i++) {
-            var r = rawRequests[i];
+        function markSeen(table, id) {
+            seenSourceIds[table + "_" + id] = true;
+        }
+        function isSeen(table, id) {
+            return !!seenSourceIds[table + "_" + id];
+        }
+
+        // 1. board 订单
+        var orders1 = boardOrdersRes.data || [];
+        for(var i = 0; i < orders1.length; i++) {
+            orders1[i].order_role = "board";
+            // board 订单显示陪玩头像，当前没有陪玩邮箱，留空 fallback 到 wizard_name
+            orders1[i].avatar_email = "";
+        }
+
+        // 2. 作为陪陪的 orders（按 wizard_name）
+        var wizardOrders = wizardOrdersRes.data || [];
+        for(var i = 0; i < wizardOrders.length; i++) {
+            var w = wizardOrders[i];
+            w.avatar_email = extractContactEmail(w.remark);
+            var alreadyInBoard = false;
+            for(var j = 0; j < orders1.length; j++) {
+                if(orders1[j].id === w.id) { alreadyInBoard = true; break; }
+            }
+            if(!alreadyInBoard) {
+                w.order_role = "wizard";
+                orders2.push(w);
+            }
+        }
+
+        // 3. order_requests：我接的单（user_id 或 accepted_by 命中当前用户都视为接单）
+        var rawRequestAccepts = myRequestAcceptsRes.data || [];
+        for(var i = 0; i < rawRequestAccepts.length; i++) {
+            var r = rawRequestAccepts[i];
+            if(isSeen("order_requests", r.id)) continue;
+            markSeen("order_requests", r.id);
             orders2.push({
                 id: "req_" + r.id,
                 order_role: "wizard",
                 wizard_name: r.nickname,
                 service_type: r.request_title,
+                avatar_email: r.request_title,
                 game_type: r.game_type,
                 price: r.price,
                 status: r.status,
                 remark: r.description,
-                created_at: r.created_at
+                skills: r.skills,
+                client_name: r.client_name,
+                order_no: r.order_no,
+                created_at: r.created_at,
+                accepted_at: r.accepted_at
             });
         }
 
-        // dispatch_orders 数据
-        var rawDispatch = dispatchRes.data || [];
-        for(var i = 0; i < rawDispatch.length; i++) {
-            var d = rawDispatch[i];
+        // 4. order_requests：当前用户创建的接单记录（同样是「我接的单」）
+        var rawRequestPosts = myRequestPostsRes.data || [];
+        for(var i = 0; i < rawRequestPosts.length; i++) {
+            var r = rawRequestPosts[i];
+            if(isSeen("order_requests", r.id)) continue;
+            markSeen("order_requests", r.id);
             orders2.push({
-                id: "disp_" + d.id,
+                id: "req_post_" + r.id,
+                order_role: "wizard",
+                wizard_name: r.nickname,
+                service_type: r.request_title,
+                avatar_email: r.request_title,
+                game_type: r.game_type,
+                price: r.price,
+                status: r.status,
+                remark: r.description,
+                skills: r.skills,
+                client_name: r.client_name,
+                order_no: r.order_no,
+                created_at: r.created_at,
+                accepted_at: r.accepted_at
+            });
+        }
+
+        // 5. dispatch_orders：我派的单
+        var rawDispatchPosts = myDispatchPostsRes.data || [];
+        for(var i = 0; i < rawDispatchPosts.length; i++) {
+            var d = rawDispatchPosts[i];
+            markSeen("dispatch_orders", d.id);
+            orders2.push({
+                id: "disp_post_" + d.id,
                 order_role: "dispatch",
                 wizard_name: d.nickname,
                 service_type: d.request_title,
+                avatar_email: d.request_title,
                 game_type: d.game_type,
                 price: d.price,
                 status: d.status,
                 remark: d.description,
-                created_at: d.created_at
+                cancel_requested: d.cancel_requested,
+                cancel_requested_at: d.cancel_requested_at,
+                created_at: d.created_at,
+                accepted_at: d.accepted_at
             });
         }
 
-        // 查询作为陪陪的订单(wizard_name)
-        var nickname = profile.nickname || "";
-        var wizardOrders = [];
-        if(nickname && nickname !== guessedNickname) {
-            var result2 = await window.supabaseClient
-                .from("orders")
-                .select("*")
-                .eq("wizard_name", nickname)
-                .order("created_at", { ascending: false });
-            wizardOrders = result2.data || [];
-        } else if(guessedNickname) {
-            wizardOrders = guessedOrdersRes.data || [];
+        // 6. dispatch_orders：我接的单（accepted_by）
+        var rawDispatchAccepts = myDispatchAcceptsRes.data || [];
+        for(var i = 0; i < rawDispatchAccepts.length; i++) {
+            var d = rawDispatchAccepts[i];
+            if(isSeen("dispatch_orders", d.id)) continue;
+            markSeen("dispatch_orders", d.id);
+            orders2.push({
+                id: "disp_" + d.id,
+                order_role: "wizard",
+                wizard_name: d.nickname,
+                service_type: d.request_title,
+                avatar_email: d.request_title,
+                game_type: d.game_type,
+                price: d.price,
+                status: d.status,
+                remark: d.description,
+                cancel_requested: d.cancel_requested,
+                cancel_requested_at: d.cancel_requested_at,
+                created_at: d.created_at,
+                accepted_at: d.accepted_at
+            });
         }
 
-        var existingIds = {};
-        for(var i = 0; i < orders1.length; i++) { existingIds[orders1[i].id] = true; }
-        for(var i = 0; i < wizardOrders.length; i++) {
-            if(!existingIds[wizardOrders[i].id]) {
-                wizardOrders[i].order_role = "wizard";
-                orders2.push(wizardOrders[i]);
-            }
+        // 7. dispatch_orders：我加入的组队派单
+        var rawTeamDispatch = teamDispatchRes.data || [];
+        for(var i = 0; i < rawTeamDispatch.length; i++) {
+            var d = rawTeamDispatch[i];
+            if(isSeen("dispatch_orders", d.id)) continue;
+            markSeen("dispatch_orders", d.id);
+            orders2.push({
+                id: "disp_" + d.id,
+                order_role: "wizard",
+                wizard_name: d.nickname,
+                service_type: d.request_title,
+                avatar_email: d.request_title,
+                game_type: d.game_type,
+                price: d.price,
+                status: d.status,
+                remark: d.description,
+                cancel_requested: d.cancel_requested,
+                cancel_requested_at: d.cancel_requested_at,
+                created_at: d.created_at,
+                accepted_at: d.accepted_at
+            });
         }
 
         // 合并并排序
         var orders = orders1.concat(orders2);
         orders.sort(function(a, b){ return new Date(b.created_at) - new Date(a.created_at); });
 
+        // 过滤已取消的订单：普通订单和组队派单取消后均不显示
+        // （新数据已物理删除；此处兜底过滤旧的软删除记录）
+        orders = orders.filter(function(o) {
+            var s = (o.status || '').toLowerCase();
+            return s !== 'cancelled' && s !== '已取消';
+        });
+
+        // 标记组队派单，提取真实 id 供取消投票使用
+        orders.forEach(function(o){
+            if(typeof o.id === 'string' && (o.id.indexOf('disp_post_') === 0 || o.id.indexOf('disp_') === 0)) {
+                o.isDispatch = true;
+                o.rawId = parseInt(o.id.replace('disp_post_','').replace('disp_',''), 10);
+            }
+        });
+
         // 先渲染文字内容，让用户秒看到订单列表
         updateStats(orders);
         renderOrders(orders, {});
+
+        // 加载组队订单取消投票信息（票数 / 我的票），并兜底处理超 3 小时未决的投票
+        try {
+            await loadDispatchCancelInfo(orders, user.id);
+            await autoResolveExpiredDispatchCancels(orders);
+            renderOrders(orders, {});
+        } catch(e) { console.warn('dispatch cancel info failed:', e); }
 
         // 缓存结果（无头像版本）
         ordersCache = { orders: orders, avatarMap: {} };
 
         // 后台批量获取头像，拿到后再刷新一次
+        // 优先按「填写邮箱」查头像；没有邮箱的 fallback 按昵称查
+        var emailSet = {};
         var nameSet = {};
         for(var n = 0; n < orders.length; n++) {
-            if(orders[n].wizard_name) nameSet[orders[n].wizard_name] = true;
-            // 接单卡片需要按板板名称查头像
-            if(orders[n].order_role === "wizard" && orders[n].remark) {
-                var meta = parseRequestDesc(orders[n].remark);
-                if(meta.boardName) nameSet[meta.boardName] = true;
+            var o = orders[n];
+            if(o.avatar_email) {
+                emailSet[o.avatar_email] = true;
+            } else {
+                if(o.wizard_name) nameSet[o.wizard_name] = true;
+                if(o.order_role === "wizard" && o.remark) {
+                    var meta = parseRequestDesc(o.remark);
+                    if(meta.boardName) nameSet[meta.boardName] = true;
+                }
             }
         }
+        var emails = Object.keys(emailSet);
         var names = Object.keys(nameSet);
-        if(names.length > 0) {
-            try {
-                var profRes = await window.supabaseClient
+        try {
+            var avatarMap = {};
+            if(emails.length > 0) {
+                var emailProfRes = await window.supabaseClient
+                    .from("profiles")
+                    .select("email, avatar_url, nickname")
+                    .in("email", emails);
+                if(emailProfRes.data) {
+                    for(var p = 0; p < emailProfRes.data.length; p++) {
+                        var prof = emailProfRes.data[p];
+                        avatarMap[prof.email] = prof.avatar_url || "";
+                        if(prof.nickname) {
+                            avatarMap["name:" + prof.email] = prof.nickname;
+                        }
+                    }
+                }
+            }
+            if(names.length > 0) {
+                var nameProfRes = await window.supabaseClient
                     .from("profiles")
                     .select("nickname, avatar_url")
                     .in("nickname", names);
-                if(profRes.data) {
-                    var avatarMap = {};
-                    for(var p = 0; p < profRes.data.length; p++) {
-                        avatarMap[profRes.data[p].nickname] = profRes.data[p].avatar_url || "";
+                if(nameProfRes.data) {
+                    for(var p = 0; p < nameProfRes.data.length; p++) {
+                        avatarMap[nameProfRes.data[p].nickname] = nameProfRes.data[p].avatar_url || "";
                     }
-                    ordersCache.avatarMap = avatarMap;
-                    renderOrders(orders, avatarMap);
                 }
-            } catch(profErr) {
-                console.warn("批量获取头像失败:", profErr);
             }
+            ordersCache.avatarMap = avatarMap;
+            renderOrders(orders, avatarMap);
+        } catch(profErr) {
+            console.warn("批量获取头像失败:", profErr);
         }
+
+        // 启动累计金额定时刷新
+        startStatsTimer();
     } catch(e) {
         console.error("=== 加载订单发生异常 ===");
         console.error("错误对象:", e);
@@ -796,6 +979,19 @@ async function loadOrders() {
         document.getElementById("emptyState").style.display = "block";
         document.getElementById("ordersList").innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p style="color:#f44336;">加载失败: ' + (e.message || "未知错误") + '</p><p style="font-size:0.85rem;color:#999;margin-top:10px;">请打开控制台查看详细错误信息</p></div>';
     }
+}
+
+// 计算单笔订单当前应统计的金额：只有「已完成」状态才计入累计获取/消费
+function calcOrderAmount(o) {
+    var price = parseFloat(o.price) || 0;
+    var status = (o.status || "").toLowerCase();
+    // 已完成：按订单总价 = 单价 * 小时数（默认 1）
+    if(status === "completed" || status === "已完成") {
+        var hours = parseFloat(o.hours) || 1;
+        return price * hours;
+    }
+    // 进行中 / 已接单 / pending / cancelled 等未完全结束的状态不计入
+    return 0;
 }
 
 function updateStats(orders) {
@@ -810,21 +1006,39 @@ function updateStats(orders) {
     var spent = 0;
     for(var i = 0; i < filtered.length; i++) {
         var o = filtered[i];
-        if(o.status === "pending" || o.status === "progress") active++;
-        if(o.status === "completed") completed++;
+        var status = (o.status || "").toLowerCase();
+        if(status === "pending" || status === "progress" || status === "进行中" || status === "accepted" || status === "已接单") active++;
+        if(status === "completed" || status === "已完成") completed++;
         // 全部标签下消费统计下单（board）+ 派单（dispatch）；接单标签下统计接单收入；下单/派单标签下统计各自消费
+        var amount = calcOrderAmount(o);
         if(currentTab === "all" && (o.order_role === "board" || o.order_role === "dispatch")) {
-            spent += parseFloat(o.price) || 0;
+            spent += amount;
         } else if(currentTab !== "all") {
-            spent += parseFloat(o.price) || 0;
+            spent += amount;
         }
     }
     document.getElementById("statTotal").textContent = total;
     document.getElementById("statActive").textContent = active;
     document.getElementById("statCompleted").textContent = completed;
-    document.getElementById("statSpent").textContent = "\u00a5" + spent.toFixed(0);
+    document.getElementById("statSpent").textContent = "\u00a5" + spent.toFixed(2);
     document.getElementById("statSpentLabel").textContent = currentTab === "wizard" ? "累计获取" : "累计消费";
     document.getElementById("emptyState").style.display = total === 0 ? "block" : "none";
+}
+
+// 启动/停止累计金额定时刷新（每分钟刷新一次，让进行中订单的金额随时间变化）
+function startStatsTimer() {
+    stopStatsTimer();
+    statsTimer = setInterval(function() {
+        if(ordersCache && ordersCache.orders) {
+            updateStats(ordersCache.orders);
+        }
+    }, 60000);
+}
+function stopStatsTimer() {
+    if(statsTimer) {
+        clearInterval(statsTimer);
+        statsTimer = null;
+    }
 }
 
 function renderOrders(orders, avatarMap) {
@@ -858,21 +1072,98 @@ function getOrderStatus(order) {
     var statusText = "待支付";
     if(order.status === "completed") { statusClass = "status-completed"; statusText = "已完成"; }
     else if(order.status === "cancelled") { statusClass = "status-cancelled"; statusText = "已取消"; }
-    else if(order.status === "progress") { statusClass = "status-progress"; statusText = "进行中"; }
+    else if(order.cancel_requested) { statusClass = "status-progress"; statusText = "取消申请中"; }
+    else if(order.status === "progress" || order.status === "进行中") { statusClass = "status-progress"; statusText = "进行中"; }
     return { cls: statusClass, text: statusText };
+}
+
+function canRequestCancel(order) {
+    if(!order) return false;
+    if(order.cancel_requested) return false;
+    var s = (order.status || "").toLowerCase();
+    return s === "progress" || s === "进行中";
+}
+
+function canConfirmCancel(order) {
+    if(!order) return false;
+    if(order.order_role !== "wizard") return false;
+    if(!order.cancel_requested) return false;
+    if(order.cancel_confirmed) return false;
+    var s = (order.status || "").toLowerCase();
+    return s === "progress" || s === "进行中" || s === "取消申请中";
+}
+
+function onConfirmCancelOrder(orderId, ev) {
+    if(ev) ev.stopPropagation();
+    if(!orderId) return;
+    window.showMessageModal({
+        title: '订单取消确认',
+        message: '对方希望取消订单，经过确认后订单取消，不进行确定则三小时后自动确定。',
+        showCancel: true,
+        cancelText: '暂不处理',
+        okText: '确认取消',
+        onOk: function() {
+            window.confirmCancelOrder(orderId);
+        }
+    });
+}
+
+function onRejectCancelOrder(orderId, ev) {
+    if(ev) ev.stopPropagation();
+    if(!orderId) return;
+    window.showMessageModal({
+        title: '拒绝取消订单',
+        message: '拒绝后订单将继续进行，是否确定？',
+        showCancel: true,
+        cancelText: '再想想',
+        okText: '确定拒绝',
+        onOk: function() {
+            window.rejectCancelOrder(orderId);
+        }
+    });
 }
 
 function getDispatchStatus(order) {
     var s = (order.status || "").toLowerCase();
     if(s === "completed" || s === "已完成") return { cls: "status-completed", text: "已完成" };
+    if(s === "cancelled" || s === "已取消") return { cls: "status-cancelled", text: "已取消" };
+    if(order.cancel_requested) return { cls: "status-progress", text: "取消中" };
     if(s === "progress" || s === "进行中") return { cls: "status-progress", text: "进行中" };
     // pending / open / 待接单 或未设置都显示「待接单」
     return { cls: "status-pending", text: "待接单" };
 }
 
+function onRequestDispatchCancel(rawId, ev) {
+    if(ev) ev.stopPropagation();
+    if(!rawId) return;
+    window.showMessageModal({
+        title: '取消派单',
+        message: '发起后需所有接单人表决（同意取消 或 驳回），任一方过半即生效；3 小时后若某项超过半数将自动通过。是否发起取消投票？',
+        showCancel: true,
+        cancelText: '再想想',
+        okText: '发起取消',
+        onOk: function() { window.requestDispatchCancel(rawId); }
+    });
+}
+
+function onVoteDispatchCancel(rawId, vote, ev) {
+    if(ev) ev.stopPropagation();
+    if(!rawId) return;
+    var label = vote === 'cancel' ? '同意取消' : '驳回取消';
+    window.showMessageModal({
+        title: '取消投票',
+        message: '你选择「' + label + '」。提交后两个选项都将锁定不可再改，是否确定？',
+        showCancel: true,
+        cancelText: '再想想',
+        okText: '确定' + label,
+        onOk: function() { window.voteDispatchCancel(rawId, vote); }
+    });
+}
+
 function renderBoardCard(order, avatarMap) {
     var st = getOrderStatus(order);
-    var avatarUrl = (avatarMap && avatarMap[order.wizard_name]) ? avatarMap[order.wizard_name] : "";
+    var avatarKey = order.avatar_email || order.wizard_name || "";
+    var avatarUrl = (avatarMap && avatarKey) ? (avatarMap[order.avatar_email] || avatarMap[order.wizard_name] || "") : "";
     var avatarHtml = avatarUrl
         ? "<img src='" + avatarUrl + "' style='width:100%;height:100%;border-radius:50%;object-fit:cover;'>"
         : "<i class='fas fa-user'></i>";
@@ -880,7 +1171,11 @@ function renderBoardCard(order, avatarMap) {
     if(order.service_type) metaRows += metaRow("服务类型", order.service_type);
     if(order.order_no) metaRows += metaRow("订单编号", order.order_no);
     if(order.board_name) metaRows += metaRow("板板名称", order.board_name);
-    if(order.remark) metaRows += metaRow("备注", order.remark);
+    var contactEmail = extractContactEmail(order.remark);
+    if(contactEmail) metaRows += metaRow("联系邮箱", contactEmail);
+    var displayRemark = order.remark || '';
+    if(contactEmail) displayRemark = displayRemark.replace(/联系邮箱[：:]\s*[^\s\n]+(\n?)/, '').trim();
+    if(displayRemark) metaRows += metaRow("备注", displayRemark);
     var hasMeta = !!metaRows;
     var avatarCol = hasMeta
         ? "<div class='card-avatar-col'><div class='order-avatar'>" + avatarHtml + "</div><button class='card-toggle-btn' onclick='toggleCardMeta(this)'><i class='fas fa-chevron-down'></i></button></div>"
@@ -894,6 +1189,14 @@ function renderBoardCard(order, avatarMap) {
     h += "<div class='order-titles'>";
     h += "<div class='order-wizard-name'>" + (order.wizard_name || "未知陪玩") + "</div>";
     h += "<div class='order-service'>" + (order.game_type || "光·遇") + "</div>";
+    var isInProgress = (order.status === "progress" || order.status === "进行中");
+    if(isInProgress) {
+        if(order.cancel_requested) {
+            h += "<button disabled style='margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#999;color:#fff;font-size:0.8rem;cursor:not-allowed;opacity:0.6;'>取消订单</button>";
+        } else {
+            h += "<button style='margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#ff4444;color:#fff;font-size:0.8rem;cursor:pointer;' onclick='onRequestCancelOrder(\"" + escapeHtml(String(order.id)) + "\", event)'>取消订单</button>";
+        }
+    }
     h += "</div>";
     h += "<div class='order-right'>";
     h += "<span class='order-status " + st.cls + "'>" + st.text + "</span>";
@@ -912,23 +1215,35 @@ function renderBoardCard(order, avatarMap) {
 }
 
 function renderWizardCard(order, avatarMap) {
-    var isDispatch = String(order.id || "").indexOf("disp_") === 0;
+    var isDispatch = order.order_role === "dispatch";
     var st = isDispatch ? getDispatchStatus(order) : getOrderStatus(order);
     var meta = parseRequestDesc(order.remark);
-    var avatarKey = meta.boardName || order.wizard_name || "";
-    var avatarUrl = (avatarMap && avatarKey && avatarMap[avatarKey]) ? avatarMap[avatarKey] : "";
+    // 优先使用独立字段（新数据），兼容旧 description 字符串
+    var serviceType = (order.skills && order.skills[0]) || meta.serviceType || "";
+    var subType = meta.subType || "";
+    var boardName = order.client_name || meta.boardName || "";
+    var remarkText = (order.skills || order.client_name) ? (order.remark || "") : (meta.remark || order.remark || "");
+    var contactEmail = order.avatar_email || extractContactEmail(order.remark) || "";
+    var avatarKey = contactEmail || boardName || order.wizard_name || "";
+    var avatarUrl = (avatarMap && avatarKey) ? (avatarMap[contactEmail] || avatarMap[boardName] || avatarMap[order.wizard_name] || "") : "";
     var avatarHtml = avatarUrl
         ? "<img src='" + avatarUrl + "' style='width:100%;height:100%;border-radius:50%;object-fit:cover;'>"
         : "<i class='fas fa-handshake'></i>";
+    var buyerName = (avatarMap && contactEmail && avatarMap["name:" + contactEmail])
+        || boardName
+        || order.board_name
+        || contactEmail
+        || order.service_type
+        || "接单需求";
     var metaRows = "";
-    if(meta.serviceType) metaRows += metaRow("服务类型", meta.serviceType);
-    if(meta.subType) metaRows += metaRow("三恋类型", meta.subType);
-    if(meta.orderNo) metaRows += metaRow("订单编号", meta.orderNo);
-    if(order.service_type) metaRows += metaRow("需求标题", order.service_type);
+    if(serviceType) metaRows += metaRow("服务类型", serviceType + (subType ? " / " + subType : ""));
+    if(order.order_no || meta.orderNo) metaRows += metaRow("订单编号", order.order_no || meta.orderNo);
+    if(boardName) metaRows += metaRow("板板", boardName);
+    if(contactEmail) metaRows += metaRow("邮箱", contactEmail);
     if(order.server) metaRows += metaRow("区服", order.server);
     if(meta.people) metaRows += metaRow("人数", meta.people);
     if(meta.qty) metaRows += metaRow("数量", meta.qty);
-    if(meta.remark) metaRows += metaRow("备注", meta.remark);
+    if(remarkText) metaRows += metaRow("备注", remarkText);
     var h = "";
     var hasMeta = !!metaRows;
     var avatarCol = hasMeta
@@ -937,11 +1252,39 @@ function renderWizardCard(order, avatarMap) {
     h += "<div class='order-card wizard-card" + (isDispatch ? " dispatch-card" : "") + "'>";
     h += avatarCol;
     h += "<div class='order-main'>";
-    h += "<div class='role-tag " + (isDispatch ? "dispatch" : "wizard") + "'>" + (isDispatch ? "我派的单" : "我接的单") + "</div>";
+    h += "<div class='role-tag " + (isDispatch ? "dispatch" : "wizard") + "'>" + (order.order_role === "dispatch" ? "我派的单" : "我接的单") + "</div>";
     h += "<div class='order-top'>";
     h += "<div class='order-titles'>";
-    h += "<div class='order-wizard-name'>" + (meta.boardName || order.service_type || "接单需求") + "</div>";
+    h += "<div class='order-wizard-name'>" + escapeHtml(buyerName) + "</div>";
     h += "<div class='order-service'>" + (order.game_type || "光·遇") + "</div>";
+    if(order.isDispatch) {
+        var isDispInProgress = (order.status === "progress" || order.status === "进行中");
+        if(order.order_role === "dispatch") {
+            // 派单人视角：发起取消 / 展示投票进展
+            if(isDispInProgress) {
+                if(order.cancel_requested) {
+                    h += "<button disabled style='margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#999;color:#fff;font-size:0.8rem;cursor:not-allowed;opacity:0.6;'>取消投票中（同意 " + (order.cancelVotes||0) + " · 驳回 " + (order.rejectVotes||0) + " / 共 " + (order.totalMembers||0) + "）</button>";
+                } else {
+                    h += "<button style='margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#ff4444;color:#fff;font-size:0.8rem;cursor:pointer;' onclick='onRequestDispatchCancel(\"" + escapeHtml(String(order.rawId)) + "\", event)'>取消订单</button>";
+                }
+            }
+        } else {
+            // 接单人视角：表决
+            if(order.cancel_requested) {
+                if(order.myVote) {
+                    var myLabel = order.myVote === "cancel" ? "已投票：同意取消" : "已投票：驳回取消";
+                    h += "<button disabled style='margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#999;color:#fff;font-size:0.8rem;cursor:not-allowed;opacity:0.6;'>" + myLabel + "</button>";
+                } else {
+                    h += "<button style='margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#ff4444;color:#fff;font-size:0.8rem;cursor:pointer;' onclick='onVoteDispatchCancel(\"" + escapeHtml(String(order.rawId)) + "\", \"cancel\", event)'>同意取消</button>";
+                    h += "<button style='margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#999;color:#fff;font-size:0.8rem;cursor:pointer;' onclick='onVoteDispatchCancel(\"" + escapeHtml(String(order.rawId)) + "\", \"reject\", event)'>驳回取消</button>";
+                }
+                h += "<div style='margin-top:6px;font-size:0.75rem;color:#888;'>已 " + (order.cancelVotes||0) + " 人同意 / " + (order.rejectVotes||0) + " 人驳回</div>";
+            }
+        }
+    } else if(canConfirmCancel(order)) {
+        h += "<button style='margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#ff4444;color:#fff;font-size:0.8rem;cursor:pointer;' onclick='onConfirmCancelOrder(\"" + escapeHtml(String(order.id)) + "\", event)'>确认取消</button>";
+        h += "<button style='margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#999;color:#fff;font-size:0.8rem;cursor:pointer;' onclick='onRejectCancelOrder(\"" + escapeHtml(String(order.id)) + "\", event)'>拒绝取消</button>";
+    }
     h += "</div>";
     h += "<div class='order-right'>";
     h += "<span class='order-status " + st.cls + "'>" + st.text + "</span>";
@@ -992,6 +1335,12 @@ function parseRequestDesc(desc) {
         else if(key === "数量") map.qty = val;
     }
     return map;
+}
+
+function extractContactEmail(remark) {
+    if(!remark) return "";
+    var m = String(remark).match(/联系邮箱[：:]\s*([^\s\n]+)/);
+    return m ? m[1].trim() : "";
 }
 
 
@@ -1106,6 +1455,7 @@ async function checkUserRoleAndShowButtons() {
         if(container) container.style.display = "none";
         if(formContainer) formContainer.classList.add("active");
         renderWizardSkillTags();
+        fillWizardEmail();
         return;
     }
     if(container) container.style.display = "block";
@@ -1150,6 +1500,7 @@ async function checkUserRoleAndShowButtons() {
             html += "<h3>" + (w.wizard_name || "\u672a\u77e5") + "</h3>";
             html += "<p>\u4ef7\u683c: \u00a5" + (w.price || "29.9") + "/\u5c0f\u65f6</p>";
             html += "<p class='wizard-desc'>\u4e2a\u4eba\u7b80\u4ecb: " + escapeHtml(w.description || "\u6682\u65e0\u4ecb\u7ecd") + "</p>";
+            if(w.email) html += "<p class='wizard-email'>\u8054\u7cfb\u90ae\u7bb1: " + escapeHtml(w.email) + "</p>";
             html += "</div>";
             html += "<div class='wizard-date'>\u53d1\u5e03\u65e5\u671f: " + formatDate(w.created_at) + "</div>";
             html += "<div class='wizard-actions'>";
@@ -1203,6 +1554,7 @@ function switchWizardTab(tab) {
         if(tab === "list") {
             formContainer.classList.add("active");
             renderWizardSkillTags();
+            fillWizardEmail();
         } else {
             formContainer.classList.remove("active");
         }
@@ -1307,6 +1659,22 @@ function onConfirmOk() {
     closeConfirmModal();
 }
 
+function onRequestCancelOrder(orderId, ev) {
+    if(ev && ev.stopPropagation) ev.stopPropagation();
+    showConfirmModal(
+        "取消订单确认",
+        "确定要申请取消该订单吗？申请后需等待陪陪确认，3小时未确认将自动取消并退款。",
+        function(ctx) {
+            if(typeof window.requestCancelOrder === "function") {
+                window.requestCancelOrder(ctx.orderId);
+            } else {
+                showToast("取消订单功能未加载，请刷新页面", "error");
+            }
+        },
+        { orderId: orderId }
+    );
+}
+
 async function deleteDispatchOrder(id, btn) {
     if(!id) {
         showToast("\u6d3e\u5355 ID \u4e22\u5931\uff0c\u65e0\u6cd5\u5220\u9664", "error");
@@ -1360,12 +1728,60 @@ async function completeDispatchOrder(id, btn) {
         showToast("\u6d3e\u5355 ID \u4e22\u5931\uff0c\u65e0\u6cd5\u5b8c\u6210", "error");
         return;
     }
-    showConfirmModal(
-        "\u5b8c\u6210\u8ba2\u5355",
-        "\u786e\u5b9a\u8981\u5c06\u8be5\u6d3e\u5355\u6807\u8bb0\u4e3a\u5df2\u5b8c\u6210\u5417\uff1f",
-        function(ctx) { doCompleteDispatchOrder(ctx.id, ctx.btn); },
-        { id: id, btn: btn }
-    );
+    try {
+        var orderRes = await window.supabaseClient
+            .from("dispatch_orders")
+            .select("*")
+            .eq("id", id)
+            .maybeSingle();
+        if(orderRes.error) throw orderRes.error;
+        var order = orderRes.data;
+        if(!order) {
+            showToast("\u672a\u627e\u5230\u8be5\u6d3e\u5355", "error");
+            return;
+        }
+        var memberRes = await window.supabaseClient
+            .from("dispatch_team_members")
+            .select("user_id, nickname")
+            .eq("dispatch_order_id", id)
+            .order("created_at", { ascending: true });
+        if(memberRes.error) throw memberRes.error;
+        var members = memberRes.data || [];
+        if(members.length === 0) {
+            // 非组队派单，直接走原确认流程
+            showConfirmModal(
+                "\u5b8c\u6210\u8ba2\u5355",
+                "\u786e\u5b9a\u8981\u5c06\u8be5\u6d3e\u5355\u6807\u8bb0\u4e3a\u5df2\u5b8c\u6210\u5417\uff1f",
+                function(ctx) { doCompleteDispatchOrder(ctx.id, ctx.btn); },
+                { id: id, btn: btn }
+            );
+            return;
+        }
+        // 加载成员头像与真实昵称
+        var userIds = members.map(function(m){ return m.user_id; }).filter(Boolean);
+        var avatarMap = {};
+        var nameMap = {};
+        if(userIds.length > 0) {
+            try {
+                var profileRes = await window.supabaseClient
+                    .from("profiles")
+                    .select("id, avatar_url, nickname")
+                    .in("id", userIds);
+                (profileRes.data || []).forEach(function(p){
+                    avatarMap[p.id] = p.avatar_url || "";
+                    nameMap[p.id] = p.nickname || "";
+                });
+            } catch(e) {}
+        }
+        members.forEach(function(m){
+            m.avatar_url = avatarMap[m.user_id] || "";
+            m.display_name = nameMap[m.user_id] || m.nickname || "";
+        });
+        showDispatchAllocationModal(order, members, btn);
+    } catch(e) {
+        console.error("\u52a0\u8f7d\u6d3e\u5355\u4fe1\u606f\u5931\u8d25:", e);
+        showToast("\u52a0\u8f7d\u6d3e\u5355\u4fe1\u606f\u5931\u8d25", "error");
+    }
 }
 
 async function doCompleteDispatchOrder(id, btn) {
@@ -1378,7 +1794,7 @@ async function doCompleteDispatchOrder(id, btn) {
     try {
         var result = await window.supabaseClient
             .from("dispatch_orders")
-            .update({ status: "\u5df2\u5b8c\u6210" })
+            .update({ status: "completed" })
             .eq("id", id);
         if(result.error) throw result.error;
         showToast("\u8ba2\u5355\u5df2\u5b8c\u6210", "success");
@@ -1392,6 +1808,281 @@ async function doCompleteDispatchOrder(id, btn) {
             msg = "\u6743\u9650\u4e0d\u8db3\uff0c\u8bf7\u786e\u4fdd\u5df2\u767b\u5f55\u4e14\u8be5\u6d3e\u5355\u5c5e\u4e8e\u4f60";
         }
         showToast("\u5b8c\u6210\u5931\u8d25: " + msg, "error");
+    } finally {
+        if(btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+}
+
+// ========== 组队派单收益分配 ==========
+var currentDispatchAllocation = { id: null, total: 0, members: [], btn: null };
+
+function showDispatchAllocationModal(order, members, btn) {
+    currentDispatchAllocation = { id: order.id, total: parseFloat(order.price) || 0, members: members || [], btn: btn };
+    var overlay = document.getElementById("dispatchAllocationModal");
+    var totalEl = document.getElementById("dispatchAllocationTotal");
+    var membersEl = document.getElementById("dispatchAllocationMembers");
+    if(!overlay || !totalEl || !membersEl) return;
+    totalEl.textContent = "\uffe5" + currentDispatchAllocation.total.toFixed(2);
+    membersEl.innerHTML = renderDispatchAllocationMembers(members);
+    updateAllocationSummary();
+    var errorEl = document.getElementById("dispatchAllocationError");
+    if(errorEl) errorEl.textContent = "";
+    overlay.classList.add("active");
+}
+
+function renderDispatchAllocationMembers(members) {
+    if(!members || members.length === 0) {
+        return '<p style="color:#999;text-align:center;padding:20px 0;">\u6682\u65e0\u6210\u5458</p>';
+    }
+    var html = '';
+    members.forEach(function(m, idx){
+        var avatarHtml = m.avatar_url
+            ? '<img src="' + escapeHtml(m.avatar_url) + '" alt="">'
+            : '<i class="fas fa-user"></i>';
+        html += '<div class="allocation-member" data-index="' + idx + '">';
+        html += '<div class="allocation-member-avatar">' + avatarHtml + '</div>';
+        html += '<div class="allocation-member-info">';
+        html += '<div class="allocation-member-name">' + escapeHtml(m.display_name || m.nickname || "\u672a\u77e5") + '</div>';
+        html += '</div>';
+        html += '<input type="number" class="allocation-member-input" data-index="' + idx + '" placeholder="0.00" min="0.01" step="0.01" oninput="updateAllocationSummary()">';
+        html += '</div>';
+    });
+    return html;
+}
+
+function closeDispatchAllocationModal() {
+    var overlay = document.getElementById("dispatchAllocationModal");
+    if(overlay) overlay.classList.remove("active");
+    currentDispatchAllocation = { id: null, total: 0, members: [], btn: null };
+}
+
+function updateAllocationSummary() {
+    var total = currentDispatchAllocation.total || 0;
+    var used = 0;
+    var inputs = document.querySelectorAll(".allocation-member-input");
+    inputs.forEach(function(input){
+        var v = parseFloat(input.value);
+        if(!isNaN(v) && v > 0) used += v;
+    });
+    var remain = total - used;
+    var usedEl = document.getElementById("dispatchAllocationUsed");
+    var remainEl = document.getElementById("dispatchAllocationRemain");
+    if(usedEl) usedEl.textContent = "\uffe5" + used.toFixed(2);
+    if(remainEl) remainEl.textContent = "\uffe5" + (remain >= 0 ? remain : 0).toFixed(2);
+    var errorEl = document.getElementById("dispatchAllocationError");
+    if(errorEl) {
+        if(used > total) errorEl.textContent = "\u5206\u914d\u603b\u989d\u4e0d\u80fd\u8d85\u8fc7\u8ba2\u5355\u91d1\u989d";
+        else errorEl.textContent = "";
+    }
+}
+
+function validateDispatchAllocation() {
+    var total = currentDispatchAllocation.total || 0;
+    var members = currentDispatchAllocation.members || [];
+    var allocations = [];
+    var used = 0;
+    var valid = true;
+    var message = "";
+    for(var i = 0; i < members.length; i++) {
+        var input = document.querySelector('.allocation-member-input[data-index="' + i + '"]');
+        var val = input ? parseFloat(input.value) : NaN;
+        if(isNaN(val) || val <= 0) {
+            valid = false;
+            message = "\u6bcf\u4f4d\u6210\u5458\u90fd\u5fc5\u987b\u5206\u5230\u5927\u4e8e 0 \u7684\u91d1\u989d";
+            break;
+        }
+        allocations.push({ user_id: members[i].user_id, amount: val, nickname: members[i].display_name || members[i].nickname });
+        used += val;
+    }
+    if(valid && used > total + 0.0001) {
+        valid = false;
+        message = "\u5206\u914d\u603b\u989d\u4e0d\u80fd\u8d85\u8fc7\u8ba2\u5355\u91d1\u989d\uff08\uffe5" + total.toFixed(2) + "\uff09";
+    }
+    return { valid: valid, message: message, allocations: allocations, used: used };
+}
+
+async function onConfirmDispatchAllocation() {
+    var result = validateDispatchAllocation();
+    var errorEl = document.getElementById("dispatchAllocationError");
+    if(!result.valid) {
+        if(errorEl) errorEl.textContent = result.message;
+        return;
+    }
+    if(errorEl) errorEl.textContent = "";
+    var btn = currentDispatchAllocation.btn;
+    var originalText = "";
+    if(btn) {
+        originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> \u5904\u7406\u4e2d";
+    }
+    try {
+        for(var i = 0; i < result.allocations.length; i++) {
+            var alloc = result.allocations[i];
+            if(!alloc.user_id) continue;
+            var profileRes = await window.supabaseClient
+                .from("profiles")
+                .select("balance")
+                .eq("id", alloc.user_id)
+                .maybeSingle();
+            if(profileRes.error) throw profileRes.error;
+            var currentBalance = parseFloat(profileRes.data && profileRes.data.balance) || 0;
+            var newBalance = currentBalance + alloc.amount;
+            var updateRes = await window.supabaseClient
+                .from("profiles")
+                .update({ balance: newBalance })
+                .eq("id", alloc.user_id);
+            if(updateRes.error) throw updateRes.error;
+        }
+        var completeRes = await window.supabaseClient
+            .from("dispatch_orders")
+            .update({ status: "completed" })
+            .eq("id", currentDispatchAllocation.id);
+        if(completeRes.error) throw completeRes.error;
+        closeDispatchAllocationModal();
+        showToast("\u8ba2\u5355\u5df2\u5b8c\u6210\uff0c\u6536\u76ca\u5df2\u5206\u914d", "success");
+        openMyOrdersCard();
+    } catch(e) {
+        console.error("\u5206\u914d\u6536\u76ca\u5931\u8d25:", e);
+        var msg = e.message || "";
+        if(msg.indexOf("400") !== -1 || msg.indexOf("Bad Request") !== -1) msg = "\u8bf7\u6c42\u53c2\u6570\u9519\u8bef";
+        else if(msg.indexOf("401") !== -1 || msg.indexOf("403") !== -1 || msg.indexOf("permission denied") !== -1 || msg.indexOf("42501") !== -1) msg = "\u6743\u9650\u4e0d\u8db3";
+        showToast("\u5206\u914d\u5931\u8d25: " + msg, "error");
+    } finally {
+        if(btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+}
+
+async function cancelDispatchOrder(id, btn) {
+    if(!id) {
+        showToast("\u6d3e\u5355 ID \u4e22\u5931\uff0c\u65e0\u6cd5\u53d6\u6d88", "error");
+        return;
+    }
+    showConfirmModal(
+        "\u53d6\u6d88\u8ba2\u5355",
+        "\u786e\u5b9a\u8981\u53d6\u6d88\u8be5\u6d3e\u5355\u5417\uff1f\u53d6\u6d88\u540e\u5c06\u9000\u8fd8\u6d3e\u5355\u91d1\u989d\u5230\u60a8\u7684\u8d26\u6237\u3002",
+        function(ctx) { doCancelDispatchOrder(ctx.id, ctx.btn); },
+        { id: id, btn: btn }
+    );
+}
+
+async function doCancelDispatchOrder(id, btn) {
+    var originalText = "";
+    if(btn) {
+        originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> \u53d6\u6d88\u4e2d";
+    }
+    try {
+        // 1. \u5148\u67e5\u8be2\u8ba2\u5355\u4fe1\u606f\uff0c\u786e\u4fdd\u72b6\u6001\u4e3a\u8fdb\u884c\u4e2d\u5e76\u83b7\u53d6\u91d1\u989d\u4e0e\u53d1\u5e03\u8005
+        var orderRes = await window.supabaseClient
+            .from("dispatch_orders")
+            .select("id, status, price, user_id, accepted_by")
+            .eq("id", id)
+            .maybeSingle();
+        if(orderRes.error) throw orderRes.error;
+        var order = orderRes.data;
+        if(!order) throw new Error("\u672a\u627e\u5230\u8be5\u6d3e\u5355");
+        var s = (order.status || "").toLowerCase();
+        if(s !== "progress" && s !== "\u8fdb\u884c\u4e2d") {
+            throw new Error("\u53ea\u6709\u8fdb\u884c\u4e2d\u7684\u6d3e\u5355\u53ef\u4ee5\u53d6\u6d88");
+        }
+
+        // 2. \u9884\u67e5\u63a5\u5355\u8005\uff08\u5220\u9664\u524d\u4fdd\u5b58\uff0c\u7528\u4e8e\u53d1\u901a\u77e5\uff09
+        var receiverSet = {};
+        try {
+            var memberRes = await window.supabaseClient
+                .from("dispatch_team_members")
+                .select("user_id")
+                .eq("dispatch_order_id", id);
+            if(memberRes.data && memberRes.data.length > 0) {
+                memberRes.data.forEach(function(m) {
+                    if(m.user_id) receiverSet[m.user_id] = true;
+                });
+            } else if(order.accepted_by) {
+                receiverSet[order.accepted_by] = true;
+            }
+        } catch(memberErr) {
+            console.warn("\u67e5\u8be2\u63a5\u5355\u6210\u5458\u5931\u8d25:", memberErr);
+            if(order.accepted_by) receiverSet[order.accepted_by] = true;
+        }
+
+        // 3. \u9000\u8fd8\u91d1\u989d\u5230\u53d1\u5e03\u8005\u8d26\u6237
+        var refundAmount = parseFloat(order.price) || 0;
+        if(refundAmount > 0 && order.user_id) {
+            var balanceRes = await window.supabaseClient
+                .from("profiles")
+                .select("balance")
+                .eq("id", order.user_id)
+                .maybeSingle();
+            if(balanceRes.error) throw balanceRes.error;
+            var currentBalance = parseFloat(balanceRes.data && balanceRes.data.balance) || 0;
+            var newBalance = currentBalance + refundAmount;
+            var refundRes = await window.supabaseClient
+                .from("profiles")
+                .update({ balance: newBalance })
+                .eq("id", order.user_id);
+            if(refundRes.error) throw refundRes.error;
+
+            // \u540c\u6b65\u672c\u5730\u4f59\u989d
+            try {
+                var skyUser = JSON.parse(localStorage.getItem("skyUser") || "{}");
+                if(skyUser.id === order.user_id || skyUser.user_id === order.user_id) {
+                    skyUser.balance = newBalance;
+                    localStorage.setItem("skyUser", JSON.stringify(skyUser));
+                }
+            } catch(ex) {}
+        }
+
+        // 4. \u7ed9\u63a5\u5355\u8005\uff08\u542b\u7ec4\u961f\u6210\u5458\uff09\u53d1\u9001\u53d6\u6d88\u901a\u77e5
+        try {
+            var currentUser = JSON.parse(localStorage.getItem("skyUser") || "{}");
+            var publisherName = currentUser.email || currentUser.nickname || currentUser.username || "\u67d0\u4f4d\u7528\u6237";
+
+            var receivers = Object.keys(receiverSet);
+            if(receivers.length > 0) {
+                var inserts = receivers.map(function(uid) {
+                    return {
+                        user_id: String(uid),
+                        title: "\u7528\u6237 " + publisherName + " \u5df2\u53d6\u6d88\u8ba2\u5355",
+                        message: "\u53d1\u5e03\u8005 " + publisherName + " \u53d6\u6d88\u4e86\u60a8\u53c2\u4e0e\u7684\u6d3e\u5355\uff0c\u76f8\u5173\u8d39\u7528\u5df2\u9000\u8fd8\u5230\u53d1\u5e03\u8005\u8d26\u6237\u3002",
+                        type: "order_cancel",
+                        read: false
+                    };
+                });
+                var notifRes = await window.supabaseClient
+                    .from("notifications")
+                    .insert(inserts);
+                if(notifRes.error) console.warn("\u53d1\u9001\u53d6\u6d88\u901a\u77e5\u5931\u8d25:", notifRes.error);
+            }
+        } catch(notifErr) {
+            console.warn("\u53d1\u9001\u53d6\u6d88\u901a\u77e5\u5f02\u5e38:", notifErr);
+        }
+
+        // 5. \u5220\u9664\u6d3e\u5355\u4e3b\u8868\uff08\u7ea7\u8054\u5220\u9664 dispatch_team_members\uff09
+        var deleteRes = await window.supabaseClient
+            .from("dispatch_orders")
+            .delete()
+            .eq("id", id);
+        if(deleteRes.error) throw deleteRes.error;
+
+        showToast("\u5df2\u6210\u529f\u53d6\u6d88\u8ba2\u5355\uff0c\u91d1\u989d\u5df2\u9000\u8fd8\u5230\u8d26\u6237", "success");
+        openMyOrdersCard();
+    } catch(e) {
+        console.error("\u53d6\u6d88\u6d3e\u5355\u5931\u8d25:", e);
+        var msg = e.message || "";
+        if(msg.indexOf("400") !== -1 || msg.indexOf("Bad Request") !== -1) {
+            msg = "\u8bf7\u6c42\u53c2\u6570\u9519\u8bef\uff0c\u8bf7\u5237\u65b0\u9875\u9762\u540e\u91cd\u8bd5";
+        } else if(msg.indexOf("401") !== -1 || msg.indexOf("403") !== -1 || msg.indexOf("permission denied") !== -1 || msg.indexOf("42501") !== -1) {
+            msg = "\u6743\u9650\u4e0d\u8db3\uff0c\u8bf7\u786e\u4fdd\u5df2\u767b\u5f55\u4e14\u8be5\u6d3e\u5355\u5c5e\u4e8e\u4f60";
+        }
+        showToast("\u53d6\u6d88\u5931\u8d25: " + msg, "error");
     } finally {
         if(btn) {
             btn.disabled = false;
@@ -1435,6 +2126,7 @@ async function viewWizardDetail(id) {
         html += "<div class='detail-section'><h4>\u72b6\u6001</h4><p><span class='status-badge " + (w.status === "online" ? "status-online" : "status-offline") + "'>" + (w.status === "online" ? "\u5728\u7ebf" : "\u79bb\u7ebf") + "</span></p></div>";
         html += "<div class='detail-section'><h4>\u6280\u80fd\u6807\u7b7e</h4><div>" + (skillsHtml || "\u6682\u65e0\u6280\u80fd\u6807\u7b7e") + "</div></div>";
         html += "<div class='detail-section'><h4>\u4ecb\u7ecd</h4><p>" + (w.description || "\u6682\u65e0\u4ecb\u7ecd") + "</p></div>";
+        if(w.email) html += "<div class='detail-section'><h4>\u8054\u7cfb\u90ae\u7bb1</h4><p>" + escapeHtml(w.email) + "</p></div>";
         container.innerHTML = html;
     } catch(e) {
         console.error("\u52a0\u8f7d\u670d\u52a1\u8be6\u60c5\u5931\u8d25:", e);
@@ -1494,6 +2186,26 @@ function toggleSkillTag(el) {
     el.classList.toggle("selected");
 }
 
+async function fillWizardEmail() {
+    var input = document.getElementById("wfEmail");
+    if(!input) return;
+    var email = "";
+    try {
+        var userStr = localStorage.getItem("skyUser");
+        if(userStr) {
+            var user = JSON.parse(userStr);
+            email = user.email || "";
+        }
+    } catch(ex) {}
+    if(!email && window.supabaseClient && window.supabaseClient.auth) {
+        try {
+            var sessionRes = await window.supabaseClient.auth.getSession();
+            email = (sessionRes.data && sessionRes.data.session && sessionRes.data.session.user && sessionRes.data.session.user.email) || "";
+        } catch(ex) {}
+    }
+    input.value = email || "";
+}
+
 function resetWizardForm() {
     document.getElementById("wfName").value = "";
     document.getElementById("wfPrice").value = "";
@@ -1501,6 +2213,7 @@ function resetWizardForm() {
     document.getElementById("wfServer").value = "";
     document.getElementById("wfIntro").value = "";
     renderWizardSkillTags();
+    fillWizardEmail();
 }
 
 async function submitWizardForm() {
@@ -1516,6 +2229,7 @@ async function submitWizardForm() {
         var price = parseFloat(document.getElementById("wfPrice").value);
         var game = document.getElementById("wfGame").value;
         var server = document.getElementById("wfServer").value;
+        var email = document.getElementById("wfEmail").value.trim();
         var intro = document.getElementById("wfIntro").value.trim();
         
         if(!price || price <= 0) {
@@ -1538,13 +2252,16 @@ async function submitWizardForm() {
         var gameType = game;
         if(game === "王者荣耀" && server) gameType = game + " - " + server;
         
+        var description = intro;
+
         var payload = {
             user_id: user.id,
             wizard_name: name || user.nickname || user.username || "未知",
             price: price,
             service_type: game,
             game_type: gameType,
-            description: intro,
+            description: description,
+            email: email,
             skills: selectedSkills,
             status: "online"
         };
@@ -1610,6 +2327,7 @@ async function openMyOrdersCard() {
         if(container) container.style.display = "none";
         if(formContainer) formContainer.classList.add("active");
         overlay.classList.add("active");
+        fillDispatchEmail();
         return;
     }
     if(container) container.style.display = "block";
@@ -1679,8 +2397,10 @@ async function openMyOrdersCard() {
             html += "<div class='wizard-actions'>";
             if(st.text === "\u8fdb\u884c\u4e2d") {
                 html += "<button class='btn-small' style='background:linear-gradient(135deg,#43e97b,#38f9d7);color:#fff;border:none;border-radius:8px;margin-right:8px;' onclick='completeDispatchOrder(\"" + escapeHtml(o.id) + "\", this)'><i class='fas fa-check'></i> \u5b8c\u6210</button>";
+                html += "<button class='btn-small btn-delete' onclick='cancelDispatchOrder(\"" + escapeHtml(o.id) + "\", this)'><i class='fas fa-times'></i> \u53d6\u6d88\u8ba2\u5355</button>";
+            } else {
+                html += "<button class='btn-small btn-delete' onclick='deleteDispatchOrder(\"" + escapeHtml(o.id) + "\", this)'><i class='fas fa-trash'></i> \u5220\u9664</button>";
             }
-            html += "<button class='btn-small btn-delete' onclick='deleteDispatchOrder(\"" + escapeHtml(o.id) + "\", this)'><i class='fas fa-trash'></i> \u5220\u9664</button>";
             html += "</div>";
             html += "</div>";
         }
@@ -1696,6 +2416,26 @@ var dispatchAllCoupons = [];
 var dispatchAvailableCoupons = [];
 var dispatchCurrentCoupon = null;
 var dispatchCouponAutoSelect = true;
+
+async function fillDispatchEmail() {
+    var input = document.getElementById("dispatchTitle");
+    if(!input) return;
+    var email = "";
+    try {
+        var userStr = localStorage.getItem("skyUser");
+        if(userStr) {
+            var user = JSON.parse(userStr);
+            email = user.email || "";
+        }
+    } catch(ex) {}
+    if(!email && window.supabaseClient && window.supabaseClient.auth) {
+        try {
+            var sessionRes = await window.supabaseClient.auth.getSession();
+            email = (sessionRes.data && sessionRes.data.session && sessionRes.data.session.user && sessionRes.data.session.user.email) || "";
+        } catch(ex) {}
+    }
+    input.value = email || "";
+}
 
 function resetDispatchForm() {
     document.getElementById("dispatchGame").value = "";
@@ -1727,6 +2467,7 @@ function resetDispatchForm() {
     dispatchAvailableCoupons = [];
     dispatchCurrentCoupon = null;
     dispatchCouponAutoSelect = true;
+    fillDispatchEmail();
 }
 
 function updateDispatchServerOptions() {
@@ -1799,7 +2540,6 @@ function onDispatchTypeChange() {
         var qty = parseInt(qtyInput.value, 10);
         if(isNaN(qty) || qty < 1) { qty = 1; qtyInput.value = 1; }
         priceInput.value = (qty * 0.3).toFixed(2);
-        loadDispatchCoupons();
     } else {
         if(qtyGroup) qtyGroup.style.display = "none";
         priceInput.readOnly = false;
@@ -1807,6 +2547,7 @@ function onDispatchTypeChange() {
         priceInput.value = "";
     }
 
+    loadDispatchCoupons();
     toggleDispatchCouponSection();
 }
 
@@ -1836,7 +2577,8 @@ function toggleDispatchCouponSection() {
     var type = document.getElementById("dispatchType").value;
     var section = document.getElementById("dispatchCouponSection");
     if(!section) return;
-    section.style.display = (type === "送心") ? "" : "none";
+    // 选择服务类型后即显示优惠券区域
+    section.style.display = type ? "" : "none";
 }
 
 async function loadDispatchCoupons() {
@@ -1990,7 +2732,7 @@ async function submitDispatchOrder() {
         var qty = document.getElementById("dispatchQty").value.trim();
         var price = parseFloat(document.getElementById("dispatchPrice").value);
         var boardName = document.getElementById("dispatchBoard").value.trim();
-        var requestTitle = document.getElementById("dispatchTitle").value.trim();
+        var requestTitle = user.email || "";
         var people = document.getElementById("dispatchPeople").value.trim();
         var orderTime = document.getElementById("dispatchTime").value;
         var remark = document.getElementById("dispatchRequirement").value.trim();
@@ -2005,42 +2747,38 @@ async function submitDispatchOrder() {
             if(isNaN(peopleNum) || peopleNum < 1) { showToast("人数不能为0或负数", "error"); return; }
             if(peopleNum > qtyNum) { showToast("人数不能超过数量", "error"); return; }
         }
-        if(!requestTitle) { showToast("请输入称呼", "error"); return; }
-        if(isNaN(price) || price < 0) { showToast("请输入有效的金额", "error"); return; }
+        if(!requestTitle) { showToast("未获取到邮箱，请重新登录", "error"); return; }
+        if(isNaN(price) || price <= 0) { showToast("金额必须大于0", "error"); return; }
 
-        // 送心服务：从账户余额扣除应付金额，扣除成功后才能发布
-        var finalPrice = price;
-        var couponId = null;
-        if(serviceType === "送心") {
-            finalPrice = getDispatchFinalPrice();
-            couponId = dispatchCurrentCoupon ? dispatchCurrentCoupon.id : null;
+        // 所有服务均需先支付对应金额，扣款成功后才能上架
+        var finalPrice = getDispatchFinalPrice();
+        var couponId = dispatchCurrentCoupon ? dispatchCurrentCoupon.id : null;
 
-            var balanceRes = await window.supabaseClient
-                .from("profiles")
-                .select("balance")
-                .eq("id", user.id)
-                .maybeSingle();
-            if(balanceRes.error) throw balanceRes.error;
-            var currentBalance = parseFloat(balanceRes.data && balanceRes.data.balance) || 0;
-            if(currentBalance < finalPrice) {
-                showToast("余额不足，请前往充值中心充值", "error");
-                return;
-            }
-
-            var newBalance = currentBalance - finalPrice;
-            var deductRes = await window.supabaseClient
-                .from("profiles")
-                .update({ balance: newBalance })
-                .eq("id", user.id);
-            if(deductRes.error) throw deductRes.error;
-
-            // 同步本地余额
-            try {
-                var skyUser = JSON.parse(localStorage.getItem("skyUser") || "{}");
-                skyUser.balance = newBalance;
-                localStorage.setItem("skyUser", JSON.stringify(skyUser));
-            } catch(ex) {}
+        var balanceRes = await window.supabaseClient
+            .from("profiles")
+            .select("balance")
+            .eq("id", user.id)
+            .maybeSingle();
+        if(balanceRes.error) throw balanceRes.error;
+        var currentBalance = parseFloat(balanceRes.data && balanceRes.data.balance) || 0;
+        if(currentBalance < finalPrice) {
+            showToast("余额不足，请前往充值中心充值", "error");
+            return;
         }
+
+        var newBalance = currentBalance - finalPrice;
+        var deductRes = await window.supabaseClient
+            .from("profiles")
+            .update({ balance: newBalance })
+            .eq("id", user.id);
+        if(deductRes.error) throw deductRes.error;
+
+        // 同步本地余额
+        try {
+            var skyUser = JSON.parse(localStorage.getItem("skyUser") || "{}");
+            skyUser.balance = newBalance;
+            localStorage.setItem("skyUser", JSON.stringify(skyUser));
+        } catch(ex) {}
 
         var descParts = [];
         if(serviceType) descParts.push("服务类型：" + serviceType);
@@ -2070,25 +2808,23 @@ async function submitDispatchOrder() {
             .insert([payload]);
 
         if(result.error) {
-            // 发布失败时回滚余额（送心服务）
-            if(serviceType === "送心") {
-                try {
-                    await window.supabaseClient
-                        .from("profiles")
-                        .update({ balance: currentBalance })
-                        .eq("id", user.id);
-                    var skyUserRollback = JSON.parse(localStorage.getItem("skyUser") || "{}");
-                    skyUserRollback.balance = currentBalance;
-                    localStorage.setItem("skyUser", JSON.stringify(skyUserRollback));
-                } catch(rollbackErr) {
-                    console.error("派单发布失败后回滚余额失败:", rollbackErr);
-                }
+            // 发布失败时回滚余额
+            try {
+                await window.supabaseClient
+                    .from("profiles")
+                    .update({ balance: currentBalance })
+                    .eq("id", user.id);
+                var skyUserRollback = JSON.parse(localStorage.getItem("skyUser") || "{}");
+                skyUserRollback.balance = currentBalance;
+                localStorage.setItem("skyUser", JSON.stringify(skyUserRollback));
+            } catch(rollbackErr) {
+                console.error("派单发布失败后回滚余额失败:", rollbackErr);
             }
             throw result.error;
         }
 
         // 发布成功：标记优惠券为已使用
-        if(serviceType === "送心" && couponId) {
+        if(couponId) {
             try {
                 await window.supabaseClient
                     .from("coupons")
@@ -2100,11 +2836,7 @@ async function submitDispatchOrder() {
             }
         }
 
-        if(serviceType === "送心") {
-            showToast("上架成功，已扣除余额 ￥" + finalPrice.toFixed(2), "success");
-        } else {
-            showToast("上架成功", "success");
-        }
+        showToast("上架成功，已扣除余额 ￥" + finalPrice.toFixed(2), "success");
         resetDispatchForm();
         switchOrdersTab("view");
         openMyOrdersCard();
@@ -2139,8 +2871,19 @@ document.addEventListener("DOMContentLoaded", function() {
 
 function initPage() {
     // 并行加载订单数据与角色按钮，减少首屏等待时间
+    window.refreshCurrentPageOrders = loadOrders;
     loadOrders();
     checkUserRoleAndShowButtons();
+
+    // 页面可见性变化时暂停/恢复累计金额定时刷新，节省资源
+    document.addEventListener("visibilitychange", function() {
+        if(document.hidden) {
+            stopStatsTimer();
+        } else if(ordersCache && ordersCache.orders) {
+            updateStats(ordersCache.orders);
+            startStatsTimer();
+        }
+    });
 }
 
 function openAddOrderModal() {
@@ -2218,18 +2961,12 @@ async function submitAddOrder() {
         var orderTime = document.getElementById("addOrderTime").value;
         var remark = document.getElementById("addRemark").value.trim();
 
-        if(!requestTitle) { showToast("请输入需求标题", "error"); return; }
+        if(!requestTitle) { showToast("请输入邮箱", "error"); return; }
         if(!serviceType) { showToast("请输入服务类型", "error"); return; }
         if(!gameType) { showToast("请选择游戏类型", "error"); return; }
         if(isNaN(price) || price < 0) { showToast("请输入有效的价格", "error"); return; }
 
-        var descParts = [];
-        if(serviceType) descParts.push("服务类型：" + serviceType);
-        if(boardName) descParts.push("板板：" + boardName);
-        if(remark) descParts.push("备注：" + remark);
-        if(orderNo) descParts.push("订单编号：" + orderNo);
-        var description = descParts.join(" | ");
-
+        var startAt = orderTime ? new Date(orderTime) : new Date();
         var payload = {
             user_id: user.id,
             nickname: nickname,
@@ -2238,9 +2975,16 @@ async function submitAddOrder() {
             price: price,
             status: "completed",
             hours: 1,
-            created_at: orderTime ? new Date(orderTime).toISOString() : new Date().toISOString()
+            // 手动录入的接单，标记 accepted_by 为自己，便于前端归类为「我接的单」
+            accepted_by: user.id,
+            created_at: startAt.toISOString(),
+            accepted_at: startAt.toISOString(),
+            // 服务类型、板板、备注、订单编号分列存储
+            skills: serviceType ? [serviceType] : [],
+            client_name: boardName || null,
+            description: remark || null,
+            order_no: orderNo || null
         };
-        if(description) payload.description = description;
 
         var result = await window.supabaseClient
             .from("order_requests")
@@ -2273,6 +3017,8 @@ window.closeMyOrdersCard = closeMyOrdersCard;
 window.switchOrdersTab = switchOrdersTab;
 window.submitDispatchOrder = submitDispatchOrder;
 window.deleteDispatchOrder = deleteDispatchOrder;
+window.completeDispatchOrder = completeDispatchOrder;
+window.cancelDispatchOrder = cancelDispatchOrder;
 window.deleteSingleWizard = deleteSingleWizard;
 window.closeConfirmModal = closeConfirmModal;
 window.onConfirmOk = onConfirmOk;

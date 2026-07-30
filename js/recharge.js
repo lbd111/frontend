@@ -10,6 +10,7 @@ function selectPlan(card, amount) {
     card.style.borderColor = 'var(--primary)';
     selectedRechargeAmount = amount;
     updateRechargeModal(amount);
+    showRechargeModal();
 }
 
 function selectCustomPlan(card) {
@@ -17,6 +18,7 @@ function selectCustomPlan(card) {
     if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
         selectedRechargeAmount = parseFloat(amount);
         updateRechargeModal(selectedRechargeAmount);
+        showRechargeModal();
     }
 }
 

@@ -30,6 +30,886 @@ window.addEventListener('scroll', () => {
 
 
 
+// --- 消息通知 ---
+
+const DEFAULT_NOTIFICATIONS = [
+    { id: 'notif_1', title: '欢迎加入BJ陪玩团', text: '恭喜成为我们的新成员，开始你的陪玩之旅吧！', time: '今天', unread: true },
+    { id: 'notif_2', title: '系统公告', text: '新版UI界面即将上线，敬请期待新功能', time: '1小时前', unread: false },
+    { id: 'notif_3', title: 'VIP特权', text: '开通VIP享专属陪玩折扣和优先匹配服务', time: '3天前', unread: false }
+];
+
+var __notificationsCache = null;
+
+function getNotifications() {
+    if(__notificationsCache) return __notificationsCache;
+    try {
+        const saved = localStorage.getItem('skyNotifications');
+        if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_NOTIFICATIONS.map(function(n) { return Object.assign({}, n); });
+}
+
+function setNotificationsCache(list) {
+    __notificationsCache = list || [];
+    try {
+        localStorage.setItem('skyNotifications', JSON.stringify(__notificationsCache));
+    } catch (e) {}
+}
+
+function formatNotifTime(iso) {
+    if(!iso) return '';
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return iso;
+    var now = new Date();
+    var diff = now - d;
+    var oneMinute = 60 * 1000;
+    var oneHour = 60 * oneMinute;
+    var oneDay = 24 * oneHour;
+    if(diff < oneMinute) return '刚刚';
+    if(diff < oneHour) return Math.floor(diff / oneMinute) + '分钟前';
+    if(diff < oneDay) return Math.floor(diff / oneHour) + '小时前';
+    var days = Math.floor(diff / oneDay);
+    if(days < 7) return days + '天前';
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+async function loadNotifications() {
+    if(!window.supabaseClient) return;
+    try {
+        var user = null;
+        try {
+            user = JSON.parse(localStorage.getItem('skyUser') || '{}');
+        } catch(e) {}
+        var userId = user && (user.id || user.user_id);
+        if(!userId) {
+            var sessionRes = await window.supabaseClient.auth.getSession();
+            userId = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user && sessionRes.data.session.user.id;
+        }
+        if(!userId) return;
+
+        // 只显示 3 小时内的通知（过期由数据库定时任务物理删除）
+        var cutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+        var res = await window.supabaseClient
+            .from('notifications')
+            .select('id, user_id, title, message, type, read, created_at, metadata')
+            .eq('user_id', userId)
+            .gte('created_at', cutoff)
+            .order('created_at', { ascending: false })
+            .limit(50);
+        if(res.error) throw res.error;
+
+        var list = (res.data || []).map(function(n) {
+            return {
+                id: n.id,
+                title: n.title || '系统通知',
+                text: n.message || '',
+                time: formatNotifTime(n.created_at),
+                unread: !n.read,
+                raw: n
+            };
+        });
+        setNotificationsCache(list);
+        renderNotificationList(list);
+        updateNotifBadge(list);
+    } catch(e) {
+        console.warn('加载消息通知失败:', e);
+        // 失败时仍用缓存渲染
+        renderNotificationList(getNotifications());
+    }
+}
+window.loadNotifications = loadNotifications;
+
+function updateNotifBadge(list) {
+    var badge = document.getElementById('notifBadge');
+    if(!badge) return;
+    var count = (list || []).filter(function(n) { return n.unread; }).length;
+    if(count > 0) {
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.classList.add('show');
+    } else {
+        badge.classList.remove('show');
+    }
+}
+
+function deleteNotification(id) {
+    if(!id || !window.supabaseClient) return;
+    window.supabaseClient
+        .from('notifications')
+        .delete()
+        .eq('id', id)
+        .then(function(res) {
+            if(res.error) throw res.error;
+            loadNotifications();
+        })
+        .catch(function(e) {
+            console.error('删除通知失败:', e);
+            showNotification('删除通知失败', 'error');
+        });
+}
+window.deleteNotification = deleteNotification;
+
+function markNotificationRead(id) {
+    if(!id || !window.supabaseClient) return;
+    window.supabaseClient
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', id)
+        .then(function(res) {
+            if(res.error) throw res.error;
+            loadNotifications();
+        })
+        .catch(function(e) {
+            console.error('标记已读失败:', e);
+        });
+}
+window.markNotificationRead = markNotificationRead;
+
+function renderNotificationList(notifications) {
+    const panel = document.getElementById('notificationPanel');
+    if (!panel) return;
+    const listContainer = panel.querySelector('.notif-list');
+    if (!listContainer) return;
+    if (!notifications) notifications = getNotifications();
+
+    // 自动处理已超过 3 小时的订单取消申请通知
+    autoConfirmExpiredCancellations(notifications);
+
+    if (notifications.length === 0) {
+        listContainer.innerHTML = '<div class="notif-empty"><i class="fas fa-bell-slash"></i><p>暂无消息通知</p></div>';
+    } else {
+        listContainer.innerHTML = notifications.map(function(n) {
+            var clickAction = 'markNotificationRead(\'' + n.id + '\')';
+            if (n.raw && n.raw.type === 'order_cancel_request' && n.raw.metadata) {
+                try {
+                    var meta = (typeof n.raw.metadata === 'string') ? JSON.parse(n.raw.metadata) : n.raw.metadata;
+                    if (meta && meta.order_id) {
+                        clickAction = 'handleCancelRequestNotification(\'' + n.id + '\', \'' + meta.order_id + '\')';
+                    }
+                } catch(e) {}
+            }
+            return '<div class="notif-item ' + (n.unread ? 'unread' : '') + '" data-id="' + n.id + '" onclick="' + clickAction + '">' +
+                '<div class="notif-dot"></div>' +
+                '<div class="notif-content">' +
+                    '<div class="notif-title">' + (n.title || '') + '</div>' +
+                    '<div class="notif-text">' + (n.text || '') + '</div>' +
+                    '<div class="notif-time">' + (n.time || '') + '</div>' +
+                '</div>' +
+                '<button class="notif-delete" onclick="deleteNotification(\'' + n.id + '\'); event.stopPropagation();" title="删除"><i class="fas fa-times"></i></button>' +
+            '</div>';
+        }).join('');
+    }
+}
+
+function escapeHtml(text) {
+    if(text == null) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// 通用消息/确认白卡片（动态创建，不依赖页面结构）
+function showMessageModal(options) {
+    options = options || {};
+    var title = options.title || '提示';
+    var message = options.message || '';
+    var showCancel = !!options.showCancel;
+    var cancelText = options.cancelText || '取消';
+    var okText = options.okText || '确定';
+    var onOk = typeof options.onOk === 'function' ? options.onOk : function() {};
+    var onCancel = typeof options.onCancel === 'function' ? options.onCancel : function() {};
+
+    var existing = document.getElementById('dynamicMessageModal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'dynamicMessageModal';
+    overlay.className = 'card-overlay active';
+    overlay.style.cssText = 'display:flex;z-index:10001;';
+    overlay.innerHTML =
+        '<div class="card-modal confirm-modal" style="max-width:360px;text-align:center;padding:28px 24px;">' +
+            '<h3 style="margin:0 0 12px 0;font-size:1.15rem;color:#333;">' + escapeHtml(title) + '</h3>' +
+            '<p style="margin:0 0 24px 0;font-size:0.95rem;color:#666;line-height:1.5;">' + escapeHtml(message) + '</p>' +
+            '<div class="confirm-actions">' +
+                (showCancel ? '<button class="btn-confirm-cancel" id="msgModalCancel">' + escapeHtml(cancelText) + '</button>' : '') +
+                '<button class="btn-confirm-ok" id="msgModalOk">' + escapeHtml(okText) + '</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+            overlay.remove();
+            onCancel();
+        }
+    });
+
+    var okBtn = document.getElementById('msgModalOk');
+    if (okBtn) {
+        okBtn.addEventListener('click', function() {
+            overlay.remove();
+            onOk();
+        });
+    }
+
+    var cancelBtn = document.getElementById('msgModalCancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            overlay.remove();
+            onCancel();
+        });
+    }
+}
+window.showMessageModal = showMessageModal;
+
+// 用户发起取消订单申请
+async function requestCancelOrder(orderId) {
+    if (!orderId || !window.supabaseClient) {
+        showNotification('订单信息缺失', 'error');
+        return;
+    }
+    try {
+        var userStr = localStorage.getItem('skyUser') || '{}';
+        var user = JSON.parse(userStr);
+        if (!user || !user.id) {
+            showNotification('请先登录', 'error');
+            return;
+        }
+
+        // 1. 查询订单，确认是当前用户的进行中订单
+        var { data: order, error: fetchErr } = await window.supabaseClient
+            .from('orders')
+            .select('id, user_id, wizard_id, wizard_name, price, status, cancel_requested')
+            .eq('id', orderId)
+            .maybeSingle();
+        if (fetchErr) throw fetchErr;
+        if (!order) throw new Error('未找到该订单');
+        if (String(order.user_id) !== String(user.id)) throw new Error('只能取消自己的订单');
+        if (order.status !== 'progress' && order.status !== '进行中') throw new Error('只有进行中的订单可以申请取消');
+        if (order.cancel_requested) throw new Error('已发起取消申请，请等待陪陪确认');
+
+        // 1.5 兜底：旧订单可能没有 wizard_id，用 wizard_name 反查 wizards 表补全
+        var wizardUserId = order.wizard_id || '';
+        if (!wizardUserId && order.wizard_name) {
+            try {
+                var { data: wizardRows, error: wizardLookupErr } = await window.supabaseClient
+                    .from('wizards')
+                    .select('user_id')
+                    .eq('wizard_name', order.wizard_name)
+                    .limit(1);
+                if (wizardLookupErr) console.warn('反查陪玩 user_id 失败:', wizardLookupErr);
+                if (wizardRows && wizardRows.length > 0 && wizardRows[0].user_id) {
+                    wizardUserId = wizardRows[0].user_id;
+                    // 顺手把订单的 wizard_id 补回去，方便后续流程
+                    await window.supabaseClient
+                        .from('orders')
+                        .update({ wizard_id: wizardUserId })
+                        .eq('id', orderId);
+                }
+            } catch (lookupErr) {
+                console.warn('wizard_id 兜底查询异常:', lookupErr);
+            }
+        }
+
+        // 2. 标记取消申请
+        var { error: updateErr } = await window.supabaseClient
+            .from('orders')
+            .update({ cancel_requested: true, cancel_requested_at: new Date().toISOString() })
+            .eq('id', orderId);
+        if (updateErr) throw updateErr;
+
+        // 3. 给陪陪发送通知
+        if (wizardUserId) {
+            var buyerName = user.nickname || user.email || user.username || '某位用户';
+            var { error: notifErr } = await window.supabaseClient
+                .from('notifications')
+                .insert({
+                    user_id: String(wizardUserId),
+                    title: '订单取消申请',
+                    message: '用户 ' + buyerName + ' 希望取消订单「' + (order.wizard_name || '未知陪玩') + '」，请在消息中确认。如未确认，3小时后将自动取消并退款。',
+                    type: 'order_cancel_request',
+                    metadata: JSON.stringify({ order_id: String(orderId) }),
+                    read: false
+                });
+            if (notifErr) {
+                console.warn('发送取消申请通知失败:', notifErr);
+                showNotification('取消申请已提交，但通知发送失败：' + (notifErr.message || '请让对方手动刷新'), 'warning');
+            }
+        } else {
+            console.warn('订单缺少 wizard_id，无法给陪陪发送取消通知。订单 ID:', orderId);
+            showNotification('取消申请已提交，但无法定位陪陪，请联系管理', 'warning');
+        }
+
+        // 4. 刷新本地订单缓存（如果页面有）
+        if (typeof window.loadOrders === 'function') {
+            try { window.loadOrders(); } catch(e) {}
+        }
+
+        // 5. 弹出等待确认提示
+        showMessageModal({
+            title: '取消申请已发送',
+            message: '等待陪陪确认，对方确认后订单取消，金额将返还账户',
+            okText: '知道了',
+            onOk: function() {}
+        });
+    } catch (err) {
+        console.error('申请取消订单失败:', err);
+        showNotification('申请取消失败：' + (err.message || '请重试'), 'error');
+    }
+}
+window.requestCancelOrder = requestCancelOrder;
+
+// 陪陪点击取消申请通知后弹出确认
+function handleCancelRequestNotification(notificationId, orderId) {
+    if (!orderId) {
+        markNotificationRead(notificationId);
+        return;
+    }
+    showMessageModal({
+        title: '订单取消确认',
+        message: '对方希望取消订单，经过确认后订单取消，不进行确定则三小时后自动确定。',
+        showCancel: true,
+        cancelText: '暂不处理',
+        okText: '确认取消',
+        onOk: function() {
+            confirmCancelOrder(orderId, notificationId);
+        },
+        onCancel: function() {
+            // 关闭弹窗，不标记已读，让陪陪可以再次点击
+        }
+    });
+}
+window.handleCancelRequestNotification = handleCancelRequestNotification;
+
+// 陪陪确认取消订单：退款并标记取消
+async function confirmCancelOrder(orderId, notificationId) {
+    if (!orderId || !window.supabaseClient) {
+        showNotification('订单信息缺失', 'error');
+        return;
+    }
+    try {
+        var sessionRes = await window.supabaseClient.auth.getSession();
+        var wizardUserId = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user && sessionRes.data.session.user.id;
+        if (!wizardUserId) {
+            showNotification('请先登录', 'error');
+            return;
+        }
+
+        // 查询订单
+        var { data: order, error: fetchErr } = await window.supabaseClient
+            .from('orders')
+            .select('id, user_id, wizard_id, wizard_name, price, status, cancel_requested')
+            .eq('id', orderId)
+            .maybeSingle();
+        if (fetchErr) throw fetchErr;
+        if (!order) throw new Error('未找到该订单');
+        // 权限校验：wizard_id 匹配当前用户；若旧订单缺失 wizard_id，则允许 wizard_name 匹配当前用户昵称兜底
+        var canConfirm = String(order.wizard_id) === String(wizardUserId);
+        if (!canConfirm && !order.wizard_id && order.wizard_name) {
+            try {
+                var { data: meProf } = await window.supabaseClient
+                    .from('profiles')
+                    .select('nickname')
+                    .eq('id', wizardUserId)
+                    .maybeSingle();
+                if (meProf && meProf.nickname && meProf.nickname === order.wizard_name) {
+                    canConfirm = true;
+                    // 顺手补全 wizard_id，后续流程不再缺失
+                    await window.supabaseClient
+                        .from('orders')
+                        .update({ wizard_id: wizardUserId })
+                        .eq('id', orderId);
+                }
+            } catch(e) {}
+        }
+        if (!canConfirm) throw new Error('无权确认该订单');
+        if (order.status === 'cancelled' || order.status === '已完成') throw new Error('该订单已结束');
+
+        var refundAmount = parseFloat(order.price) || 0;
+        var buyerId = order.user_id;
+
+        // 退款给下单用户
+        if (refundAmount > 0 && buyerId) {
+            var { data: buyerProfile, error: buyerErr } = await window.supabaseClient
+                .from('profiles')
+                .select('balance')
+                .eq('id', buyerId)
+                .maybeSingle();
+            if (buyerErr) throw buyerErr;
+            var currentBalance = parseFloat(buyerProfile && buyerProfile.balance) || 0;
+            var newBalance = currentBalance + refundAmount;
+            var { error: refundErr } = await window.supabaseClient
+                .from('profiles')
+                .update({ balance: newBalance })
+                .eq('id', buyerId);
+            if (refundErr) throw refundErr;
+
+            // 同步本地余额
+            try {
+                var skyUser = JSON.parse(localStorage.getItem('skyUser') || '{}');
+                if (String(skyUser.id) === String(buyerId)) {
+                    skyUser.balance = newBalance;
+                    localStorage.setItem('skyUser', JSON.stringify(skyUser));
+                }
+            } catch(e) {}
+        }
+
+        // 物理删除订单记录（下单方与接单方共享同一行，删除后双方订单列表均不再显示）
+        var { error: updateErr } = await window.supabaseClient
+            .from('orders')
+            .delete()
+            .eq('id', orderId);
+        if (updateErr) throw updateErr;
+
+        // 给下单用户发送通知
+        try {
+            await window.supabaseClient
+                .from('notifications')
+                .insert({
+                    user_id: String(buyerId),
+                    title: '订单已取消',
+                    message: '陪陪已确认取消订单，金额 ¥' + refundAmount.toFixed(2) + ' 已返还到您的账户。',
+                    type: 'order_cancelled',
+                    read: false
+                });
+        } catch(notifErr) {
+            console.warn('发送取消成功通知失败:', notifErr);
+        }
+
+        // 标记原通知已读/删除
+        if (notificationId) {
+            try {
+                await window.supabaseClient.from('notifications').delete().eq('id', notificationId);
+            } catch(e) {}
+        }
+
+        // 刷新通知和订单列表
+        loadNotifications();
+        if (typeof window.loadOrders === 'function') {
+            try { window.loadOrders(); } catch(e) {}
+        }
+
+        showNotification('订单已取消，金额已退还用户', 'success');
+    } catch (err) {
+        console.error('确认取消订单失败:', err);
+        showNotification('确认取消失败：' + (err.message || '请重试'), 'error');
+    }
+}
+window.confirmCancelOrder = confirmCancelOrder;
+
+// 陪陪驳回取消申请：恢复订单并通知下单用户
+async function rejectCancelOrder(orderId) {
+    if (!orderId || !window.supabaseClient) {
+        showNotification('订单信息缺失', 'error');
+        return;
+    }
+    try {
+        var sessionRes = await window.supabaseClient.auth.getSession();
+        var wizardUserId = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user && sessionRes.data.session.user.id;
+        if (!wizardUserId) {
+            showNotification('请先登录', 'error');
+            return;
+        }
+
+        var { data: order, error: fetchErr } = await window.supabaseClient
+            .from('orders')
+            .select('id, user_id, wizard_id, wizard_name, price, status, cancel_requested')
+            .eq('id', orderId)
+            .maybeSingle();
+        if (fetchErr) throw fetchErr;
+        if (!order) throw new Error('未找到该订单');
+
+        // 权限校验：与 confirmCancelOrder 保持一致
+        var canReject = String(order.wizard_id) === String(wizardUserId);
+        if (!canReject && !order.wizard_id && order.wizard_name) {
+            try {
+                var { data: meProf } = await window.supabaseClient
+                    .from('profiles')
+                    .select('nickname')
+                    .eq('id', wizardUserId)
+                    .maybeSingle();
+                if (meProf && meProf.nickname && meProf.nickname === order.wizard_name) {
+                    canReject = true;
+                    await window.supabaseClient
+                        .from('orders')
+                        .update({ wizard_id: wizardUserId })
+                        .eq('id', orderId);
+                }
+            } catch(e) {}
+        }
+        if (!canReject) throw new Error('无权操作该订单');
+        if (!order.cancel_requested) throw new Error('该订单未申请取消');
+
+        // 恢复订单为进行中（双方视图共享同一行，更新后双方均显示进行中）
+        var { error: updateErr } = await window.supabaseClient
+            .from('orders')
+            .update({ cancel_requested: false, cancel_requested_at: null, status: 'progress' })
+            .eq('id', orderId);
+        if (updateErr) throw updateErr;
+
+        // 通知下单用户
+        try {
+            var wizardName = order.wizard_name || '陪陪';
+            await window.supabaseClient
+                .from('notifications')
+                .insert({
+                    user_id: String(order.user_id),
+                    title: '取消申请被驳回',
+                    message: '陪陪 ' + wizardName + ' 已驳回您的取消申请，订单将继续进行。',
+                    type: 'order_cancel_rejected',
+                    read: false
+                });
+        } catch(notifErr) {
+            console.warn('发送驳回通知失败:', notifErr);
+        }
+
+        // 删除陪陪自己收到的这条取消申请通知（如存在）
+        try {
+            var { data: notifRows } = await window.supabaseClient
+                .from('notifications')
+                .select('id, metadata')
+                .eq('user_id', wizardUserId)
+                .eq('type', 'order_cancel_request');
+            if (notifRows && notifRows.length > 0) {
+                for (var i = 0; i < notifRows.length; i++) {
+                    var meta = notifRows[i].metadata;
+                    try {
+                        meta = (typeof meta === 'string') ? JSON.parse(meta) : meta;
+                        if (meta && String(meta.order_id) === String(orderId)) {
+                            await window.supabaseClient.from('notifications').delete().eq('id', notifRows[i].id);
+                        }
+                    } catch(e) {}
+                }
+            }
+        } catch(delErr) {
+            console.warn('删除取消申请通知失败:', delErr);
+        }
+
+        loadNotifications();
+        if (typeof window.loadOrders === 'function') {
+            try { window.loadOrders(); } catch(e) {}
+        }
+
+        showNotification('已驳回取消申请，订单继续', 'success');
+    } catch (err) {
+        console.error('驳回取消申请失败:', err);
+        showNotification('驳回失败：' + (err.message || '请重试'), 'error');
+    }
+}
+window.rejectCancelOrder = rejectCancelOrder;
+
+// 自动确认已超过 3 小时的取消申请（通知过期删除前兜底）
+function autoConfirmExpiredCancellations(notifications) {
+    if (!Array.isArray(notifications)) return;
+    var now = Date.now();
+    var threeHours = 3 * 60 * 60 * 1000;
+    notifications.forEach(function(n) {
+        if (!n.raw || n.raw.type !== 'order_cancel_request' || !n.raw.metadata) return;
+        try {
+            var meta = (typeof n.raw.metadata === 'string') ? JSON.parse(n.raw.metadata) : n.raw.metadata;
+            if (!meta || !meta.order_id || !n.raw.created_at) return;
+            var created = new Date(n.raw.created_at).getTime();
+            if (now - created >= threeHours) {
+                // 异步自动确认，不阻塞渲染
+                confirmCancelOrder(meta.order_id, n.id);
+            }
+        } catch(e) {}
+    });
+}
+
+
+// ============================================================
+// 组队订单（dispatch_orders）取消投票
+// 流程：派单人发起 → 所有接单人表决（同意取消 / 驳回）→ 任一方过半即生效
+//       每人投票后两个选项都变灰；3 小时后若某项 > 半数自动通过
+// ============================================================
+
+// 给订单对象附加投票信息（票数 / 我的票 / 总人数），供卡片渲染
+async function loadDispatchCancelInfo(orders, userId) {
+    if (!Array.isArray(orders) || !userId) return;
+    var dispOrders = orders.filter(function(o) { return o.isDispatch && o.rawId; });
+    if (dispOrders.length === 0) return;
+    var ids = dispOrders.map(function(o) { return o.rawId; });
+    try {
+        var votesRes = await window.supabaseClient
+            .from('dispatch_cancel_votes')
+            .select('dispatch_order_id, user_id, vote')
+            .in('dispatch_order_id', ids);
+        var memberRes = await window.supabaseClient
+            .from('dispatch_team_members')
+            .select('dispatch_order_id, user_id')
+            .in('dispatch_order_id', ids);
+        var votes = votesRes.data || [];
+        var members = memberRes.data || [];
+        var byOrder = {};
+        ids.forEach(function(id) { byOrder[id] = { cancel: 0, reject: 0, total: 0, my: null }; });
+        members.forEach(function(m) { if (byOrder[m.dispatch_order_id]) byOrder[m.dispatch_order_id].total++; });
+        votes.forEach(function(v) {
+            var b = byOrder[v.dispatch_order_id];
+            if (!b) return;
+            if (v.vote === 'cancel') b.cancel++;
+            else if (v.vote === 'reject') b.reject++;
+            if (String(v.user_id) === String(userId)) b.my = v.vote;
+        });
+        dispOrders.forEach(function(o) {
+            var b = byOrder[o.rawId] || { cancel: 0, reject: 0, total: 0, my: null };
+            o.cancelVotes = b.cancel;
+            o.rejectVotes = b.reject;
+            o.totalMembers = b.total;
+            o.myVote = b.my;
+        });
+    } catch (e) {
+        console.warn('loadDispatchCancelInfo failed:', e);
+    }
+}
+window.loadDispatchCancelInfo = loadDispatchCancelInfo;
+
+// 派单人发起取消投票
+async function requestDispatchCancel(rawId) {
+    try {
+        rawId = parseInt(rawId, 10);
+        if (!rawId) throw new Error('无效的派单 ID');
+        var sess = await window.supabaseClient.auth.getSession();
+        var user = sess.data && sess.data.session ? sess.data.session.user : null;
+        if (!user) { showNotification('请先登录', 'error'); return; }
+        var { data: order, error: fe } = await window.supabaseClient
+            .from('dispatch_orders')
+            .select('id, user_id, status, cancel_requested')
+            .eq('id', rawId)
+            .maybeSingle();
+        if (fe) throw fe;
+        if (!order) throw new Error('未找到该派单');
+        if (String(order.user_id) !== String(user.id)) throw new Error('只有派单人可以发起取消');
+        var s = (order.status || '').toLowerCase();
+        if (s !== 'progress' && s !== '进行中') throw new Error('只有进行中的派单可以申请取消');
+        if (order.cancel_requested) throw new Error('取消投票已在进行中');
+
+        var { error: ue } = await window.supabaseClient
+            .from('dispatch_orders')
+            .update({ cancel_requested: true, cancel_requested_at: new Date().toISOString() })
+            .eq('id', rawId);
+        if (ue) throw ue;
+
+        var memRes = await window.supabaseClient
+            .from('dispatch_team_members')
+            .select('user_id')
+            .eq('dispatch_order_id', rawId);
+        var members = memRes.data || [];
+        for (var i = 0; i < members.length; i++) {
+            var uid = members[i].user_id;
+            if (String(uid) === String(user.id)) continue;
+            await window.supabaseClient.from('notifications').insert({
+                user_id: String(uid),
+                title: '派单取消投票',
+                message: '派单人发起了取消申请，请到「我接的单」投票：同意取消 或 驳回。',
+                type: 'dispatch_cancel_request',
+                metadata: JSON.stringify({ order_id: String(rawId) }),
+                read: false
+            });
+        }
+        showNotification('已发起取消投票，等待接单人表决', 'success');
+        if (typeof window.refreshCurrentPageOrders === 'function') window.refreshCurrentPageOrders();
+    } catch (e) {
+        console.error('requestDispatchCancel failed:', e);
+        showNotification('发起取消失败：' + (e.message || '请重试'), 'error');
+    }
+}
+window.requestDispatchCancel = requestDispatchCancel;
+
+// 接单人投票（cancel / reject）
+async function voteDispatchCancel(rawId, vote) {
+    try {
+        rawId = parseInt(rawId, 10);
+        if (!rawId) throw new Error('无效的派单 ID');
+        if (vote !== 'cancel' && vote !== 'reject') throw new Error('无效投票');
+        var sess = await window.supabaseClient.auth.getSession();
+        var user = sess.data && sess.data.session ? sess.data.session.user : null;
+        if (!user) { showNotification('请先登录', 'error'); return; }
+
+        var memRes = await window.supabaseClient
+            .from('dispatch_team_members')
+            .select('user_id')
+            .eq('dispatch_order_id', rawId)
+            .eq('user_id', user.id)
+            .maybeSingle();
+        if (!memRes.data) throw new Error('你不是该派单的接单人');
+
+        var { error: ve } = await window.supabaseClient
+            .from('dispatch_cancel_votes')
+            .upsert({
+                dispatch_order_id: rawId,
+                user_id: user.id,
+                vote: vote,
+                created_at: new Date().toISOString()
+            }, { onConflict: 'dispatch_order_id,user_id' });
+        if (ve) throw ve;
+
+        await notifyDispatchVoteCounts(rawId, user.id);
+        await checkDispatchCancelResolved(rawId, user.id);
+        showNotification('已投票：' + (vote === 'cancel' ? '同意取消' : '驳回取消'), 'success');
+        if (typeof window.refreshCurrentPageOrders === 'function') window.refreshCurrentPageOrders();
+    } catch (e) {
+        console.error('voteDispatchCancel failed:', e);
+        showNotification('投票失败：' + (e.message || '请重试'), 'error');
+    }
+}
+window.voteDispatchCancel = voteDispatchCancel;
+
+// 投票后通知其他接单人 + 派单人最新票数
+async function notifyDispatchVoteCounts(rawId, excludeUserId) {
+    try {
+        var orderRes = await window.supabaseClient
+            .from('dispatch_orders').select('user_id').eq('id', rawId).maybeSingle();
+        var dispatcherId = orderRes.data ? orderRes.data.user_id : null;
+        var votesRes = await window.supabaseClient
+            .from('dispatch_cancel_votes').select('vote').eq('dispatch_order_id', rawId);
+        var membersRes = await window.supabaseClient
+            .from('dispatch_team_members').select('user_id').eq('dispatch_order_id', rawId);
+        var votes = votesRes.data || [];
+        var members = membersRes.data || [];
+        var cancel = 0, reject = 0;
+        votes.forEach(function(v) { if (v.vote === 'cancel') cancel++; else if (v.vote === 'reject') reject++; });
+        var total = members.length;
+        var msg = '取消投票进展：' + cancel + ' 人同意取消，' + reject + ' 人驳回（共 ' + total + ' 名接单人）。';
+        var userIds = {};
+        members.forEach(function(m) { if (String(m.user_id) !== String(excludeUserId)) userIds[String(m.user_id)] = true; });
+        if (dispatcherId && String(dispatcherId) !== String(excludeUserId)) userIds[String(dispatcherId)] = true;
+        for (var uid in userIds) {
+            await window.supabaseClient.from('notifications').insert({
+                user_id: uid,
+                title: '取消投票更新',
+                message: msg,
+                type: 'dispatch_cancel_vote',
+                metadata: JSON.stringify({ order_id: String(rawId), cancel_count: cancel, reject_count: reject, total: total }),
+                read: false
+            });
+        }
+    } catch (e) {
+        console.warn('notifyDispatchVoteCounts failed:', e);
+    }
+}
+window.notifyDispatchVoteCounts = notifyDispatchVoteCounts;
+
+// 计算票数，任一方 > 半数则立即生效（过半即代表多数人意见）
+async function checkDispatchCancelResolved(rawId, userId) {
+    try {
+        var votesRes = await window.supabaseClient
+            .from('dispatch_cancel_votes').select('vote').eq('dispatch_order_id', rawId);
+        var membersRes = await window.supabaseClient
+            .from('dispatch_team_members').select('user_id').eq('dispatch_order_id', rawId);
+        var votes = votesRes.data || [];
+        var members = membersRes.data || [];
+        var total = members.length;
+        var cancel = 0, reject = 0;
+        votes.forEach(function(v) { if (v.vote === 'cancel') cancel++; else if (v.vote === 'reject') reject++; });
+        var half = total / 2;
+        if (cancel > half) { await resolveDispatchCancel(rawId, 'cancel'); return true; }
+        if (reject > half) { await resolveDispatchCancel(rawId, 'reject'); return true; }
+        return false;
+    } catch (e) {
+        console.warn('checkDispatchCancelResolved failed:', e);
+        return false;
+    }
+}
+window.checkDispatchCancelResolved = checkDispatchCancelResolved;
+
+// 落实结果：cancel → 物理删除派单（连带组队成员、投票记录级联删除）；reject → 恢复进行中
+async function resolveDispatchCancel(rawId, decision) {
+    try {
+        if (decision === 'cancel') {
+            // 先退款给派单人
+            try {
+                var orderRes = await window.supabaseClient
+                    .from('dispatch_orders').select('user_id, price').eq('id', rawId).maybeSingle();
+                var order = orderRes.data;
+                if (order && order.user_id && order.price) {
+                    var refundAmount = parseFloat(order.price) || 0;
+                    var profRes = await window.supabaseClient
+                        .from('profiles').select('balance').eq('id', order.user_id).maybeSingle();
+                    var current = parseFloat(profRes.data && profRes.data.balance) || 0;
+                    await window.supabaseClient
+                        .from('profiles').update({ balance: current + refundAmount }).eq('id', order.user_id);
+                    try {
+                        var skyUser = JSON.parse(localStorage.getItem('skyUser') || '{}');
+                        if (String(skyUser.id) === String(order.user_id)) {
+                            skyUser.balance = current + refundAmount;
+                            localStorage.setItem('skyUser', JSON.stringify(skyUser));
+                        }
+                    } catch(e) {}
+                }
+            } catch(refundErr) { console.warn('dispatch cancel refund failed:', refundErr); }
+
+            // 物理删除派单记录（关联的 dispatch_team_members / dispatch_cancel_votes 会级联删除）
+            var { error: de } = await window.supabaseClient
+                .from('dispatch_orders')
+                .delete()
+                .eq('id', rawId);
+            if (de) throw de;
+            await notifyDispatchResolved(rawId, 'cancel');
+        } else {
+            var { error: ue2 } = await window.supabaseClient
+                .from('dispatch_orders')
+                .update({ cancel_requested: false, cancel_requested_at: null, status: 'progress' })
+                .eq('id', rawId);
+            if (ue2) throw ue2;
+            await notifyDispatchResolved(rawId, 'reject');
+        }
+    } catch (e) {
+        console.warn('resolveDispatchCancel failed:', e);
+    }
+}
+window.resolveDispatchCancel = resolveDispatchCancel;
+
+// 通知所有人最终结果
+async function notifyDispatchResolved(rawId, decision) {
+    try {
+        var orderRes = await window.supabaseClient
+            .from('dispatch_orders').select('user_id').eq('id', rawId).maybeSingle();
+        var dispatcherId = orderRes.data ? orderRes.data.user_id : null;
+        var membersRes = await window.supabaseClient
+            .from('dispatch_team_members').select('user_id').eq('dispatch_order_id', rawId);
+        var members = membersRes.data || [];
+        var msg = decision === 'cancel' ? '取消申请已通过，派单已取消。' : '取消申请被驳回，派单继续正常进行。';
+        var userIds = {};
+        members.forEach(function(m) { userIds[String(m.user_id)] = true; });
+        if (dispatcherId) userIds[String(dispatcherId)] = true;
+        for (var uid in userIds) {
+            await window.supabaseClient.from('notifications').insert({
+                user_id: uid,
+                title: decision === 'cancel' ? '派单已取消' : '派单继续',
+                message: msg,
+                type: 'dispatch_cancel_resolved',
+                metadata: JSON.stringify({ order_id: String(rawId), decision: decision }),
+                read: false
+            });
+        }
+    } catch (e) {
+        console.warn('notifyDispatchResolved failed:', e);
+    }
+}
+window.notifyDispatchResolved = notifyDispatchResolved;
+
+// 前端兜底：页面加载时检查已超 3 小时且未决的取消投票，过半则自动通过
+async function autoResolveExpiredDispatchCancels(orders) {
+    if (!Array.isArray(orders)) return;
+    var now = Date.now();
+    var threeHours = 3 * 60 * 60 * 1000;
+    var expired = orders.filter(function(o) {
+        return o.isDispatch && o.cancel_requested && o.cancel_requested_at
+            && (now - new Date(o.cancel_requested_at).getTime() > threeHours);
+    });
+    for (var i = 0; i < expired.length; i++) {
+        var sess = await window.supabaseClient.auth.getSession();
+        var user = sess.data && sess.data.session ? sess.data.session.user : null;
+        if (user) await checkDispatchCancelResolved(expired[i].rawId, user.id);
+    }
+}
+window.autoResolveExpiredDispatchCancels = autoResolveExpiredDispatchCancels;
+
+
 // --- 移动端菜单切换 ---
 
 function toggleMenu() {
@@ -154,10 +1034,31 @@ let availableCoupons = [];
 let allCoupons = [];
 let couponAutoSelectEnabled = true;
 let currentOrderWizardName = '';
+let currentOrderWizardId = '';
 
 
 
-async function showOrderModal(name, price, avatar, skills) {
+async function fillOrderEmail() {
+    const input = document.getElementById('orderEmail');
+    if(!input) return;
+    let email = '';
+    try {
+        const userStr = localStorage.getItem('skyUser');
+        if(userStr) {
+            const user = JSON.parse(userStr);
+            email = user.email || '';
+        }
+    } catch(ex) {}
+    if(!email && window.supabaseClient && window.supabaseClient.auth) {
+        try {
+            const sessionRes = await window.supabaseClient.auth.getSession();
+            email = (sessionRes.data && sessionRes.data.session && sessionRes.data.session.user && sessionRes.data.session.user.email) || '';
+        } catch(ex) {}
+    }
+    input.value = email || '';
+}
+
+async function showOrderModal(name, price, avatar, skills, wizardId) {
 
     const modal = document.getElementById('orderModal');
 
@@ -175,6 +1076,7 @@ async function showOrderModal(name, price, avatar, skills) {
     if (modal && wizardName && wizardPrice) {
 
         currentOrderWizardName = name || '';
+        currentOrderWizardId = wizardId || '';
 
         wizardName.textContent = name;
 
@@ -243,6 +1145,8 @@ async function showOrderModal(name, price, avatar, skills) {
         await loadOrderCoupons();
 
         calcOrderTotal();
+
+        await fillOrderEmail();
 
         modal.classList.add('active');
 
@@ -625,6 +1529,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const serverEl = document.getElementById('orderServer');
             const hoursEl = document.getElementById('orderHours');
             const timeEl = document.getElementById('orderTime');
+            const emailEl = document.getElementById('orderEmail');
             const remarkEl = document.getElementById('orderRemark');
             const totalPriceEl = document.getElementById('orderTotalPrice');
 
@@ -632,7 +1537,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const server = serverEl ? serverEl.value.trim() : '';
             const hours = hoursEl ? (parseInt(hoursEl.value) || 1) : 1;
             const appointmentTime = timeEl ? timeEl.value.trim() : '';
-            const remark = remarkEl ? remarkEl.value.trim() : '';
+            const email = emailEl ? emailEl.value.trim() : '';
+            let remark = remarkEl ? remarkEl.value.trim() : '';
+            if(email) {
+                remark = '联系邮箱：' + email + (remark ? '\n' + remark : '');
+            }
 
             if (!serviceType) {
                 showNotification('请选择服务类型', 'error');
@@ -682,16 +1591,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // Build order data
             const couponSelect = document.getElementById('orderCouponSelect');
             const couponId = (couponSelect && couponSelect.value) || null;
+            const gameType = window.currentGame === 'king' ? '王者荣耀' : '光·遇';
 
             const orderData = {
                 wizardName: currentOrderWizardName,
+                wizardId: currentOrderWizardId,
                 serviceType: serviceType,
                 server: server,
                 hours: hours,
                 appointmentTime: appointmentTime,
                 remark: remark,
+                email: email,
                 totalPrice: finalPrice,
-                couponId: couponId
+                couponId: couponId,
+                gameType: gameType,
+                boardName: user.nickname || user.username || user.email || ''
             };
 
             const ok = await createOrder(orderData);
@@ -944,15 +1858,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function goToSlide(index) {
 
+        const track = document.querySelector('.carousel-track');
+
         const slides = document.querySelectorAll('.carousel-slide');
 
         const dots = document.querySelectorAll('.carousel-dots .dot');
 
-        if (!slides.length) return;
+        if (!slides.length || !track) return;
 
         currentSlide = (index + slides.length) % slides.length;
 
-        slides.forEach((s, i) => s.style.display = i === currentSlide ? 'block' : 'none');
+        track.style.transform = 'translateX(-' + (currentSlide * 100) + '%)';
+
+        slides.forEach((s, i) => s.classList.toggle('active', i === currentSlide));
 
         dots.forEach((d, i) => d.classList.toggle('active', i === currentSlide));
 
@@ -961,6 +1879,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function nextSlide() { goToSlide(currentSlide + 1); }
 
     function prevSlide() { goToSlide(currentSlide - 1); }
+
+    // 暴露给 HTML onclick 使用
+    window.nextSlide = nextSlide;
+    window.prevSlide = prevSlide;
+    window.goToSlide = goToSlide;
 
     function startInterval() { slideInterval = setInterval(nextSlide, 5000); }
 
@@ -1050,40 +1973,16 @@ function renderNavActions(userData) {
                 '<a href="' + basePath + 'settings.html" class="dropdown-item"><i class="fas fa-cog"></i> 设置</a>' +
                 '<a href="' + basePath + 'recharge.html" class="dropdown-item"><i class="fas fa-wallet"></i> 充值中心</a>' +
                 '<div class="dropdown-divider"></div>' +
-                '<a href="#" class="dropdown-item" onclick="toggleNotification(event)" id="notifToggle"><i class="fas fa-bell"></i> 消息通知</a>' +
+                '<a href="#" class="dropdown-item" onclick="toggleNotification(event)" id="notifToggle"><i class="fas fa-bell"></i> 消息通知<span class="notif-badge" id="notifBadge"></span></a>' +
                 '<div class="dropdown-divider"></div>' +
                 '<a href="#" class="dropdown-item logout-btn" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> 退出登录</a>' +
             '</div>' +
-            '<div class="notification-panel" id="notificationPanel" style="display:none;position:absolute;top:110%;right:0;background:white;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.12);min-width:280px;padding:0;z-index:2000;">' +
-                '<div class="notif-header" style="display:flex;align-items:center;gap:8px;padding:10px 18px;border-bottom:1px solid #eee;font-weight:600;color:#333;font-size:0.9rem;"><i class="fas fa-bell"></i> 消息通知</div>' +
-                '<div class="notif-list">' +
-                    '<div class="notif-item unread" style="display:flex;gap:10px;padding:10px 18px;border-bottom:1px solid #f5f5f5;">' +
-                        '<div class="notif-dot" style="width:8px;height:8px;border-radius:50%;background:#ff4757;flex-shrink:0;margin-top:6px;"></div>' +
-                        '<div class="notif-content">' +
-                            '<div class="notif-title" style="font-weight:600;color:#333;font-size:0.85rem;">欢迎加入BJ陪玩团</div>' +
-                            '<div class="notif-text" style="color:#666;font-size:0.8rem;margin-top:2px;">恭喜成为我们的新成员，开始你的陪玩之旅吧！</div>' +
-                            '<div class="notif-time" style="color:#999;font-size:0.75rem;margin-top:4px;">今天</div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="notif-item" style="display:flex;gap:10px;padding:10px 18px;border-bottom:1px solid #f5f5f5;">' +
-                        '<div class="notif-dot" style="width:8px;height:8px;border-radius:50%;background:#ccc;flex-shrink:0;margin-top:6px;"></div>' +
-                        '<div class="notif-content">' +
-                            '<div class="notif-title" style="font-weight:600;color:#333;font-size:0.85rem;">系统公告</div>' +
-                            '<div class="notif-text" style="color:#666;font-size:0.8rem;margin-top:2px;">新版UI界面即将上线，敬请期待新功能</div>' +
-                            '<div class="notif-time" style="color:#999;font-size:0.75rem;margin-top:4px;">1小时前</div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="notif-item" style="display:flex;gap:10px;padding:10px 18px;">' +
-                        '<div class="notif-dot" style="width:8px;height:8px;border-radius:50%;background:#ccc;flex-shrink:0;margin-top:6px;"></div>' +
-                        '<div class="notif-content">' +
-                            '<div class="notif-title" style="font-weight:600;color:#333;font-size:0.85rem;">VIP特权</div>' +
-                            '<div class="notif-text" style="color:#666;font-size:0.8rem;margin-top:2px;">开通VIP享专属陪玩折扣和优先匹配服务</div>' +
-                            '<div class="notif-time" style="color:#999;font-size:0.75rem;margin-top:4px;">3天前</div>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>' +
+            '<div class="notification-panel" id="notificationPanel" style="display:none;">' +
+                '<div class="notif-header"><i class="fas fa-bell"></i> 消息通知</div>' +
+                '<div class="notif-list"></div>' +
             '</div>' +
         '</div>';
+    loadNotifications();
 }
 
 async function updateNavUser() {
@@ -1249,33 +2148,98 @@ async function createOrder(orderData) {
             }
         }
 
-        // 3. Create order record (only use columns known to exist)
-        const { error } = await window.supabaseClient
-            .from('orders')
-            .insert({
-                user_id: user.id,
-                wizard_id: orderData.wizardName || null,
-                wizard_name: orderData.wizardName || '',
-                hours: orderData.hours || 1,
-                total_price: finalPrice,
-                status: '待支付'
-            });
+        // 3. Create order record with full details so the order card can expand
+        const orderPayload = {
+            user_id: user.id,
+            wizard_id: orderData.wizardId || null,
+            wizard_name: orderData.wizardName || '',
+            hours: orderData.hours || 1,
+            price: finalPrice,
+            status: 'progress',
+            service_type: orderData.serviceType || '',
+            game_type: orderData.gameType || '光·遇',
+            order_no: orderData.orderNo || ('ORD' + Date.now()),
+            board_name: orderData.boardName || user.nickname || user.username || user.email || '',
+            remark: orderData.remark || ''
+        };
 
-        if (error) {
-            // Rollback balance if order insert failed
-            try {
-                await window.supabaseClient
-                    .from('profiles')
-                    .update({ balance: currentBalance })
-                    .eq('id', user.id);
-            } catch(rollbackErr) {
-                console.error('订单创建失败后回滚余额失败:', rollbackErr);
+        let insertResult;
+        try {
+            insertResult = await window.supabaseClient.from('orders').insert(orderPayload);
+        } catch (e) {
+            insertResult = { error: e };
+        }
+
+        // If extended columns are missing, fall back to core columns so checkout still works
+        if (insertResult.error && insertResult.error.message) {
+            const msg = insertResult.error.message;
+            const missingCol = ['service_type', 'game_type', 'order_no', 'board_name', 'remark'].some(function(col) {
+                return msg.indexOf(col) !== -1;
+            });
+            if (missingCol) {
+                console.warn('orders 表缺少扩展字段，降级插入核心字段。建议执行 ALTER TABLE 添加这些字段。');
+                const { error: coreError } = await window.supabaseClient.from('orders').insert({
+                    user_id: user.id,
+                    wizard_name: orderData.wizardName || '',
+                    hours: orderData.hours || 1,
+                    price: finalPrice,
+                    status: 'progress'
+                });
+                if (coreError) {
+                    try {
+                        await window.supabaseClient.from('profiles').update({ balance: currentBalance }).eq('id', user.id);
+                    } catch(rollbackErr) {
+                        console.error('订单创建失败后回滚余额失败:', rollbackErr);
+                    }
+                    showNotification('下单失败：' + coreError.message, 'error');
+                    return false;
+                }
+            } else {
+                try {
+                    await window.supabaseClient.from('profiles').update({ balance: currentBalance }).eq('id', user.id);
+                } catch(rollbackErr) {
+                    console.error('订单创建失败后回滚余额失败:', rollbackErr);
+                }
+                showNotification('下单失败：' + msg, 'error');
+                return false;
             }
-            showNotification('下单失败：' + error.message, 'error');
-            return false;
         }
 
         showNotification('下单成功，已扣除余额 ¥' + finalPrice.toFixed(2), 'success');
+
+        // 4. 给被下单的陪玩发送通知
+        try {
+            let wizardUserId = orderData.wizardId || '';
+            if (!wizardUserId && orderData.wizardName) {
+                const { data: wizardRows } = await window.supabaseClient
+                    .from('wizards')
+                    .select('user_id, wizard_name')
+                    .eq('wizard_name', orderData.wizardName)
+                    .limit(1);
+                if (wizardRows && wizardRows.length > 0 && wizardRows[0].user_id) {
+                    wizardUserId = wizardRows[0].user_id;
+                }
+            }
+            if (wizardUserId) {
+                const buyerName = user.nickname || user.email || user.username || '某位用户';
+                await window.supabaseClient
+                    .from('notifications')
+                    .insert({
+                        user_id: String(wizardUserId),
+                        title: '新订单提醒',
+                        message: '用户 ' + buyerName + ' 已下单，服务类型：' + (orderData.serviceType || '未指定') + '，请尽快联系对方。',
+                        type: 'order_new',
+                        read: false
+                    });
+            }
+        } catch (notifErr) {
+            console.warn('发送陪玩通知失败:', notifErr);
+        }
+
+        // 5. 实时更新点单大厅按钮为「已接单」
+        if (typeof window.markWizardOrdered === 'function' && orderData.wizardName) {
+            window.markWizardOrdered(orderData.wizardName);
+        }
 
         return true;
 

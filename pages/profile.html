@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 
 <html lang="zh-CN">
 
@@ -12,7 +12,7 @@
 
 <title>个人中心 - BJ陪玩团</title>
 
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/style.css?v=202607301400">
 
     <link rel="stylesheet" href="../css/profile.css">
 
@@ -375,9 +375,9 @@
         </div>
     </footer>
 
-    <script src="../js/supabase-config.js"></script>
-    <script src="../js/main.js?v=202607211200"></script>
-    <script src="../js/profile.js"></script>
+    <script src="../js/supabase-config.js?v=202607301400"></script>
+    <script src="../js/main.js?v=202607301400"></script>
+    <script src="../js/profile.js?v=202607301400"></script>
     <script>
         // Profile page avatar upload
         document.addEventListener('DOMContentLoaded', function() {
@@ -462,6 +462,26 @@
         return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
 
+    function onRequestCancelOrder(orderId, ev) {
+        if(ev && ev.stopPropagation) ev.stopPropagation();
+        if(typeof window.showMessageModal === 'function') {
+            window.showMessageModal({
+                title: '取消订单确认',
+                message: '确定要申请取消该订单吗？申请后需等待陪陪确认，3小时未确认将自动取消并退款。',
+                showCancel: true,
+                cancelText: '取消',
+                okText: '确定',
+                onOk: function() {
+                    if(typeof window.requestCancelOrder === 'function') {
+                        window.requestCancelOrder(orderId);
+                    } else {
+                        showToast('取消订单功能未加载，请刷新页面', 'error');
+                    }
+                }
+            });
+        }
+    }
+
     function formatDate(dateStr) {
         if(!dateStr) return '--';
         var d = new Date(dateStr);
@@ -499,6 +519,12 @@
         return map;
     }
 
+    function extractContactEmail(remark) {
+        if(!remark) return '';
+        var m = String(remark).match(/联系邮箱[：:]\s*([^\s\n]+)/);
+        return m ? m[1].trim() : '';
+    }
+
     function metaRow(label, value) {
         return '<div class="meta-row"><span class="meta-label">' + label + '</span><span class="meta-value">' + escapeHtml(value) + '</span></div>';
     }
@@ -516,20 +542,97 @@
         var statusText = '待支付';
         if(order.status === 'completed') { statusClass = 'status-completed'; statusText = '已完成'; }
         else if(order.status === 'cancelled') { statusClass = 'status-cancelled'; statusText = '已取消'; }
-        else if(order.status === 'progress') { statusClass = 'status-progress'; statusText = '进行中'; }
+        else if(order.cancel_requested) { statusClass = 'status-progress'; statusText = '取消申请中'; }
+        else if(order.status === 'progress' || order.status === '进行中') { statusClass = 'status-progress'; statusText = '进行中'; }
         return { cls: statusClass, text: statusText };
+    }
+
+    function canRequestCancel(order) {
+        if(!order) return false;
+        if(order.cancel_requested) return false;
+        var s = (order.status || '').toLowerCase();
+        return s === 'progress' || s === '进行中';
+    }
+
+    function canConfirmCancel(order) {
+        if(!order) return false;
+        if(order.order_role !== 'wizard') return false;
+        if(!order.cancel_requested) return false;
+        if(order.cancel_confirmed) return false;
+        var s = (order.status || '').toLowerCase();
+        return s === 'progress' || s === '进行中' || s === '取消申请中';
+    }
+
+    function onConfirmCancelOrder(orderId, ev) {
+        if(ev) ev.stopPropagation();
+        if(!orderId) return;
+        window.showMessageModal({
+            title: '订单取消确认',
+            message: '对方希望取消订单，经过确认后订单取消，不进行确定则三小时后自动确定。',
+            showCancel: true,
+            cancelText: '暂不处理',
+            okText: '确认取消',
+            onOk: function() {
+                window.confirmCancelOrder(orderId);
+            }
+        });
+    }
+
+    function onRejectCancelOrder(orderId, ev) {
+        if(ev) ev.stopPropagation();
+        if(!orderId) return;
+        window.showMessageModal({
+            title: '拒绝取消订单',
+            message: '拒绝后订单将继续进行，是否确定？',
+            showCancel: true,
+            cancelText: '再想想',
+            okText: '确定拒绝',
+            onOk: function() {
+                window.rejectCancelOrder(orderId);
+            }
+        });
     }
 
     function getDispatchStatus(order) {
         var s = (order.status || '').toLowerCase();
         if(s === 'completed' || s === '已完成') return { cls: 'status-completed', text: '已完成' };
+        if(s === 'cancelled' || s === '已取消') return { cls: 'status-cancelled', text: '已取消' };
+        if(order.cancel_requested) return { cls: 'status-progress', text: '取消中' };
         if(s === 'progress' || s === '进行中') return { cls: 'status-progress', text: '进行中' };
         return { cls: 'status-pending', text: '待接单' };
     }
 
+    function onRequestDispatchCancel(rawId, ev) {
+        if(ev) ev.stopPropagation();
+        if(!rawId) return;
+        window.showMessageModal({
+            title: '取消派单',
+            message: '发起后需所有接单人表决（同意取消 或 驳回），任一方过半即生效；3 小时后若某项超过半数将自动通过。是否发起取消投票？',
+            showCancel: true,
+            cancelText: '再想想',
+            okText: '发起取消',
+            onOk: function() { window.requestDispatchCancel(rawId); }
+        });
+    }
+
+    function onVoteDispatchCancel(rawId, vote, ev) {
+        if(ev) ev.stopPropagation();
+        if(!rawId) return;
+        var label = vote === 'cancel' ? '同意取消' : '驳回取消';
+        window.showMessageModal({
+            title: '取消投票',
+            message: '你选择「' + label + '」。提交后两个选项都将锁定不可再改，是否确定？',
+            showCancel: true,
+            cancelText: '再想想',
+            okText: '确定' + label,
+            onOk: function() { window.voteDispatchCancel(rawId, vote); }
+        });
+    }
+
     function renderBoardCard(order, avatarMap) {
         var st = getOrderStatus(order);
-        var avatarUrl = (avatarMap && avatarMap[order.wizard_name]) ? avatarMap[order.wizard_name] : '';
+        var avatarKey = order.avatar_email || order.wizard_name || '';
+        var avatarUrl = (avatarMap && avatarKey) ? (avatarMap[order.avatar_email] || avatarMap[order.wizard_name] || '') : '';
         var avatarHtml = avatarUrl
             ? '<img src="' + avatarUrl + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'
             : '<i class="fas fa-user"></i>';
@@ -537,7 +640,11 @@
         if(order.service_type) metaRows += metaRow('服务类型', order.service_type);
         if(order.order_no) metaRows += metaRow('订单编号', order.order_no);
         if(order.board_name) metaRows += metaRow('板板名称', order.board_name);
-        if(order.remark) metaRows += metaRow('备注', order.remark);
+        var contactEmail = extractContactEmail(order.remark);
+        if(contactEmail) metaRows += metaRow('联系邮箱', contactEmail);
+        var displayRemark = order.remark || '';
+        if(contactEmail) displayRemark = displayRemark.replace(/联系邮箱[：:]\s*[^\s\n]+(\n?)/, '').trim();
+        if(displayRemark) metaRows += metaRow('备注', displayRemark);
         var hasMeta = !!metaRows;
         var avatarCol = hasMeta
             ? '<div class="card-avatar-col"><div class="order-avatar">' + avatarHtml + '</div><button class="card-toggle-btn" onclick="toggleCardMeta(this, event)"><i class="fas fa-chevron-down"></i></button></div>'
@@ -551,6 +658,14 @@
         h += '<div class="order-titles">';
         h += '<div class="order-wizard-name">' + (order.wizard_name || '未知陪玩') + '</div>';
         h += '<div class="order-service">' + (order.game_type || '光·遇') + '</div>';
+        var isInProgress = (order.status === 'progress' || order.status === '进行中');
+        if(isInProgress) {
+            if(order.cancel_requested) {
+                h += '<button disabled style="margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#999;color:#fff;font-size:0.8rem;cursor:not-allowed;opacity:0.6;">取消订单</button>';
+            } else {
+                h += '<button style="margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#ff4444;color:#fff;font-size:0.8rem;cursor:pointer;" onclick="onRequestCancelOrder(\'' + escapeHtml(String(order.id)) + '\', event)">取消订单</button>';
+            }
+        }
         h += '</div>';
         h += '<div class="order-right">';
         h += '<span class="order-status ' + st.cls + '">' + st.text + '</span>';
@@ -569,23 +684,41 @@
     }
 
     function renderWizardCard(order, avatarMap) {
-        var isDispatch = order.order_role === 'dispatch';
+        var isDispatch = order.isDispatch === true;
         var st = isDispatch ? getDispatchStatus(order) : getOrderStatus(order);
         var meta = parseRequestDesc(order.remark);
-        var avatarKey = meta.boardName || order.wizard_name || '';
-        var avatarUrl = (avatarMap && avatarKey && avatarMap[avatarKey]) ? avatarMap[avatarKey] : '';
+        // 新字段优先，兼容旧的 description 堆积格式
+        var serviceType = (order.skills && order.skills[0]) || meta.serviceType || '';
+        var subType = meta.subType || '';
+        var boardName = order.client_name || meta.boardName || '';
+        var orderNo = order.order_no || meta.orderNo || '';
+        var people = meta.people || '';
+        var qty = meta.qty || '';
+        // 新数据：skills/client_name 存在即视为已拆分，备注直接用 order.remark（已无「备注：」前缀）
+        // 旧数据：用 parseRequestDesc 解析出的备注（已去前缀）
+        var remarkText = (order.skills || order.client_name) ? (order.remark || '') : (meta.remark || order.remark || '');
+        var contactEmail = order.avatar_email || extractContactEmail(order.remark) || '';
+        var avatarKey = contactEmail || boardName || order.wizard_name || '';
+        var avatarUrl = (avatarMap && avatarKey) ? (avatarMap[contactEmail] || avatarMap[boardName] || avatarMap[order.wizard_name] || '') : '';
         var avatarHtml = avatarUrl
             ? '<img src="' + avatarUrl + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'
             : '<i class="fas fa-handshake"></i>';
+        var buyerName = (avatarMap && contactEmail && avatarMap['name:' + contactEmail])
+            || boardName
+            || order.board_name
+            || contactEmail
+            || order.service_type
+            || '接单需求';
         var metaRows = '';
-        if(meta.serviceType) metaRows += metaRow('服务类型', meta.serviceType);
-        if(meta.subType) metaRows += metaRow('三恋类型', meta.subType);
-        if(meta.orderNo) metaRows += metaRow('订单编号', meta.orderNo);
-        if(order.service_type) metaRows += metaRow('需求标题', order.service_type);
+        if(serviceType) metaRows += metaRow('服务类型', serviceType);
+        if(subType) metaRows += metaRow('三恋类型', subType);
+        if(boardName) metaRows += metaRow('板板', boardName);
+        if(orderNo) metaRows += metaRow('订单编号', orderNo);
+        if(contactEmail) metaRows += metaRow('邮箱', contactEmail);
         if(order.server) metaRows += metaRow('区服', order.server);
-        if(meta.people) metaRows += metaRow('人数', meta.people);
-        if(meta.qty) metaRows += metaRow('数量', meta.qty);
-        if(meta.remark) metaRows += metaRow('备注', meta.remark);
+        if(people) metaRows += metaRow('人数', people);
+        if(qty) metaRows += metaRow('数量', qty);
+        if(remarkText) metaRows += metaRow('备注', remarkText);
         var h = '';
         var hasMeta = !!metaRows;
         var avatarCol = hasMeta
@@ -594,15 +727,41 @@
         h += '<div class="order-card wizard-card' + (isDispatch ? ' dispatch-card' : '') + '">';
         h += avatarCol;
         h += '<div class="order-main">';
-        h += '<div class="role-tag ' + (isDispatch ? 'dispatch' : 'wizard') + '">' + (isDispatch ? '我派的单' : '我接的单') + '</div>';
+        h += '<div class="role-tag ' + (isDispatch ? 'dispatch' : 'wizard') + '">' + (order.order_role === 'dispatch' ? '我派的单' : '我接的单') + '</div>';
         h += '<div class="order-top">';
         h += '<div class="order-titles">';
-        h += '<div class="order-wizard-name">' + (meta.boardName || order.service_type || '接单需求') + '</div>';
+        h += '<div class="order-wizard-name">' + escapeHtml(buyerName) + '</div>';
         h += '<div class="order-service">' + (order.game_type || '光·遇') + '</div>';
+        if(order.isDispatch) {
+            var isDispInProgress = (order.status === 'progress' || order.status === '进行中');
+            if(order.order_role === 'dispatch') {
+                if(isDispInProgress) {
+                    if(order.cancel_requested) {
+                        h += '<button disabled style="margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#999;color:#fff;font-size:0.8rem;cursor:not-allowed;opacity:0.6;">取消投票中（同意 ' + (order.cancelVotes||0) + ' · 驳回 ' + (order.rejectVotes||0) + ' / 共 ' + (order.totalMembers||0) + '）</button>';
+                    } else {
+                        h += '<button style="margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#ff4444;color:#fff;font-size:0.8rem;cursor:pointer;" onclick="onRequestDispatchCancel(\'' + escapeHtml(String(order.rawId)) + '\', event)">取消订单</button>';
+                    }
+                }
+            } else {
+                if(order.cancel_requested) {
+                    if(order.myVote) {
+                        var myLabel = order.myVote === 'cancel' ? '已投票：同意取消' : '已投票：驳回取消';
+                        h += '<button disabled style="margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#999;color:#fff;font-size:0.8rem;cursor:not-allowed;opacity:0.6;">' + myLabel + '</button>';
+                    } else {
+                        h += '<button style="margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#ff4444;color:#fff;font-size:0.8rem;cursor:pointer;" onclick="onVoteDispatchCancel(\'' + escapeHtml(String(order.rawId)) + '\', \'cancel\', event)">同意取消</button>';
+                        h += '<button style="margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#999;color:#fff;font-size:0.8rem;cursor:pointer;" onclick="onVoteDispatchCancel(\'' + escapeHtml(String(order.rawId)) + '\', \'reject\', event)">驳回取消</button>';
+                    }
+                    h += '<div style="margin-top:6px;font-size:0.75rem;color:#888;">已 ' + (order.cancelVotes||0) + ' 人同意 / ' + (order.rejectVotes||0) + ' 人驳回</div>';
+                }
+            }
+        } else if(canConfirmCancel(order)) {
+            h += '<button style="margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#ff4444;color:#fff;font-size:0.8rem;cursor:pointer;" onclick="onConfirmCancelOrder(\'' + escapeHtml(String(order.id)) + '\', event)">确认取消</button>';
+            h += '<button style="margin-top:6px;padding:4px 12px;border-radius:20px;border:none;background:#999;color:#fff;font-size:0.8rem;cursor:pointer;" onclick="onRejectCancelOrder(\'' + escapeHtml(String(order.id)) + '\', event)">拒绝取消</button>';
+        }
         h += '</div>';
         h += '<div class="order-right">';
         h += '<span class="order-status ' + st.cls + '">' + st.text + '</span>';
-        h += '<div class="order-price">' + formatPrice(order.price, order.service_type === '送心' || meta.serviceType === '送心') + '</div>';
+        h += '<div class="order-price">' + formatPrice(order.price, order.service_type === '送心' || serviceType === '送心') + '</div>';
         h += '</div>';
         h += '</div>';
         if(metaRows) {
@@ -634,46 +793,93 @@
             const userId = user.id || user.user_id || user.sub;
             if (!userId) return;
 
-            // 并行查询所有与当前用户相关的订单来源
-            const [profileRes, ordersRes, requestsRes, dispatchRes] = await Promise.all([
+            // 并行查询所有与当前用户相关的订单来源，把「我派的单」和「我接的单」分开查
+            const [profileRes, ordersRes, wizardOrdersRes, myRequestPostsRes, myRequestAcceptsRes, myDispatchPostsRes, myDispatchAcceptsRes, teamMemberRes] = await Promise.all([
                 (async () => { try { return await window.supabaseClient.from('profiles').select('nickname').eq('id', userId).maybeSingle(); } catch(e) { return { data: null, error: e }; } })(),
                 (async () => { try { return await window.supabaseClient.from('orders').select('*').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })(),
+                (async () => { 
+                    try { 
+                        const pr = await window.supabaseClient.from('profiles').select('nickname').eq('id', userId).maybeSingle();
+                        const nickname = pr.data && pr.data.nickname ? pr.data.nickname : '';
+                        if(!nickname) return { data: [] };
+                        return await window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname);
+                    } catch(e) { return { data: [], error: e }; } 
+                })(),
                 (async () => { try { return await window.supabaseClient.from('order_requests').select('*').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })(),
-                (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })()
+                (async () => { try { return await window.supabaseClient.from('order_requests').select('*').eq('accepted_by', userId); } catch(e) { return { data: [], error: e }; } })(),
+                (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })(),
+                (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('accepted_by', userId); } catch(e) { return { data: [], error: e }; } })(),
+                (async () => { try { return await window.supabaseClient.from('dispatch_team_members').select('dispatch_order_id').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })()
             ]);
 
             const nickname = profileRes.data && profileRes.data.nickname ? profileRes.data.nickname : '';
-            let wizardOrders = [];
-            if (nickname) {
+
+            // 通过 dispatch_team_members 查找我加入的组队派单
+            const teamDispatchIds = (teamMemberRes.data || []).map(m => m.dispatch_order_id).filter(Boolean);
+            let teamDispatchRes = { data: [] };
+            if(teamDispatchIds.length > 0) {
                 try {
-                    const res = await window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname);
-                    wizardOrders = res.data || [];
-                } catch(e) { wizardOrders = []; }
+                    teamDispatchRes = await window.supabaseClient.from('dispatch_orders').select('*').in('id', teamDispatchIds);
+                } catch(e) { teamDispatchRes = { data: [] }; }
             }
 
             // 合并、去重并按时间倒序取前 3
             const seen = {};
+            const seenSourceIds = {};
             const all = [];
-            function add(item, role) {
+            function add(item, role, sourceTable, sourceId) {
+                if(!item) return;
+                // 过滤已取消的订单（新数据已物理删除；此处兜底过滤旧的软删除记录）
+                const s = (item.status || '').toLowerCase();
+                if(s === 'cancelled' || s === '已取消') return;
+                // 按原始表+原始id去重：手动录入的接单会同时命中 user_id 与 accepted_by，优先归为「我接的单」
+                const srcKey = (sourceTable || role) + '_' + (sourceId || item.id || '');
+                if (seenSourceIds[srcKey]) return;
+                seenSourceIds[srcKey] = true;
                 const key = role + '_' + (item.id || '');
                 if (seen[key]) return;
                 seen[key] = true;
                 item.order_role = role;
                 // 统一 remark 字段，方便 parseRequestDesc 解析
-                if(role === 'request' || role === 'dispatch') {
+                if(role === 'wizard' || role === 'dispatch') {
                     item.remark = item.description || item.remark || '';
+                }
+                // 设置用于查头像的邮箱：派单/求助单直接用 request_title；orders  wizard 从 remark 解析；board 没有陪玩邮箱
+                if(sourceTable === 'order_requests' || sourceTable === 'dispatch_orders') {
+                    item.avatar_email = item.request_title || '';
+                } else if(role === 'wizard') {
+                    item.avatar_email = extractContactEmail(item.remark);
+                } else {
+                    item.avatar_email = '';
                 }
                 all.push(item);
             }
             (ordersRes.data || []).forEach(o => add(o, 'board'));
-            (wizardOrders || []).forEach(o => add(o, 'wizard'));
-            (requestsRes.data || []).forEach(r => add(r, 'request'));
-            (dispatchRes.data || []).forEach(d => add(d, 'dispatch'));
+            (wizardOrdersRes.data || []).forEach(o => add(o, 'wizard'));
+            // order_requests 统一视为「我接的单」
+            (myRequestAcceptsRes.data || []).forEach(r => add({...r, id: 'req_' + r.id}, 'wizard', 'order_requests', r.id));
+            (myRequestPostsRes.data || []).forEach(r => add({...r, id: 'req_post_' + r.id}, 'wizard', 'order_requests', r.id));
+            (myDispatchAcceptsRes.data || []).forEach(d => add({...d, id: 'disp_' + d.id}, 'wizard', 'dispatch_orders', d.id));
+            (myDispatchPostsRes.data || []).forEach(d => add({...d, id: 'disp_post_' + d.id}, 'dispatch', 'dispatch_orders', d.id));
+            (teamDispatchRes.data || []).forEach(d => add({...d, id: 'disp_' + d.id}, 'wizard', 'dispatch_orders', d.id));
 
             all.sort(function(a, b) {
                 return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
             });
             const orders = all.slice(0, 3);
+
+            // 标记组队派单并加载取消投票信息
+            orders.forEach(function(o){
+                if(typeof o.id === 'string' && (o.id.indexOf('disp_post_') === 0 || o.id.indexOf('disp_') === 0)) {
+                    o.isDispatch = true;
+                    o.rawId = parseInt(o.id.replace('disp_post_','').replace('disp_',''), 10);
+                }
+            });
+            try {
+                const curUser = JSON.parse(localStorage.getItem('skyUser') || '{}');
+                const curUserId = curUser.id || curUser.user_id || curUser.sub;
+                if(curUserId) { await loadDispatchCancelInfo(orders, curUserId); await autoResolveExpiredDispatchCancels(orders); }
+            } catch(e) { console.warn('dispatch cancel info failed', e); }
 
             const container = document.getElementById('recentOrdersList');
             if (!container) return;
@@ -683,24 +889,39 @@
                 return;
             }
 
-            // 批量获取头像
+            // 批量获取头像：优先按填写邮箱查，没有邮箱再 fallback 按昵称查
+            const emailSet = {};
             const nameSet = {};
             orders.forEach(function(o) {
-                if(o.order_role === 'board' && o.wizard_name) nameSet[o.wizard_name] = true;
-                if(o.order_role === 'wizard' || o.order_role === 'request' || o.order_role === 'dispatch') {
-                    var meta = parseRequestDesc(o.remark);
-                    if(meta.boardName) nameSet[meta.boardName] = true;
-                    if(o.wizard_name) nameSet[o.wizard_name] = true;
+                if(o.avatar_email) {
+                    emailSet[o.avatar_email] = true;
+                } else {
+                    if(o.order_role === 'board' && o.wizard_name) nameSet[o.wizard_name] = true;
+                    if(o.order_role === 'wizard' || o.order_role === 'dispatch') {
+                        var bn = o.client_name || (function(){ var m = parseRequestDesc(o.remark); return m.boardName; })();
+                        if(bn) nameSet[bn] = true;
+                        if(o.wizard_name) nameSet[o.wizard_name] = true;
+                    }
                 }
             });
+            const emails = Object.keys(emailSet);
             const names = Object.keys(nameSet);
             const avatarMap = {};
-            if(names.length > 0) {
-                try {
-                    var profRes = await window.supabaseClient.from('profiles').select('nickname, avatar_url').in('nickname', names);
-                    (profRes.data || []).forEach(function(p) { avatarMap[p.nickname] = p.avatar_url || ''; });
-                } catch(e) {}
-            }
+            try {
+                if(emails.length > 0) {
+                    var emailProfRes = await window.supabaseClient.from('profiles').select('email, avatar_url, nickname').in('email', emails);
+                    (emailProfRes.data || []).forEach(function(p) {
+                        avatarMap[p.email] = p.avatar_url || '';
+                        if(p.nickname) {
+                            avatarMap['name:' + p.email] = p.nickname;
+                        }
+                    });
+                }
+                if(names.length > 0) {
+                    var nameProfRes = await window.supabaseClient.from('profiles').select('nickname, avatar_url').in('nickname', names);
+                    (nameProfRes.data || []).forEach(function(p) { avatarMap[p.nickname] = p.avatar_url || ''; });
+                }
+            } catch(e) {}
 
             container.innerHTML = '';
             orders.forEach(o => {
@@ -731,6 +952,13 @@
         const list = document.getElementById('dynamicFavoritesList');
         if (!modal || !list) return;
         modal.classList.add('active');
+
+        const userStr = localStorage.getItem('skyUser');
+        if (!userStr) {
+            list.innerHTML = '<div class="favorite-empty"><i class="fas fa-user-lock"></i><p>请先登录</p></div>';
+            return;
+        }
+
         list.innerHTML = '<div class="favorite-empty"><i class="fas fa-heart"></i><p>加载中...</p></div>';
         try {
             const favorites = await (window.loadFavorites ? window.loadFavorites() : []);
@@ -899,6 +1127,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        window.refreshCurrentPageOrders = loadRecentOrders;
         if (window.supabaseClient) {
             loadRecentOrders();
         } else {
