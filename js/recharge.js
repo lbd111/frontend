@@ -14,11 +14,41 @@ function selectPlan(card, amount) {
 }
 
 function selectCustomPlan(card) {
-    const amount = prompt('请输入充值金额（元）：');
+    showCustomAmountModal();
+}
+
+// --- 自定义金额弹窗 ---
+function showCustomAmountModal() {
+    const modal = document.getElementById('customAmountModal');
+    const input = document.getElementById('customAmountInput');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        if (input) {
+            input.value = '';
+            setTimeout(() => input.focus(), 100);
+        }
+    }
+}
+
+function closeCustomAmountModal() {
+    const modal = document.getElementById('customAmountModal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function confirmCustomAmount() {
+    const input = document.getElementById('customAmountInput');
+    const amount = input ? input.value : '';
     if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
         selectedRechargeAmount = parseFloat(amount);
         updateRechargeModal(selectedRechargeAmount);
+        closeCustomAmountModal();
         showRechargeModal();
+    } else {
+        showNotification('请输入有效的充值金额', 'error');
     }
 }
 

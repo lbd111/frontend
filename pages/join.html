@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>加入团队 - BJ陪玩团</title>
-    <link rel="stylesheet" href="../css/style.css?v=202607291846">
+    <link rel="stylesheet" href="../css/style.css?v=202607312043">
 <link rel="stylesheet" href="../css/profile.css">
     <link rel="stylesheet" href="../css/join.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -333,6 +333,11 @@
                 </button>
             </div>
 
+            <!-- 申请状态提示 -->
+            <div id="applicationStatusBanner" style="display:none; margin-bottom:20px; padding:14px 18px; border-radius:12px; background:#fff3e0; color:#e65100; font-weight:600; text-align:center;">
+                <i class="fas fa-info-circle"></i> <span id="applicationStatusText"></span>
+            </div>
+
             <form id="joinForm" class="join-form">
                 <!-- 基本信息 -->
                 <div class="form-grid">
@@ -342,15 +347,15 @@
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-gamepad"></i> 游戏ID *</label>
-                        <input type="text" name="gameId" placeholder="请输入游戏内角色名" required>
+                        <input type="text" id="skyGameId" name="gameId" placeholder="请输入游戏内角色名" required>
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-server"></i> 游戏服务器 *</label>
-                        <select name="server" required>
+                        <select id="skyServer" name="server" required>
                             <option value="">请选择服务器</option>
                             <option value="ios">iOS</option>
                             <option value="android">Android</option>
-                            <option value="pc">PC模拟器</option>
+                            <option value="pc">渠道服</option>
                         </select>
                     </div>
                     <!--<div class="form-group">
@@ -429,11 +434,11 @@
                         </div>
                         <div class="form-group">
                             <label><i class="fas fa-gamepad"></i> 王者ID *</label>
-                            <input type="text" name="wz_game_id" placeholder="请输入王者游戏ID" required>
+                            <input type="text" id="wzGameId" name="wz_game_id" placeholder="请输入王者游戏ID" required>
                         </div>
                         <div class="form-group">
                             <label><i class="fas fa-server"></i> 游戏服务器 *</label>
-                            <select name="wz_server" required>
+                            <select id="wzServer" name="wz_server" required>
                                 <option value="">请选择服务器</option>
                                 <option value="ios-wechat">iOS 微信区</option>
                                 <option value="ios-qq">iOS QQ区</option>
@@ -542,8 +547,8 @@
 
     
 
-<script src="../js/supabase-config.js"></script><script src="../js/main.js?v=202607300051"></script>
-    <script src="../js/supabase-config.js"></script><script src="../js/join.js"></script>
+<script src="../js/supabase-config.js?v=202607312233"></script><script src="../js/main.js?v=202607312233"></script>
+    <script src="../js/join.js?v=202608022123"></script>
 
     <script>
         function switchGameType(type) {

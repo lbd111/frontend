@@ -47,8 +47,15 @@ async function checkAuthStatus() {
             let avatar = existing.avatar || '';
 
             try {
-                const pr = await window.supabaseClient.from('profiles').select('nickname, avatar_url').eq('id', session.user.id).single();
+                const pr = await window.supabaseClient.from('profiles').select('nickname, avatar_url, disabled').eq('id', session.user.id).maybeSingle();
                 if (pr.data) {
+                    if (pr.data.disabled === true) {
+                        await window.supabaseClient.auth.signOut();
+                        localStorage.removeItem('skyUser');
+                        if (typeof updateNavUser === 'function') updateNavUser();
+                        showNotification('该账号已被禁用，请联系管理员', 'error');
+                        return;
+                    }
                     if (pr.data.nickname) displayName = pr.data.nickname;
                     if (pr.data.avatar_url) avatar = pr.data.avatar_url;
                 }
@@ -97,19 +104,30 @@ async function handleLogin(email, password) {
         if (data.user) {
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // 先从数据库查最新的 nickname
+            // 先从数据库查最新的 nickname 与账号状态
             var displayName = data.user.email?.split('@')[0] || '玩家';
+            var profileRes = { data: null, error: null };
             try {
-                var profileRes = await window.supabaseClient.from("profiles").select("nickname,avatar_url").eq("id", data.user.id).single();
+                profileRes = await window.supabaseClient.from("profiles").select("nickname,avatar_url,disabled").eq("id", data.user.id).maybeSingle();
                 if (profileRes.data && profileRes.data.nickname) {
                     displayName = profileRes.data.nickname;
                 }
             } catch(e) {}
+
+            // 如果账号被禁用，立即登出并阻止登录
+            if (profileRes.data && profileRes.data.disabled === true) {
+                try { await window.supabaseClient.auth.signOut(); } catch(e) {}
+                localStorage.removeItem('skyUser');
+                if (typeof updateNavUser === 'function') updateNavUser();
+                showNotification('该账号已被禁用，请联系管理员', 'error');
+                return false;
+            }
             
             const user = {
                 id: data.user.id,
                 email: data.user.email,
                 username: displayName,
+                nickname: displayName,
                 game_id: data.user.user_metadata?.game_id || '',
                 avatar: profileRes.data?.avatar_url || ''
             };
@@ -117,7 +135,11 @@ async function handleLogin(email, password) {
             if (typeof updateNavUser === 'function') updateNavUser();
             showNotification('登录成功！欢迎回来~', 'success');
             setTimeout(() => {
-                window.location.href = '../index.html';
+                if (data.user.email === 'admin@bjpw.com') {
+                    window.location.href = 'admin.html';
+                } else {
+                    window.location.href = '../index.html';
+                }
             }, 1000);
             return true;
         }
@@ -129,22 +151,23 @@ async function handleLogin(email, password) {
     }
 }
 
-async function handleRegister(email, gameId, password, gameType) {
+async function handleRegister(email, skyId, wzId, server, wzServer, password, gameType) {
     try {
         console.log('尝试注册邮箱:', email);
-        
+
         const { data, error } = await window.supabaseClient.auth.signUp({
             email: email,
             password: password,
             options: {
                 data: {
-                    game_id: gameId,
+                    sky_id: skyId,
+                    wangzhe_id: wzId,
                     game_type: gameType || '',
                     username: email.split('@')[0]
                 }
             }
         });
-        
+
         if (error) {
             const errMsg = error.message.toLowerCase();
             if (errMsg.includes('already') || errMsg.includes('taken') || errMsg.includes('exist') || errMsg.includes('registered')) {
@@ -154,7 +177,7 @@ async function handleRegister(email, gameId, password, gameType) {
             }
             return false;
         }
-        
+
         if (data.user) {
             try {
                 await window.supabaseClient
@@ -163,18 +186,20 @@ async function handleRegister(email, gameId, password, gameType) {
                         id: data.user.id,
                         email: email,
                         nickname: email.split('@')[0],
-                        game_id: gameId,
+                        sky_id: skyId,
+                        wangzhe_id: wzId,
                         game_type: gameType || '',
+                        server: server || '',
+                        wz_server: wzServer || '',
                         level: '普通玩家',
                         balance: 0.00,
                         avatar_url: '',
-                        bio: '',
-                        server: ''
+                        bio: ''
                     });
             } catch (profileErr) {
                 console.log('Profile creation skipped:', profileErr);
             }
-            
+
             showNotification('注册成功！请使用邮箱和密码登录', 'success');
             setTimeout(() => {
                 switchAuthTab('login');

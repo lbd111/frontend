@@ -235,7 +235,7 @@ const wEl = document.getElementById('wangzheIdValue');
             }
             const serverEl = document.getElementById('serverValue');
             if (serverEl && profile.server) {
-                const labels = { ios: 'iOS', android: 'Android', pc: 'PC模拟器' };
+                const labels = { ios: 'iOS', android: 'Android', pc: '渠道服' };
                 serverEl.textContent = labels[profile.server] || profile.server;
             }
 
@@ -258,9 +258,13 @@ const wEl = document.getElementById('wangzheIdValue');
             }
 
             user.server = profile.server;
+            user.sky_id = profile.sky_id || '';
+            user.wangzhe_id = profile.wangzhe_id || '';
+            user.wz_server = profile.wz_server || '';
             user.username = profile.nickname || displayName;
             if (profile.nickname) user.nickname = profile.nickname;
             if(profile.avatar_url) user.avatar = profile.avatar_url;
+            if (profile.role) user.role = profile.role;
             localStorage.setItem('skyUser', JSON.stringify(user));
 
             // 同步刷新顶部导航栏头像/昵称

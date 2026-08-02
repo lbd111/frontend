@@ -95,6 +95,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // 加载用户资料并预填/锁定游戏资料，同时检查申请状态
+    loadProfileAndPrefill();
 });
 
 function setupUploadArea(fileInputId, formId) {
@@ -132,6 +135,108 @@ function setupUploadArea(fileInputId, formId) {
     });
 }
 
+function setFieldLocked(el, value) {
+    if (!el) return;
+    el.value = value || '';
+    if (value && String(value).trim() !== '') {
+        el.setAttribute('readonly', 'readonly');
+        if (el.tagName === 'SELECT') {
+            el.setAttribute('disabled', 'disabled');
+        }
+        el.style.background = '#f0f4f8';
+        el.style.color = '#666';
+        el.style.cursor = 'not-allowed';
+        el.title = '该信息已在个人资料中填写，不可修改';
+    }
+}
+
+async function loadProfileAndPrefill() {
+    try {
+        var sessionRes = await window.supabaseClient.auth.getSession();
+        var currentUser = sessionRes.data && sessionRes.data.session ? sessionRes.data.session.user : null;
+        if (!currentUser || !currentUser.id) {
+            return;
+        }
+
+        // 加载用户资料
+        var { data: profiles, error: profileError } = await window.supabaseClient
+            .from('profiles')
+            .select('sky_id, wangzhe_id, server, wz_server')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+        if (profileError) {
+            console.warn('加载用户资料失败:', profileError);
+        }
+
+        var profile = profiles || {};
+
+        // 预填光遇资料
+        var skyGameIdEl = document.getElementById('skyGameId');
+        var skyServerEl = document.getElementById('skyServer');
+        setFieldLocked(skyGameIdEl, profile.sky_id);
+        setFieldLocked(skyServerEl, profile.server);
+
+        // 预填王者资料
+        var wzGameIdEl = document.getElementById('wzGameId');
+        var wzServerEl = document.getElementById('wzServer');
+        setFieldLocked(wzGameIdEl, profile.wangzhe_id);
+        setFieldLocked(wzServerEl, profile.wz_server);
+
+        // 检查已有申请状态
+        await checkApplicationStatus(currentUser.id);
+    } catch (err) {
+        console.error('初始化申请页失败:', err);
+    }
+}
+
+async function checkApplicationStatus(userId) {
+    try {
+        var { data: applications, error } = await window.supabaseClient
+            .from('applications')
+            .select('status, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (error) {
+            console.warn('查询申请状态失败:', error);
+            return;
+        }
+
+        var banner = document.getElementById('applicationStatusBanner');
+        var bannerText = document.getElementById('applicationStatusText');
+        var skySubmit = document.querySelector('#joinForm button[type="submit"]');
+        var wzSubmit = document.querySelector('#wangzheJoinForm button[type="submit"]');
+
+        var latest = applications && applications.length > 0 ? applications[0] : null;
+        if (latest && latest.status !== 'approved') {
+            var statusText = {
+                'pending': '待审核',
+                'rejected': '已拒绝'
+            }[latest.status] || latest.status;
+            if (banner) banner.style.display = 'block';
+            if (bannerText) {
+                bannerText.textContent = '您已有一条' + statusText + '的申请，审核通过前无法提交新申请。';
+            }
+            if (skySubmit) {
+                skySubmit.disabled = true;
+                skySubmit.style.opacity = '0.6';
+                skySubmit.style.cursor = 'not-allowed';
+            }
+            if (wzSubmit) {
+                wzSubmit.disabled = true;
+                wzSubmit.style.opacity = '0.6';
+                wzSubmit.style.cursor = 'not-allowed';
+            }
+        } else {
+            if (banner) banner.style.display = 'none';
+        }
+    } catch (err) {
+        console.error('检查申请状态失败:', err);
+    }
+}
+
 async function submitApplication(gameType, form, fileInputId, agreeCheckboxId) {
     var agreeCheckbox = document.getElementById(agreeCheckboxId);
     if (!agreeCheckbox || !agreeCheckbox.checked) {
@@ -147,6 +252,58 @@ async function submitApplication(gameType, form, fileInputId, agreeCheckboxId) {
     }
 
     var userObj = JSON.parse(skyUser);
+
+    // 优先从 Supabase session 获取真实 uid/email，避免 localStorage 丢失或过期
+    var userId = '';
+    var userEmail = '';
+    try {
+        var sessionRes = await window.supabaseClient.auth.getSession();
+        var currentUser = sessionRes.data.session?.user;
+        if (currentUser && currentUser.id) {
+            userId = currentUser.id;
+            userEmail = currentUser.email || '';
+            userObj.id = currentUser.id;
+            userObj.user_id = currentUser.id;
+            userObj.email = userEmail || userObj.email || '';
+        }
+    } catch (e) {
+        console.warn('获取 session 失败，使用 localStorage 缓存', e);
+    }
+
+    if (!userId) userId = userObj.id || userObj.user_id || '';
+    if (!userEmail) userEmail = userObj.email || '';
+
+    if (!userId) {
+        showToast('登录状态已失效，请重新登录', 'error');
+        window.location.href = '../pages/auth.html';
+        return;
+    }
+
+    // 检查是否已有未审核/被拒绝的申请，避免重复提交
+    try {
+        var { data: existingApps, error: checkError } = await window.supabaseClient
+            .from('applications')
+            .select('status')
+            .eq('user_id', userId)
+            .neq('status', 'approved')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (checkError) {
+            console.warn('检查历史申请失败:', checkError);
+        } else if (existingApps && existingApps.length > 0) {
+            var latestStatus = existingApps[0].status;
+            var statusText = {
+                'pending': '待审核',
+                'rejected': '已拒绝'
+            }[latestStatus] || latestStatus;
+            showToast('您已有一条' + statusText + '的申请，审核通过前无法重复提交', 'error');
+            return;
+        }
+    } catch (e) {
+        console.warn('重复提交检查异常:', e);
+    }
+
     var data = {};
 
     // Collect form fields with column name mapping
@@ -176,9 +333,9 @@ async function submitApplication(gameType, form, fileInputId, agreeCheckboxId) {
 
     // Metadata
     data.game_type = gameType;
-    data.username = userObj.username || userObj.email.split('@')[0] || 'user';
-    // user_email not in schema
-    // user_id not in schema
+    data.username = userObj.username || (userEmail ? userEmail.split('@')[0] : 'user');
+    data.user_email = userEmail;
+    data.user_id = userId;
     data.apply_time = new Date().toISOString();
     data.status = 'pending';
 

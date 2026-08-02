@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - BJ陪玩团</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="../css/style.css?v=202607302236">
+    <link rel="stylesheet" href="../css/admin.css?v=202607312356">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <span class="logo-icon">&#9733;</span>
+                <span class="logo-text">BJ陪玩团 · 管理后台</span>
+            </div>
+            <div class="nav-actions">
+                <a href="../index.html" class="btn-login" style="text-decoration:none;">返回前台</a>
+                <button class="btn-login" onclick="adminLogout()">退出登录</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="admin-layout">
+        <!-- 侧边栏 -->
+        <aside class="admin-sidebar">
+            <div class="admin-admin-card">
+                <div class="admin-admin-avatar"><i class="fas fa-user-shield"></i></div>
+                <div class="admin-admin-info">
+                    <div class="admin-admin-name" id="adminName">管理员</div>
+                    <div class="admin-admin-role">超级管理员</div>
+                </div>
+            </div>
+            <ul class="admin-menu" id="adminMenu">
+                <li class="active" data-tab="dashboard"><i class="fas fa-chart-pie"></i><span>数据概览</span></li>
+                <li data-tab="users"><i class="fas fa-users"></i><span>用户管理</span></li>
+                <li data-tab="wizards"><i class="fas fa-gamepad"></i><span>陪玩管理</span></li>
+                <li data-tab="orders"><i class="fas fa-receipt"></i><span>订单管理</span></li>
+                <li data-tab="dispatch"><i class="fas fa-people-carry"></i><span>派单管理</span></li>
+                <li data-tab="requests"><i class="fas fa-clipboard-list"></i><span>点单请求</span></li>
+                <li data-tab="applications"><i class="fas fa-user-check"></i><span>申请审核</span></li>
+                <li data-tab="coupons"><i class="fas fa-ticket"></i><span>优惠券管理</span></li>
+                <li data-tab="content"><i class="fas fa-images"></i><span>首页内容</span></li>
+            </ul>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="admin-main">
+            <!-- 数据概览 -->
+            <section class="admin-section active" id="section-dashboard">
+                <h2 class="section-title">数据概览</h2>
+                <div class="admin-stats-grid" id="adminStats"></div>
+                <div id="dashboardRecent"></div>
+            </section>
+
+            <!-- 用户管理 -->
+            <section class="admin-section" id="section-users">
+                <div class="admin-section-head">
+                    <h2 class="section-title">用户管理</h2>
+                    <div class="admin-search">
+                        <input type="text" id="userSearch" placeholder="搜索邮箱 / 昵称" oninput="loadUsers()">
+                    </div>
+                </div>
+                <div class="admin-table-wrap"><table class="admin-table" id="usersTable"></table></div>
+                <div class="admin-pager" id="usersPager"></div>
+            </section>
+
+            <!-- 陪玩管理 -->
+            <section class="admin-section" id="section-wizards">
+                <div class="admin-section-head">
+                    <h2 class="section-title">陪玩管理</h2>
+                    <button class="btn btn-primary btn-small" onclick="openWizardEditor()"><i class="fas fa-plus"></i> 新增陪玩</button>
+                    <div class="admin-search">
+                        <input type="text" id="wizardSearch" placeholder="搜索昵称 / 游戏" oninput="loadWizards()">
+                    </div>
+                </div>
+                <div class="admin-table-wrap"><table class="admin-table" id="wizardsTable"></table></div>
+            </section>
+
+            <!-- 订单管理 -->
+            <section class="admin-section" id="section-orders">
+                <div class="admin-section-head">
+                    <h2 class="section-title">订单管理</h2>
+                    <select id="orderStatusFilter" onchange="loadOrders()">
+                        <option value="">全部状态</option>
+                        <option value="待支付">待支付</option>
+                        <option value="进行中">进行中</option>
+                        <option value="已完成">已完成</option>
+                        <option value="已取消">已取消</option>
+                    </select>
+                </div>
+                <div class="admin-table-wrap"><table class="admin-table" id="ordersTable"></table></div>
+            </section>
+
+            <!-- 派单管理 -->
+            <section class="admin-section" id="section-dispatch">
+                <div class="admin-section-head">
+                    <h2 class="section-title">派单管理</h2>
+                    <select id="dispatchStatusFilter" onchange="loadDispatch()">
+                        <option value="">全部状态</option>
+                        <option value="pending">待接单</option>
+                        <option value="in_progress">进行中</option>
+                        <option value="completed">已完成</option>
+                        <option value="cancelled">已取消</option>
+                    </select>
+                </div>
+                <div class="admin-table-wrap"><table class="admin-table" id="dispatchTable"></table></div>
+            </section>
+
+            <!-- 点单请求 -->
+            <section class="admin-section" id="section-requests">
+                <div class="admin-section-head">
+                    <h2 class="section-title">点单请求</h2>
+                </div>
+                <div class="admin-table-wrap"><table class="admin-table" id="requestsTable"></table></div>
+            </section>
+
+            <!-- 申请审核 -->
+            <section class="admin-section" id="section-applications">
+                <div class="admin-section-head">
+                    <h2 class="section-title">申请审核</h2>
+                    <select id="appStatusFilter" onchange="loadApplications()">
+                        <option value="">全部</option>
+                        <option value="pending">待审核</option>
+                        <option value="approved">已通过</option>
+                        <option value="rejected">已拒绝</option>
+                    </select>
+                </div>
+                <div class="admin-table-wrap"><table class="admin-table" id="applicationsTable"></table></div>
+            </section>
+
+            <!-- 优惠券管理 -->
+            <section class="admin-section" id="section-coupons">
+                <div class="admin-section-head">
+                    <h2 class="section-title">优惠券管理</h2>
+                    <button class="btn btn-primary btn-small" onclick="openCouponEditor()"><i class="fas fa-plus"></i> 发放优惠券</button>
+                </div>
+                <div class="admin-table-wrap"><table class="admin-table" id="couponsTable"></table></div>
+            </section>
+
+            <!-- 首页内容 -->
+            <section class="admin-section" id="section-content">
+                <div class="admin-section-head">
+                    <h2 class="section-title">首页内容 / 轮播图</h2>
+                    <button class="btn btn-primary btn-small" onclick="saveContent()"><i class="fas fa-save"></i> 保存修改</button>
+                </div>
+                <div id="contentEditor"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 通用弹窗 -->
+    <div class="modal-overlay" id="adminModal">
+        <div class="modal" id="adminModalBox"></div>
+    </div>
+
+    <!-- 通知容器 -->
+    <div id="adminToast"></div>
+
+    <script src="../js/supabase-config.js"></script>
+    <script src="../js/admin.js?v=202608022230"></script>
+</body>
+</html>

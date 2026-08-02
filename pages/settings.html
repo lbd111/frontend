@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>设置 - BJ陪玩团</title>
-    <link rel="stylesheet" href="../css/style.css?v=202607302113">
+    <link rel="stylesheet" href="../css/style.css?v=202607311704">
     <link rel="stylesheet" href="../css/profile.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../js/supabase-config.js?v=202607302113"></script>
-    <script src="../js/main.js?v=202607302113"></script>
+    <script src="../js/supabase-config.js?v=202607312233"></script>
+    <script src="../js/main.js?v=202607312233"></script>
     <style>
         .settings-page { max-width: 700px; margin: 0 auto; padding: 30px 20px; }
         .settings-header { display: flex; align-items: center; gap: 15px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--border); }
@@ -175,7 +175,7 @@
                             <option value="">请选择游戏</option>
                             <option value="光遇">光遇</option>
                             <option value="王者">王者荣耀</option>
-                            <option value="王者光遇">王者+光遇</option>
+                            <option value="双端">光遇+王者</option>
                         </select>
                     </div>
                 </div>
@@ -189,14 +189,26 @@
                         <input type="text" id="editWangzheId" placeholder="请输入王者荣耀游戏ID">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label><i class="fas fa-server"></i> 游戏区服</label>
-                    <select id="editServer">
-                        <option value="">请选择区服</option>
-                        <option value="ios">iOS</option>
-                        <option value="android">Android</option>
-                        <option value="pc">PC 模拟器</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group" id="skyServerGroup">
+                        <label><i class="fas fa-server"></i> 光遇区服</label>
+                        <select id="editServer">
+                            <option value="">请选择区服</option>
+                            <option value="ios">iOS</option>
+                            <option value="android">Android</option>
+                            <option value="pc">渠道服</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="wangzheServerGroup" style="display:none;">
+                        <label><i class="fas fa-chess-king"></i> 王者区服</label>
+                        <select id="editWangzheServer">
+                            <option value="">请选择区服</option>
+                            <option value="iOS QQ区">iOS QQ区</option>
+                            <option value="iOS 微信区">iOS 微信区</option>
+                            <option value="Android 微信区">Android 微信区</option>
+                            <option value="Android QQ区">Android QQ区</option>
+                        </select>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary btn-block">保存修改</button>
@@ -425,15 +437,23 @@
             var gameType = document.getElementById('editGameType').value;
             var skyGroup = document.getElementById('skyIdGroup');
             var wangzheGroup = document.getElementById('wangzheGroup');
+            var skyServerGroup = document.getElementById('skyServerGroup');
+            var wangzheServerGroup = document.getElementById('wangzheServerGroup');
             if (gameType === '王者') {
                 if (skyGroup) skyGroup.style.display = 'none';
                 if (wangzheGroup) wangzheGroup.style.display = '';
-            } else if (gameType === '王者光遇') {
+                if (skyServerGroup) skyServerGroup.style.display = 'none';
+                if (wangzheServerGroup) wangzheServerGroup.style.display = '';
+            } else if (gameType === '双端') {
                 if (skyGroup) skyGroup.style.display = '';
                 if (wangzheGroup) wangzheGroup.style.display = '';
+                if (skyServerGroup) skyServerGroup.style.display = '';
+                if (wangzheServerGroup) wangzheServerGroup.style.display = '';
             } else {
                 if (skyGroup) skyGroup.style.display = '';
                 if (wangzheGroup) wangzheGroup.style.display = 'none';
+                if (skyServerGroup) skyServerGroup.style.display = '';
+                if (wangzheServerGroup) wangzheServerGroup.style.display = 'none';
             }
         }
 
@@ -445,6 +465,7 @@
                 var siEl = document.getElementById("editSkyId");
                 var wiEl = document.getElementById("editWangzheId");
                 var svEl = document.getElementById("editServer");
+                var wsvEl = document.getElementById("editWangzheServer");
                 var avEl = document.getElementById("editAvatarPreview");
 
                 var session = await window.supabaseClient.auth.getSession();
@@ -457,9 +478,10 @@
                     var lu = JSON.parse(localStorage.getItem('skyUser') || '{}');
                     if (nickEl && lu.username) nickEl.value = lu.username;
                     if (gtEl && lu.game_type) gtEl.value = lu.game_type;
-                    if (siEl && lu.sky_id) siEl.value = lu.sky_id;
-                    if (wiEl && lu.wangzhe_id) wiEl.value = lu.wangzhe_id;
-                    if (svEl && lu.server) svEl.value = lu.server;
+                    if (siEl) siEl.value = lu.sky_id || '';
+                    if (wiEl) wiEl.value = lu.wangzhe_id || '';
+                    if (svEl) svEl.value = lu.server || '';
+                    if (wsvEl) wsvEl.value = lu.wz_server || '';
                     if (avEl && lu.avatar) avEl.innerHTML = '<img src="' + lu.avatar + '">';
                     setTimeout(function(){ toggleWangzheField(); }, 50);
                     return;
@@ -467,10 +489,10 @@
 
                 if (nickEl && profile.nickname) nickEl.value = profile.nickname;
                 if (gtEl && profile.game_type) gtEl.value = profile.game_type;
-                // sky_id column may not exist yet, skip if empty
-                if (siEl && profile.sky_id) siEl.value = profile.sky_id;
-                if (wiEl && profile.wangzhe_id) wiEl.value = profile.wangzhe_id;
-                if (svEl && profile.server) svEl.value = profile.server;
+                if (siEl) siEl.value = profile.sky_id || '';
+                if (wiEl) wiEl.value = profile.wangzhe_id || '';
+                if (svEl) svEl.value = profile.server || '';
+                if (wsvEl) wsvEl.value = profile.wz_server || '';
 
                 var avatarSrc = '';
                 if (profile.avatar_url) avatarSrc = profile.avatar_url;
@@ -513,7 +535,14 @@
                         ]);
                         if (dupNick.data || dupUser.data) { showNotification('该名称已被占用，请更换其他昵称', 'error'); return; }
 
-                        var updateData={nickname:nicknameInput,sky_id:document.getElementById('editSkyId').value,game_type:document.getElementById('editGameType').value,wangzhe_id:document.getElementById('editWangzheId').value,server:document.getElementById('editServer').value};
+                        var updateData={
+                            nickname:nicknameInput,
+                            sky_id:document.getElementById('editSkyId').value,
+                            game_type:document.getElementById('editGameType').value,
+                            wangzhe_id:document.getElementById('editWangzheId').value,
+                            server:document.getElementById('editServer').value,
+                            wz_server:document.getElementById('editWangzheServer').value
+                        };
                         if(avatarUrl)updateData.avatar_url=avatarUrl;
                         var res=await window.supabaseClient.from('profiles').update(updateData).eq('id',userId);
                         if(res.error)throw res.error;
@@ -523,6 +552,7 @@
                             if (updateData.sky_id) su.sky_id = updateData.sky_id;
                             if (updateData.wangzhe_id !== undefined) su.wangzhe_id = updateData.wangzhe_id;
                             if (updateData.server) su.server = updateData.server;
+                            if (updateData.wz_server !== undefined) su.wz_server = updateData.wz_server;
                             if (updateData.nickname) { su.username = updateData.nickname; su.nickname = updateData.nickname; }
                             if (updateData.avatar_url) su.avatar = updateData.avatar_url;
                             localStorage.setItem('skyUser', JSON.stringify(su));

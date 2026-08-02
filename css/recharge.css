@@ -173,11 +173,22 @@
     display: flex;
     gap: 12px;
     margin-bottom: 20px;
+    justify-content: center;
+}
+
+.payment-options.two-options {
+    gap: 20px;
 }
 
 .payment-option {
-    flex: 1;
+    flex: 0 0 120px;
     cursor: pointer;
+    max-width: 120px;
+}
+
+.payment-options.two-options .payment-option {
+    flex: 0 0 120px;
+    max-width: 120px;
 }
 
 .payment-option input {
@@ -188,8 +199,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 8px;
-    padding: 20px 12px;
+    width: 120px;
+    height: 90px;
+    box-sizing: border-box;
+    padding: 0;
     border: 2px solid var(--border);
     border-radius: var(--radius-sm);
     transition: var(--transition);
@@ -278,4 +293,54 @@
     .plans-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* --- 自定义金额弹窗 --- */
+.custom-amount-modal .form-group {
+    margin-bottom: 24px;
+}
+
+.custom-amount-modal .form-group input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    color: var(--text-dark);
+    background: var(--bg-light);
+    transition: var(--transition);
+}
+
+.custom-amount-modal .form-group input:focus {
+    border-color: var(--primary);
+    outline: none;
+    background: #fff;
+}
+
+.custom-amount-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.custom-amount-actions .btn {
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.custom-amount-actions .btn-outline {
+    background: #fff;
+    color: var(--text-dark);
+    border: 2px solid var(--border);
+}
+
+.custom-amount-actions .btn-outline:hover {
+    background: var(--bg-light);
+    border-color: var(--primary);
+    color: var(--primary);
 }

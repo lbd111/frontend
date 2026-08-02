@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>登录注册 - BJ陪玩团</title>
-<link rel="stylesheet" href="../css/style.css?v=202607291846">
+<link rel="stylesheet" href="../css/style.css?v=202607312216">
 <link rel="stylesheet" href="../css/profile.css">
 <link rel="stylesheet" href="../css/auth.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -106,17 +106,45 @@
 </div>
 <div class="form-group">
 <label><i class="fas fa-gamepad"></i> 选择游戏</label>
-<select id="regGameSelect" onchange="updateGameIdPlaceholder()" style="width:100%;padding:12px 16px;border:2px solid #e8f0fe;border-radius:8px;font-size:0.95rem;color:#333;background:#f9fcff;transition:border-color 0.3s,box-shadow 0.3s;appearance:none;-webkit-appearance:none;background-image:url(data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 12 8%22%3E%3Cpath d=%22M1 1l5 5 5-5%22 stroke=%22%23999%22 stroke-width=%221.5%22 fill=%22none%22/%3E%3C/svg%3E) no-repeat right 12px center;/">
+<select id="regGameSelect" onchange="updateGameFields()" style="width:100%;padding:12px 16px;border:2px solid #e8f0fe;border-radius:8px;font-size:0.95rem;color:#333;background:#f9fcff;transition:border-color 0.3s,box-shadow 0.3s;appearance:none;-webkit-appearance:none;background-image:url(data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 12 8%22%3E%3Cpath d=%22M1 1l5 5 5-5%22 stroke=%22%23999%22 stroke-width=%221.5%22 fill=%22none%22/%3E%3C/svg%3E) no-repeat right 12px center;/">
 <option value="" style="color:#9aa5b0;">请选择游戏</option>
-<option value="光·遇">光·遇</option>
-<option value="王者荣耀">王者荣耀</option>
+<option value="光遇">光遇</option>
+<option value="王者">王者荣耀</option>
 <option value="双端">光遇+王者</option>
 </select>
 </div>
-<div class="form-group" id="regGameIdGroup" style="display:none;">
-<label><i class="fas fa-gamepad"></i> 游戏ID</label>
-<input type="text" id="regGameId" placeholder="请填写光遇ID" required>
-<input type="text" id="regGameIdWz" placeholder="请填写王者ID" style="margin-top:8px;">
+<div id="regGameFields" style="display:none;">
+<div class="form-row" id="regSkyRow" style="display:flex;gap:15px;">
+<div class="form-group" style="flex:1;">
+<label><i class="fas fa-gamepad"></i> 光遇ID</label>
+<input type="text" id="regSkyId" placeholder="请填写光遇ID" style="width:100%;">
+</div>
+<div class="form-group" style="flex:1;">
+<label><i class="fas fa-server"></i> 光遇区服</label>
+<select id="regServer" style="width:100%;padding:12px 16px;border:2px solid #e8f0fe;border-radius:8px;font-size:0.95rem;color:#333;background:#f9fcff;transition:border-color 0.3s,box-shadow 0.3s;appearance:none;-webkit-appearance:none;background-image:url(data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 12 8%22%3E%3Cpath d=%22M1 1l5 5 5-5%22 stroke=%22%23999%22 stroke-width=%221.5%22 fill=%22none%22/%3E%3C/svg%3E) no-repeat right 12px center;/">
+<option value="">请选择区服</option>
+<option value="ios">iOS</option>
+<option value="android">Android</option>
+<option value="pc">渠道服</option>
+</select>
+</div>
+</div>
+<div class="form-row" id="regWzRow" style="display:flex;gap:15px;">
+<div class="form-group" style="flex:1;">
+<label><i class="fas fa-trophy"></i> 王者ID</label>
+<input type="text" id="regWangzheId" placeholder="请填写王者ID" style="width:100%;">
+</div>
+<div class="form-group" style="flex:1;">
+<label><i class="fas fa-chess-king"></i> 王者区服</label>
+<select id="regWzServer" style="width:100%;padding:12px 16px;border:2px solid #e8f0fe;border-radius:8px;font-size:0.95rem;color:#333;background:#f9fcff;transition:border-color 0.3s,box-shadow 0.3s;appearance:none;-webkit-appearance:none;background-image:url(data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 12 8%22%3E%3Cpath d=%22M1 1l5 5 5-5%22 stroke=%22%23999%22 stroke-width=%221.5%22 fill=%22none%22/%3E%3C/svg%3E) no-repeat right 12px center;/">
+<option value="">请选择区服</option>
+<option value="iOS QQ区">iOS QQ区</option>
+<option value="iOS 微信区">iOS 微信区</option>
+<option value="Android 微信区">Android 微信区</option>
+<option value="Android QQ区">Android QQ区</option>
+</select>
+</div>
+</div>
 </div>
 <div class="form-group">
 <label><i class="fas fa-lock"></i> 密码</label>
@@ -162,8 +190,8 @@
 </footer>
 
 <script src="../js/supabase-config.js"></script>
-<script src="../js/main.js?v=202607300051"></script>
-<script src="../js/auth.js"></script>
+<script src="../js/main.js?v=202607312233"></script>
+<script src="../js/auth.js?v=202607312233"></script>
 <script>
 function switchAuthTab(tab) {
     document.querySelectorAll(".auth-tab").forEach(function(t){t.classList.remove("active");});
@@ -190,56 +218,51 @@ async function handleLoginFormSubmit(e) {
     console.log("登录请求:", email);
     await handleLogin(email, password);
 }
-function updateGameIdPlaceholder() {
+function updateGameFields() {
     var sel = document.getElementById('regGameSelect');
-    var inputGy = document.getElementById('regGameId');
-    var inputWz = document.getElementById('regGameIdWz');
-    var group = document.getElementById('regGameIdGroup');
-    if (!group) return;
-    
-    if (sel.value === '光·遇') {
-        inputGy.placeholder = '请填写光遇ID';
-        inputGy.required = true;
-        inputGy.style.display = 'block';
-        inputWz.style.display = 'none';
-        inputWz.required = false;
-        group.style.display = 'block';
-    } else if (sel.value === '王者荣耀') {
-        inputGy.placeholder = '请填写王者ID';
-        inputGy.required = true;
-        inputGy.style.display = 'block';
-        inputWz.style.display = 'none';
-        inputWz.required = false;
-        group.style.display = 'block';
+    var fields = document.getElementById('regGameFields');
+    var skyRow = document.getElementById('regSkyRow');
+    var wzRow = document.getElementById('regWzRow');
+    if (!fields) return;
+
+    if (sel.value === '光遇') {
+        fields.style.display = 'block';
+        skyRow.style.display = 'flex';
+        wzRow.style.display = 'none';
+    } else if (sel.value === '王者') {
+        fields.style.display = 'block';
+        skyRow.style.display = 'none';
+        wzRow.style.display = 'flex';
     } else if (sel.value === '双端') {
-        inputGy.placeholder = '请填写光遇ID';
-        inputGy.required = true;
-        inputGy.style.display = 'block';
-        inputWz.placeholder = '请填写王者ID';
-        inputWz.style.display = 'block';
-        inputWz.required = true;
-        group.style.display = 'block';
+        fields.style.display = 'block';
+        skyRow.style.display = 'flex';
+        wzRow.style.display = 'flex';
     } else {
-        inputGy.placeholder = '请先选择游戏';
-        inputGy.required = false;
-        inputGy.style.display = 'none';
-        inputWz.style.display = 'none';
-        inputWz.required = false;
-        group.style.display = 'none';
+        fields.style.display = 'none';
+        skyRow.style.display = 'none';
+        wzRow.style.display = 'none';
     }
 }
 async function handleRegisterFormSubmit(e) {
     e.preventDefault();
     var email = document.getElementById("regEmail").value.trim();
-    var gameId = document.getElementById("regGameId").value.trim();
-    var gameIdWz = document.getElementById("regGameIdWz") ? document.getElementById("regGameIdWz").value.trim() : '';
-    console.log('注册游戏ID:', gameId, '王者ID:', gameIdWz);
+    var skyId = document.getElementById("regSkyId").value.trim();
+    var wzId = document.getElementById("regWangzheId").value.trim();
+    var server = document.getElementById("regServer").value;
+    var wzServer = document.getElementById("regWzServer").value;
+    var gameType = document.getElementById("regGameSelect").value.trim();
+    console.log('注册:', email, 'gameType:', gameType, 'skyId:', skyId, 'wzId:', wzId, 'server:', server, 'wzServer:', wzServer);
+
+    // 根据游戏类型校验必填项
+    if (gameType === '光遇' && !skyId) { showNotification('请填写光遇ID', 'error'); return; }
+    if (gameType === '王者' && !wzId) { showNotification('请填写王者ID', 'error'); return; }
+    if (gameType === '双端' && (!skyId || !wzId)) { showNotification('请填写光遇ID和王者ID', 'error'); return; }
+
     var password = document.getElementById("regPassword").value;
     var cp = document.getElementById("regConfirmPassword").value;
     if(password!==cp){showNotification("两次输入的密码不一致","error");return;}
     if(!document.getElementById("agreeTerms").checked){showNotification("请先阅读并同意用户协议","error");return;}
-    console.log("注册请求:", email, gameId);
-    var gameSel = document.getElementById("regGameSelect").value.trim(); await handleRegister(email, gameId, password, gameSel);
+    await handleRegister(email, skyId, wzId, server, wzServer, password, gameType);
 }
 </script>
 </body>

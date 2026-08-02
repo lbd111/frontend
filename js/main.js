@@ -1935,6 +1935,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateNavUser();
 
+    // 启动账号禁用状态轮询（管理员禁用后自动退出）
+    startAccountStatusPolling();
+
 });
 
 
@@ -2044,6 +2047,47 @@ async function updateNavUser() {
 
 
 window.updateNavUser = updateNavUser;
+
+// 强制退出登录并刷新页面（用于账号被管理员禁用后）
+async function forceLogoutAndReload(message) {
+    try { await window.supabaseClient.auth.signOut(); } catch(e) {}
+    localStorage.removeItem('skyUser');
+    localStorage.removeItem('skyUserList');
+    var keys = Object.keys(localStorage);
+    for (var i = 0; i < keys.length; i++) {
+        if (keys[i].startsWith('sb-') || keys[i].indexOf('supabase') !== -1) {
+            localStorage.removeItem(keys[i]);
+        }
+    }
+    showNotification(message || '该账号已被禁用，请联系管理员', 'error');
+    setTimeout(function() { window.location.reload(); }, 800);
+}
+window.forceLogoutAndReload = forceLogoutAndReload;
+
+// 定时检查当前账号是否被禁用
+function startAccountStatusPolling() {
+    if (window.__accountStatusInterval) return;
+    window.__accountStatusInterval = setInterval(async function() {
+        if (!window.supabaseClient) return;
+        try {
+            var sessionRes = await window.supabaseClient.auth.getSession();
+            var user = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user;
+            if (!user) return;
+            var profileRes = await window.supabaseClient
+                .from('profiles')
+                .select('disabled')
+                .eq('id', user.id)
+                .maybeSingle();
+            if (profileRes.data && profileRes.data.disabled === true) {
+                clearInterval(window.__accountStatusInterval);
+                await forceLogoutAndReload('该账号已被禁用，请联系管理员');
+            }
+        } catch(e) {
+            // 网络等原因失败时静默，下次轮询再试
+        }
+    }, 10000); // 每 10 秒检查一次
+}
+window.startAccountStatusPolling = startAccountStatusPolling;
 
 
 

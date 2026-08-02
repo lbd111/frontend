@@ -5,9 +5,9 @@
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>充值中心 - BJ陪玩团</title>
-    <link rel="stylesheet" href="../css/style.css?v=202607301411">
+    <link rel="stylesheet" href="../css/style.css?v=202607312213">
 <link rel="stylesheet" href="../css/profile.css">
-    <link rel="stylesheet" href="../css/recharge.css">
+    <link rel="stylesheet" href="../css/recharge.css?v=202607312213">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body><script>
@@ -117,6 +117,24 @@
         </div>
     </section>
 
+    <!-- 自定义金额弹窗 -->
+    <div class="modal-overlay" id="customAmountModal">
+        <div class="modal custom-amount-modal">
+            <button class="modal-close" onclick="closeCustomAmountModal()">&times;</button>
+            <h2>自定义充值金额</h2>
+            <div class="recharge-form">
+                <div class="form-group">
+                    <label><i class="fas fa-coins"></i> 请输入充值金额（元）</label>
+                    <input type="number" id="customAmountInput" step="0.01" min="0.01" placeholder="例如：15">
+                </div>
+                <div class="custom-amount-actions">
+                    <button class="btn btn-outline" onclick="closeCustomAmountModal()">取消</button>
+                    <button class="btn btn-primary" onclick="confirmCustomAmount()">确认</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 充值弹窗 -->
     <div class="modal-overlay" id="rechargeModal">
         <div class="modal recharge-modal">
@@ -129,7 +147,7 @@
                 </div>
                 <div class="form-group">
                     <label><i class="fas fa-credit-card"></i> 支付方式</label>
-                    <div class="payment-options">
+                    <div class="payment-options two-options">
                         <label class="payment-option">
                             <input type="radio" name="payment" value="wechat" checked>
                             <div class="payment-card">
@@ -142,13 +160,6 @@
                             <div class="payment-card">
                                 <i class="fab fa-alipay"></i>
                                 <span>支付宝</span>
-                            </div>
-                        </label>
-                        <label class="payment-option">
-                            <input type="radio" name="payment" value="balance">
-                            <div class="payment-card">
-                                <i class="fas fa-wallet"></i>
-                                <span>余额支付</span>
                             </div>
                         </label>
                     </div>
@@ -234,8 +245,8 @@
 
     
 
-<script src="../js/supabase-config.js"></script><script src="../js/main.js?v=202607301411"></script>
-    <script src="../js/supabase-config.js"></script><script src="../js/recharge.js?v=202607301411"></script>
+<script src="../js/supabase-config.js"></script><script src="../js/main.js?v=202607312233"></script>
+    <script src="../js/recharge.js?v=202607312233"></script>
 
     <!-- 移动端底部 Dock 栏 -->
     

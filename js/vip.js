@@ -109,13 +109,23 @@ async function loadMemberStatus() {
             .single();
 
         const levelEl = document.getElementById('memberLevel');
+        const statusInfo = document.querySelector('.status-info');
+        const allBtns = document.querySelectorAll('.activate-vip-btn');
         const statusCard = document.querySelector('.status-actions');
-        const allBtns = document.querySelectorAll('#activateVipBtn');
-        
+
+        // 重置按钮状态
+        allBtns.forEach(b => {
+            b.style.display = '';
+            b.disabled = false;
+            b.onclick = function(){ showVipModal(); };
+        });
+
         if (!profile || !profile.level) {
             if (levelEl) levelEl.textContent = '普通会员（未开通）';
-            if (statusCard) statusCard.innerHTML = '';
-            allBtns.forEach(b => { b.style.display = ''; b.disabled = false; b.onclick = function(){ showVipModal(); }; });
+            if (statusInfo) {
+                var existing = statusInfo.querySelector('.vip-status-extra');
+                if (existing) existing.remove();
+            }
             return;
         }
 
@@ -126,22 +136,37 @@ async function loadMemberStatus() {
 
         if (isVip && !expired) {
             if (levelEl) levelEl.textContent = 'VIP会员（已开通）';
-            if (statusCard) {
-                var expStr = '';
-                try { expStr = new Date(expireAt).toLocaleDateString('zh-CN'); } catch(e) { expStr = '长期有效'; }
-                statusCard.innerHTML = '<span style="color:#4CAF50;font-size:14px;"><i class="fas fa-check-circle"></i> 会员权益已生效</span><br><span style="color:#888;font-size:12px;margin-top:4px;display:inline-block;">到期时间：' + expStr + '</span>';
+            var expStr = '';
+            try { expStr = new Date(expireAt).toLocaleDateString('zh-CN'); } catch(e) { expStr = '长期有效'; }
+            if (statusInfo) {
+                var existing = statusInfo.querySelector('.vip-status-extra');
+                if (!existing) {
+                    existing = document.createElement('p');
+                    existing.className = 'vip-status-extra';
+                    existing.style.cssText = 'margin:6px 0 0;color:#4CAF50;font-size:14px;';
+                    statusInfo.appendChild(existing);
+                }
+                existing.innerHTML = '<i class="fas fa-check-circle"></i> 会员权益已生效<br><span style="color:#888;font-size:12px;">到期时间：' + expStr + '</span>';
             }
             allBtns.forEach(b => { b.style.display = 'none'; });
         } else if (expired) {
             if (levelEl) levelEl.textContent = 'VIP会员（已过期）';
-            if (statusCard) {
-                statusCard.innerHTML = '<span style="color:#f44336;font-size:14px;"><i class="fas fa-exclamation-circle"></i> 会员已过期，请重新开通</span>';
+            if (statusInfo) {
+                var existing = statusInfo.querySelector('.vip-status-extra');
+                if (!existing) {
+                    existing = document.createElement('p');
+                    existing.className = 'vip-status-extra';
+                    existing.style.cssText = 'margin:6px 0 0;color:#f44336;font-size:14px;';
+                    statusInfo.appendChild(existing);
+                }
+                existing.innerHTML = '<i class="fas fa-exclamation-circle"></i> 会员已过期，请重新开通';
             }
-            allBtns.forEach(b => { b.style.display = ''; b.disabled = false; b.onclick = function(){ showVipModal(); }; });
         } else {
             if (levelEl) levelEl.textContent = '普通会员（未开通）';
-            if (statusCard) statusCard.innerHTML = '';
-            allBtns.forEach(b => { b.style.display = ''; b.disabled = false; b.onclick = function(){ showVipModal(); }; });
+            if (statusInfo) {
+                var existing = statusInfo.querySelector('.vip-status-extra');
+                if (existing) existing.remove();
+            }
         }
     } catch (err) {
         console.error('加载会员状态失败:', err);
@@ -176,7 +201,7 @@ async function activateVip() {
     }
 
     // 显示自定义确认卡片
-    const confirmMsg = '费用：￥' + VIP_PRICE_MONTHLY.toFixed(2) + '\\n将从账户余额扣除\\n\\n开通后可享受：\\n• 全部基础功能\\n• 每周95折优惠券（无门槛）';
+    const confirmMsg = '费用：￥' + VIP_PRICE_MONTHLY.toFixed(2) + '\n将从账户余额扣除\n\n开通后可享受：\n• 全部基础功能\n• 每周95折优惠券（无门槛）';
     const confirmed = await confirmVip(confirmMsg);
     if (!confirmed) return;
 
