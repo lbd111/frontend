@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-微信支付窗口监控（替代老版 wxmonitor）v1.2
+微信支付窗口监控（替代老版 wxmonitor）v1.3
 原理：按标题找到微信支付窗口 → 定时截图 → OCR 识别金额 → POST /mpayNotify
 
 两种运行模式：
   1. 默认（有 GUI）：弹 tkinter 窗口，可点「开始监控」「停止监控」「手动上报」
   2. --headless：无窗口，启动即自动监控，日志写文件，适合计划任务/开机自启
 
-v1.2 改进：
-  - 截图后做放大+灰度+二值化预处理，提高 OCR 准确率
-  - 金额提取记录所有候选并输出到日志，方便排查 0.01 被识别成 0.09 等问题
-  - 优先匹配「收款金额/赞赏金额」附近的 ¥/￥ 金额
-  - 同时尝试用 uiautomation 直接读取窗口文本作为 OCR 补充
+v1.3 改进：
+  - 截图时只取窗口下半部分（最新通知通常在最下方），避开顶部历史记录干扰
+  - 金额提取排除「累计金额」等统计信息，多个候选时优先选择最下方（最新）金额
+  - 保留 v1.2 的放大/灰度/二值化预处理和候选日志
 """
 import argparse
 import base64
@@ -93,7 +92,11 @@ def capture_window(win):
     with mss.mss() as sct:
         monitor = {"left": left, "top": top, "width": width, "height": height}
         img = sct.grab(monitor)
-        return Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
+        full = Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
+    # 微信支付通知窗口往往同时显示历史记录（在上）和最新通知（在下），
+    # 只截取下半部分进行 OCR，可显著降低旧金额干扰。
+    crop_top = int(height * 0.45)
+    return full.crop((0, crop_top, width, height))
 
 
 def preprocess_image(img):
@@ -125,27 +128,39 @@ def ocr_image(img):
 
 
 def extract_amount(text):
-    """从 OCR 文本里提取金额，返回 (最佳金额, 候选列表)"""
+    """从 OCR 文本里提取金额，返回 (最佳金额, 候选列表)
+
+    微信支付窗口里最新通知一般在最下方，历史记录在上方；
+    因此同类型金额选择位置最靠下的（pos 最大）。
+    同时排除「累计金额」等统计信息干扰。
+    """
+    # 先抹掉「累计金额/今日收到...累计金额」这类统计行
+    cleaned = re.sub(r"(累计|今日收到).*?\d+(?:\.\d{1,2})?", "", text)
+
     candidates = []
     # 1. 匹配 ¥/￥ 后的金额
-    for m in re.finditer(r"[￥¥]\s*(\d+(?:\.\d{1,2})?)", text):
+    for m in re.finditer(r"[￥¥]\s*(\d+(?:\.\d{1,2})?)", cleaned):
         candidates.append({"value": m.group(1), "pos": m.start(), "source": "currency_symbol"})
     # 2. 匹配 "收款金额"、"赞赏金额" 等关键字后面的金额
     for kw in ["收款金额", "赞赏金额", "到账金额", "收款"]:
-        for m in re.finditer(re.escape(kw) + r"\s*[：:]?\s*[￥¥]?\s*(\d+(?:\.\d{1,2})?)", text):
+        for m in re.finditer(re.escape(kw) + r"\s*[：:]?\s*[￥¥]?\s*(\d+(?:\.\d{1,2})?)", cleaned):
             candidates.append({"value": m.group(1), "pos": m.start(), "source": "keyword"})
     # 3. 通用金额匹配
-    for m in re.finditer(r"(\d+(?:\.\d{1,2})?)\s*元", text):
+    for m in re.finditer(r"(\d+(?:\.\d{1,2})?)\s*元", cleaned):
         candidates.append({"value": m.group(1), "pos": m.start(), "source": "yuan"})
 
     if not candidates:
         return None, []
 
-    # 优先选择位置最靠前（最上方/最新）且来源更可靠的
-    # 排序：currency_symbol > keyword > yuan，同类型按位置
+    # 按来源优先级排序，同来源取最下方（pos 最大，最新通知）
     source_order = {"currency_symbol": 0, "keyword": 1, "yuan": 2}
     candidates.sort(key=lambda x: (source_order[x["source"]], x["pos"]))
-    return candidates[0]["value"], candidates
+    best_by_source = {}
+    for c in candidates:
+        best_by_source[c["source"]] = c  # 同来源覆盖为 pos 更大的
+    # 按来源优先级返回最佳
+    for source in sorted(best_by_source.keys(), key=lambda s: source_order[s]):
+        return best_by_source[source]["value"], candidates
 
 
 def send_notify(amount):

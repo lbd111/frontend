@@ -74,7 +74,7 @@
         }
     }
 
-    function showSuccess(order) {
+    async function showSuccess(order) {
         iconEl.className = 'pay-return-icon success';
         iconEl.innerHTML = '<i class="fas fa-check"></i>';
         titleEl.textContent = order.item_type === 'vip_month' ? 'VIP 开通成功' : '充值成功';
@@ -84,6 +84,31 @@
         detailEl.style.display = 'block';
         actionsEl.style.display = 'flex';
         stopPolling();
+
+        // 刷新 localStorage 余额/会员信息并同步导航栏
+        try {
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            if (session?.access_token) {
+                const { data: profile } = await window.supabaseClient
+                    .from('profiles')
+                    .select('balance, level, vip_expire_at, nickname, avatar_url')
+                    .eq('id', session.user.id)
+                    .maybeSingle();
+                if (profile) {
+                    const userStr = localStorage.getItem('skyUser');
+                    const user = userStr ? JSON.parse(userStr) : {};
+                    user.balance = parseFloat(profile.balance) || 0;
+                    if (profile.level) user.level = profile.level;
+                    if (profile.vip_expire_at) user.vip_expire_at = profile.vip_expire_at;
+                    if (profile.nickname) { user.nickname = profile.nickname; user.username = profile.nickname; }
+                    if (profile.avatar_url) user.avatar = profile.avatar_url;
+                    localStorage.setItem('skyUser', JSON.stringify(user));
+                    if (typeof window.updateNavUser === 'function') window.updateNavUser();
+                }
+            }
+        } catch (e) {
+            console.error('刷新余额失败:', e);
+        }
     }
 
     function showPending(title, desc) {
