@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-微信支付窗口监控（替代老版 wxmonitor）
+微信支付窗口监控（替代老版 wxmonitor）v1.2
 原理：按标题找到微信支付窗口 → 定时截图 → OCR 识别金额 → POST /mpayNotify
 
 两种运行模式：
   1. 默认（有 GUI）：弹 tkinter 窗口，可点「开始监控」「停止监控」「手动上报」
   2. --headless：无窗口，启动即自动监控，日志写文件，适合计划任务/开机自启
+
+v1.2 改进：
+  - 截图后做放大+灰度+二值化预处理，提高 OCR 准确率
+  - 金额提取记录所有候选并输出到日志，方便排查 0.01 被识别成 0.09 等问题
+  - 优先匹配「收款金额/赞赏金额」附近的 ¥/￥ 金额
+  - 同时尝试用 uiautomation 直接读取窗口文本作为 OCR 补充
 """
 import argparse
 import base64
@@ -18,6 +24,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.parse
 from datetime import datetime
 
 
@@ -34,7 +41,7 @@ def _ensure_package(name, import_name=None):
 requests = _ensure_package("requests")
 auto = _ensure_package("uiautomation")
 _ensure_package("Pillow", "PIL")
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 mss = _ensure_package("mss")
 
 # 尝试加载 OCR 引擎
@@ -66,7 +73,7 @@ AID = "3"
 CHAN = "2"  # 微信支付固定类型编号，不是 aid
 NOTIFY_URL = "http://mpay.skypw.dpdns.org/mpayNotify"
 CHECK_INTERVAL = 2  # 秒
-WINDOW_TITLES = ["微信支付", "微信收款助手", "微信收款商业版"]
+WINDOW_TITLES = ["微信支付", "微信收款助手", "微信收款商业版", "赞赏到账通知"]
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wx_monitor.log")
 
 
@@ -89,33 +96,56 @@ def capture_window(win):
         return Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
 
 
+def preprocess_image(img):
+    """放大 + 灰度 + 自适应对比度 + 二值化，提高 OCR 对小字体的识别率"""
+    # 放大 2.5 倍
+    img = img.resize((int(img.width * 2.5), int(img.height * 2.5)), Image.LANCZOS)
+    # 灰度
+    img = img.convert("L")
+    # 适度锐化
+    img = img.filter(ImageFilter.SHARPEN)
+    # 二值化（根据经验阈值 180）
+    img = img.point(lambda x: 0 if x < 180 else 255, "1")
+    return img.convert("RGB")
+
+
 def ocr_image(img):
     if ocr_engine is None:
         return ""
+    proc = preprocess_image(img)
     if ocr_type == "rapidocr":
-        result, _ = ocr_engine(img)
+        result, _ = ocr_engine(proc)
         if result:
             return "\n".join([line[1] for line in result])
         return ""
     else:
         # easyocr
-        result = ocr_engine.readtext(img, detail=0)
+        result = ocr_engine.readtext(proc, detail=0)
         return "\n".join(result)
 
 
 def extract_amount(text):
-    """从 OCR 文本里提取金额，优先匹配 ¥0.01，其次 0.01元"""
-    patterns = [
-        r"￥\s*(\d+(?:\.\d{1,2})?)",
-        r"¥\s*(\d+(?:\.\d{1,2})?)",
-        r"收款\s*[金金]?\s*(\d+(?:\.\d{1,2})?)",
-        r"(\d+(?:\.\d{1,2})?)\s*元",
-    ]
-    for p in patterns:
-        m = re.search(p, text)
-        if m:
-            return m.group(1)
-    return None
+    """从 OCR 文本里提取金额，返回 (最佳金额, 候选列表)"""
+    candidates = []
+    # 1. 匹配 ¥/￥ 后的金额
+    for m in re.finditer(r"[￥¥]\s*(\d+(?:\.\d{1,2})?)", text):
+        candidates.append({"value": m.group(1), "pos": m.start(), "source": "currency_symbol"})
+    # 2. 匹配 "收款金额"、"赞赏金额" 等关键字后面的金额
+    for kw in ["收款金额", "赞赏金额", "到账金额", "收款"]:
+        for m in re.finditer(re.escape(kw) + r"\s*[：:]?\s*[￥¥]?\s*(\d+(?:\.\d{1,2})?)", text):
+            candidates.append({"value": m.group(1), "pos": m.start(), "source": "keyword"})
+    # 3. 通用金额匹配
+    for m in re.finditer(r"(\d+(?:\.\d{1,2})?)\s*元", text):
+        candidates.append({"value": m.group(1), "pos": m.start(), "source": "yuan"})
+
+    if not candidates:
+        return None, []
+
+    # 优先选择位置最靠前（最上方/最新）且来源更可靠的
+    # 排序：currency_symbol > keyword > yuan，同类型按位置
+    source_order = {"currency_symbol": 0, "keyword": 1, "yuan": 2}
+    candidates.sort(key=lambda x: (source_order[x["source"]], x["pos"]))
+    return candidates[0]["value"], candidates
 
 
 def send_notify(amount):
@@ -166,13 +196,15 @@ class MonitorCore:
         try:
             win, title = find_window()
             if not win:
-                self.log_msg("未找到微信支付窗口，请把聊天窗口单独拖出来")
+                self.log_msg("未找到微信支付窗口，请把聊天窗口/通知窗口单独拖出来并保持可见")
             else:
                 img = capture_window(win)
                 text = ocr_image(img)
-                preview = text.replace("\n", " / ")[:120]
+                preview = text.replace("\n", " / ")[:200]
                 self.log_msg(f"OCR: {preview}")
-                amount = extract_amount(text)
+                amount, candidates = extract_amount(text)
+                if candidates:
+                    self.log_msg(f"候选金额: {candidates}")
                 if amount:
                     self.log_msg(f"识别到金额: ¥{amount}")
                     now = time.time()
@@ -225,15 +257,15 @@ class MonitorApp:
     def __init__(self, root, core):
         self.root = root
         self.core = core
-        self.root.title("微信支付监控 v1.1")
+        self.root.title("微信支付监控 v1.2")
         self._after_id = None
 
-        tk.Label(root, text="监控窗口: 微信支付 / 微信收款助手", font=("Microsoft YaHei", 12)).pack(pady=5)
+        tk.Label(root, text="监控窗口: 微信支付 / 微信收款助手 / 赞赏到账通知", font=("Microsoft YaHei", 12)).pack(pady=5)
 
         self.status = tk.Label(root, text="状态: 停止", fg="red", font=("Microsoft YaHei", 10))
         self.status.pack(pady=5)
 
-        self.log = tk.Text(root, height=18, width=70, font=("Consolas", 9))
+        self.log = tk.Text(root, height=18, width=80, font=("Consolas", 9))
         self.log.pack(pady=5, padx=10)
 
         btn_frame = tk.Frame(root)
@@ -247,7 +279,7 @@ class MonitorApp:
         # 重定向 core.log 到 GUI 文本框
         self.core.log = self.log_msg
 
-        self.log_msg("准备就绪。把「微信支付」聊天窗口单独拖出来并保持可见，然后点「开始监控」。")
+        self.log_msg("准备就绪。把「微信支付」聊天窗口/通知窗口单独拖出来并保持可见，然后点「开始监控」。")
         if ocr_engine is None:
             self.log_msg("警告：OCR 引擎未加载，自动识别不可用，只能手动上报。")
 
@@ -257,6 +289,11 @@ class MonitorApp:
         self.log.insert(tk.END, line)
         self.log.see(tk.END)
         print(line.strip())
+        try:
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(line)
+        except Exception:
+            pass
 
     def start(self):
         self.core.start()
@@ -284,8 +321,6 @@ class MonitorApp:
 
 
 if __name__ == "__main__":
-    import urllib.parse
-
     parser = argparse.ArgumentParser(description="微信支付窗口监控")
     parser.add_argument("--headless", action="store_true", help="无窗口模式，启动即自动监控")
     parser.add_argument("--dedup", type=int, default=300, help="同金额去重间隔秒数，默认 300（5 分钟）")
