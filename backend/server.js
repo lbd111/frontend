@@ -10,6 +10,10 @@
  */
 
 require('dotenv').config();
+// Node 20 的 undici(fetch) 默认优先解析 IPv6，而本服务器 IPv6 出网不通，
+// 会导致 fetch('https://mpay.skypw.dpdns.org') 直接 failed。强制 IPv4 优先。
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
@@ -27,14 +31,18 @@ const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
+const SUPABASE_JWT_PUBLIC_KEY = process.env.SUPABASE_JWT_PUBLIC_KEY;
 const MPAY_API_URL = process.env.MPAY_API_URL || 'https://mpay.skypw.dpdns.org';
+// BJ 后端经内网直连 mpay 创建订单（跳过 Cloudflare，避免公网链路偶发失败），
+// 但返回给前端的 payurl 必须是公网域名，否则用户无法访问收款页。
+const MPAY_PUBLIC_URL = process.env.MPAY_PUBLIC_URL || 'https://mpay.skypw.dpdns.org';
 const MPAY_PID = process.env.MPAY_PID;
 const MPAY_SECRET = process.env.MPAY_SECRET;
 const MPAY_NOTIFY_URL = process.env.MPAY_NOTIFY_URL;
 const BJ_RETURN_URL = process.env.BJ_RETURN_URL;
 
-if (!SUPABASE_SERVICE_KEY || !SUPABASE_JWT_SECRET || !MPAY_SECRET) {
-  console.error('错误：缺少必要环境变量，请检查 .env 文件');
+if (!SUPABASE_SERVICE_KEY || (!SUPABASE_JWT_SECRET && !SUPABASE_JWT_PUBLIC_KEY) || !MPAY_SECRET) {
+  console.error('错误：缺少必要环境变量，请检查 .env 文件（SUPABASE_SERVICE_KEY 与 SUPABASE_JWT_SECRET/PUBLIC_KEY 至少二选一）');
   process.exit(1);
 }
 
@@ -50,8 +58,8 @@ const ALLOWED_ORIGIN_PATTERNS = [
 
 app.use(cors({
   origin(origin, callback) {
-    // 无 Origin 头（同源请求、curl、服务端回调）直接放行
-    if (!origin) return callback(null, true);
+    // 无 Origin 头（同源请求、curl、服务端回调）或 file://（Origin: null）直接放行
+    if (!origin || origin === 'null') return callback(null, true);
     if (ALLOWED_ORIGIN_PATTERNS.some((re) => re.test(origin))) {
       return callback(null, true);
     }
@@ -121,7 +129,16 @@ function authMiddleware(req, res, next) {
     return res.status(401).json({ code: 0, error: '未提供登录凭证' });
   }
   try {
-    const payload = jwt.verify(token, SUPABASE_JWT_SECRET);
+    let payload;
+    if (SUPABASE_JWT_PUBLIC_KEY) {
+      // Supabase 新 JWT Signing Keys：使用 ES256 非对称验签，PUBLIC_KEY 为 JWK JSON
+      const jwk = JSON.parse(SUPABASE_JWT_PUBLIC_KEY);
+      const publicKey = crypto.createPublicKey({ key: jwk, format: 'jwk' });
+      payload = jwt.verify(token, publicKey, { algorithms: ['ES256'] });
+    } else {
+      // 旧版 Supabase：HS256/HS384/HS512 对称验签，JWT Secret 是 base64 编码字符串，需先 decode
+      payload = jwt.verify(token, Buffer.from(SUPABASE_JWT_SECRET, 'base64'), { algorithms: ['HS256', 'HS384', 'HS512'] });
+    }
     req.user = { id: payload.sub, email: payload.email };
     next();
   } catch (err) {
@@ -266,11 +283,22 @@ app.post('/api/checkout', authMiddleware, async (req, res) => {
     };
     mpayParams.sign = getMpaySign(mpayParams, MPAY_SECRET);
 
-    const mpayResp = await fetch(`${MPAY_API_URL}/mapi`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(mpayParams)
-    });
+    // 调 mpay /mapi 创建订单（带 10s 超时，避免请求挂起）
+    const mpayCtrl = new AbortController();
+    const mpayTimer = setTimeout(() => mpayCtrl.abort(), 10000);
+    let mpayResp;
+    try {
+      mpayResp = await fetch(`${MPAY_API_URL}/mapi`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(mpayParams),
+        signal: mpayCtrl.signal
+      });
+    } catch (fetchErr) {
+      clearTimeout(mpayTimer);
+      throw new Error('调用 mpay 下单接口失败（网络超时或服务不可达）: ' + fetchErr.message);
+    }
+    clearTimeout(mpayTimer);
     const mpayData = await mpayResp.json();
 
     // 更新 mpay 返回信息
@@ -278,6 +306,11 @@ app.post('/api/checkout', authMiddleware, async (req, res) => {
       `UPDATE payment_orders SET mpay_trade_no = ?, payload = JSON_MERGE_PATCH(COALESCE(payload, '{}'), ?) WHERE bj_order_no = ?`,
       [mpayData.trade_no || null, JSON.stringify({ mpay_create: mpayData }), bjOrderNo]
     );
+
+    // mpay 经内网创建订单，payurl 可能带内网 IP，统一替换为公网域名，确保用户可访问
+    if (mpayData.payurl) {
+      mpayData.payurl = mpayData.payurl.replace(/^https?:\/\/[^/]+/, MPAY_PUBLIC_URL);
+    }
 
     if (mpayData.code !== 1 || !mpayData.payurl) {
       await dbPool.execute(`UPDATE payment_orders SET status = 'failed', payload = JSON_MERGE_PATCH(COALESCE(payload, '{}'), ?) WHERE bj_order_no = ?`,
