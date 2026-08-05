@@ -176,9 +176,6 @@ async function loadMemberStatus() {
 
 // --- 开通会员 ---
 async function activateVip() {
-    console.log('activateVip called');
-    console.log('localStorage skyUser:', localStorage.getItem('skyUser'));
-    console.log('window.supabaseClient:', typeof window.supabaseClient);
     const userStr = localStorage.getItem('skyUser');
     if (!userStr) {
         showCardMessage('提示', '请先登录', 'error');
@@ -186,71 +183,50 @@ async function activateVip() {
     }
     const user = JSON.parse(userStr);
 
-    // 检查余额
-    const { data: profile } = await window.supabaseClient
-        .from('profiles')
-        .select('balance')
-        .eq('id', user.id)
-        .single();
-
-    const currentBalance = parseFloat(profile?.balance) || 0;
-
-    if (currentBalance < VIP_PRICE_MONTHLY) {
-        showCardMessage('余额不足', '需要 ￥' + VIP_PRICE_MONTHLY.toFixed(2) + '，当前余额 ￥' + currentBalance.toFixed(2) + '\n请先前往充值中心充值', 'error');
+    // 取 access_token 用于调用 BJ 支付中台
+    let token = null;
+    try {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        token = session?.access_token;
+    } catch (e) {
+        console.error('获取 session 失败:', e);
+    }
+    if (!token) {
+        showCardMessage('提示', '登录状态已过期，请重新登录', 'error');
         return;
     }
 
     // 显示自定义确认卡片
-    const confirmMsg = '费用：￥' + VIP_PRICE_MONTHLY.toFixed(2) + '\n将从账户余额扣除\n\n开通后可享受：\n• 全部基础功能\n• 每周95折优惠券（无门槛）';
+    const confirmMsg = '费用：￥' + VIP_PRICE_MONTHLY.toFixed(2) + '\n将跳转至微信/支付宝扫码支付\n\n开通后可享受：\n• 全部基础功能\n• 每周95折优惠券（无门槛）';
     const confirmed = await confirmVip(confirmMsg);
     if (!confirmed) return;
 
-    // 扣款 + 开通
-    const newBalance = (currentBalance - VIP_PRICE_MONTHLY).toFixed(2);
-    const now = new Date();
-    const vipExpireAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    const firstCouponExpire = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    const { error: updateErr } = await window.supabaseClient
-        .from('profiles')
-        .update({
-            level: "VIP会员",
-            balance: newBalance,
-            vip_expire_at: vipExpireAt,
-            vip_coupon_last_granted_at: now.toISOString()
-        })
-        .eq('id', user.id);
-
-    if (updateErr) {
-        showCardMessage('开通失败', updateErr.message, 'error');
-        return;
-    }
-
-    // 更新 localStorage
-    user.level = 'VIP会员';
-    user.vip_expire_at = vipExpireAt;
-    user.vip_coupon_last_granted_at = now.toISOString();
-    localStorage.setItem('skyUser', JSON.stringify(user));
-
-    // 发放首周 95 折无门槛优惠券
     try {
-        await window.supabaseClient
-            .from('coupons')
-            .insert({
-                user_id: user.id,
-                type: 'percent',
-                amount: 0.05,
-                condition: '无门槛',
-                expire_date: firstCouponExpire,
-                used: false
-            });
-    } catch (e) {
-        console.log('优惠券发放跳过:', e);
-    }
+        const res = await fetch(window.API_BASE + '/api/checkout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({
+                item: 'vip_month',
+                amount: VIP_PRICE_MONTHLY,
+                channel: 'wxpay'
+            })
+        });
 
-    closeVipModal();
-    loadMemberStatus();
-    showCardMessage('开通成功', 'VIP会员开通成功！\n已发放首周95折优惠券（无门槛）', 'success');
+        const data = await res.json();
+        if (!res.ok || data.code !== 1) {
+            showCardMessage('下单失败', data.error || data.detail?.msg || '请稍后重试', 'error');
+            return;
+        }
+
+        // 跳转到 mpay 收银台
+        window.location.href = data.payurl;
+    } catch (err) {
+        console.error('VIP 下单异常:', err);
+        showCardMessage('网络错误', '无法连接支付服务器，请检查网络', 'error');
+    }
 }
 
 // --- 表单提交（直接执行，不依赖DOMContentLoaded） ---

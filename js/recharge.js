@@ -115,16 +115,56 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rechargeForm) {
         rechargeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            const success = await updateBalance(selectedRechargeAmount);
-            
-            if (success) {
-                // 重新同步余额
-                await syncBalanceFromDB();
-                closeRechargeModal();
-                showNotification('充值成功！账户余额已更新', 'success');
-            } else {
-                showNotification('充值失败，请重试', 'error');
+
+            const userStr = localStorage.getItem('skyUser');
+            if (!userStr) {
+                showNotification('请先登录', 'error');
+                return;
+            }
+
+            // 取 access_token
+            let token = null;
+            try {
+                const { data: { session } } = await window.supabaseClient.auth.getSession();
+                token = session?.access_token;
+            } catch (err) {
+                console.error('获取 session 失败:', err);
+            }
+            if (!token) {
+                showNotification('登录状态已过期，请重新登录', 'error');
+                return;
+            }
+
+            // 支付方式映射
+            const paymentRadio = document.querySelector('input[name="payment"]:checked');
+            const channelMap = { wechat: 'wxpay', alipay: 'alipay' };
+            const channel = channelMap[paymentRadio?.value] || 'wxpay';
+
+            try {
+                const res = await fetch(window.API_BASE + '/api/checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({
+                        item: 'recharge',
+                        amount: selectedRechargeAmount,
+                        channel: channel
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok || data.code !== 1) {
+                    showNotification(data.error || data.detail?.msg || '下单失败，请重试', 'error');
+                    return;
+                }
+
+                // 跳转到 mpay 收银台
+                window.location.href = data.payurl;
+            } catch (err) {
+                console.error('充值下单异常:', err);
+                showNotification('网络错误，无法连接支付服务器', 'error');
             }
         });
     }

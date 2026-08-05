@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支付结果 - BJ陪玩团</title>
+    <link rel="stylesheet" href="../css/style.css?v=202607312108">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .pay-return-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+        .pay-return-card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 40px 30px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .pay-return-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 32px;
+            color: #fff;
+        }
+        .pay-return-icon.loading { background: #4facfe; }
+        .pay-return-icon.success { background: #4CAF50; }
+        .pay-return-icon.error { background: #f44336; }
+        .pay-return-title {
+            font-size: 22px;
+            color: #1a1a2e;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        .pay-return-desc {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.7;
+            margin-bottom: 24px;
+        }
+        .pay-return-detail {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+        .pay-return-detail .row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .pay-return-detail .row:last-child { margin-bottom: 0; }
+        .pay-return-detail .label { color: #888; }
+        .pay-return-detail .value { color: #333; font-weight: 500; }
+        .pay-return-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .pay-return-actions .btn {
+            flex: 1;
+        }
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <script>
+    (function() {
+        var h = window.location.hostname;
+        window.API_BASE = (h === "localhost" || h === "127.0.0.1") ? "http://localhost:3000" : "https://api.skypw.dpdns.org";
+    })();
+    </script>
+
+    <div class="pay-return-page">
+        <div class="pay-return-card">
+            <div class="pay-return-icon loading" id="returnIcon">
+                <i class="fas fa-circle-notch spinner"></i>
+            </div>
+            <h2 class="pay-return-title" id="returnTitle">正在确认支付结果...</h2>
+            <p class="pay-return-desc" id="returnDesc">请稍候，系统正在与支付渠道核对订单状态。</p>
+
+            <div class="pay-return-detail" id="returnDetail" style="display:none;">
+                <div class="row">
+                    <span class="label">订单编号</span>
+                    <span class="value" id="detailOrderNo">--</span>
+                </div>
+                <div class="row">
+                    <span class="label">商品类型</span>
+                    <span class="value" id="detailItem">--</span>
+                </div>
+                <div class="row">
+                    <span class="label">支付金额</span>
+                    <span class="value" id="detailAmount">--</span>
+                </div>
+            </div>
+
+            <div class="pay-return-actions" id="returnActions" style="display:none;">
+                <a href="vip.html" class="btn btn-outline" id="btnVip">会员中心</a>
+                <a href="recharge.html" class="btn btn-outline" id="btnRecharge">充值中心</a>
+                <a href="profile.html" class="btn btn-primary" id="btnProfile">个人中心</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/supabase-config.js?v=202607312233"></script>
+    <script src="../js/pay-return.js?v=202607312233"></script>
+</body>
+</html>
