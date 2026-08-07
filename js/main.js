@@ -74,6 +74,56 @@ function formatNotifTime(iso) {
 }
 
 
+
+
+// 安全解析 JWT payload（不验证签名，仅取 iat/exp）
+function decodeJwtPayload(token) {
+    if (!token) return null;
+    try {
+        var parts = token.split('.');
+        if (parts.length < 2) return null;
+        var base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        var json = atob(base64);
+        return JSON.parse(json);
+    } catch (e) {
+        return null;
+    }
+}
+
+function sleep(ms) {
+    return new Promise(function(resolve) { setTimeout(resolve, ms); });
+}
+
+// 执行 Supabase 查询，若报 "JWT issued at future"，则等待 token 生效时间后重试一次。
+// 适用于 Supabase auth/REST 服务存在时钟 skew 的场景。
+async function withJwtRetry(queryFn, maxRetries) {
+    maxRetries = (maxRetries == null) ? 1 : maxRetries;
+    var lastError;
+    for (var i = 0; i <= maxRetries; i++) {
+        try {
+            return await queryFn();
+        } catch (err) {
+            lastError = err;
+            var msg = String(err && (err.message || err.msg || err)).toLowerCase();
+            if (i < maxRetries && msg.indexOf('issued at future') !== -1) {
+                try {
+                    var res = await window.supabaseClient.auth.getSession();
+                    var token = res && res.data && res.data.session && res.data.session.access_token;
+                    var payload = token ? decodeJwtPayload(token) : null;
+                    var iatMs = payload && payload.iat ? payload.iat * 1000 : 0;
+                    var wait = iatMs ? (iatMs - Date.now() + 1000) : 2000;
+                    if (wait < 500) wait = 500;
+                    if (wait > 10000) wait = 10000; // 最多等 10 秒
+                    await sleep(wait);
+                } catch (e) {}
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw lastError;
+}
+window.withJwtRetry = withJwtRetry;
 async function loadNotifications() {
     if(!window.supabaseClient) return;
     try {
@@ -90,13 +140,15 @@ async function loadNotifications() {
 
         // 只显示 3 小时内的通知（过期由数据库定时任务物理删除）
         var cutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
-        var res = await window.supabaseClient
-            .from('notifications')
-            .select('id, user_id, title, message, type, read, created_at, metadata')
-            .eq('user_id', userId)
-            .gte('created_at', cutoff)
-            .order('created_at', { ascending: false })
-            .limit(50);
+        var res = await withJwtRetry(function() {
+            return window.supabaseClient
+                .from('notifications')
+                .select('id, user_id, title, message, type, read, created_at, metadata')
+                .eq('user_id', userId)
+                .gte('created_at', cutoff)
+                .order('created_at', { ascending: false })
+                .limit(50);
+        });
         if(res.error) throw res.error;
 
         var list = (res.data || []).map(function(n) {
@@ -2664,11 +2716,13 @@ async function syncBalanceFromDB() {
         // 尝试从 Supabase 同步最新余额；若失败（如系统时间偏差导致 JWT 异常），直接静默使用缓存值
         var balance = cachedBalance;
         try {
-            const { data: profiles } = await window.supabaseClient
-                .from('profiles')
-                .select('balance')
-                .eq('id', userId)
-                .limit(1);
+            const { data: profiles } = await withJwtRetry(function() {
+                return window.supabaseClient
+                    .from('profiles')
+                    .select('balance')
+                    .eq('id', userId)
+                    .limit(1);
+            });
             const profile = profiles && profiles.length > 0 ? profiles[0] : null;
             if (profile) {
                 balance = parseFloat(profile.balance) || 0;

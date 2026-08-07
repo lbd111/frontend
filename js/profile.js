@@ -52,24 +52,31 @@ async function supabaseGet(table, filters) {
                 const ltIndex = f.indexOf('=lt.');
                 const gteIndex = f.indexOf('=gte.');
                 const lteIndex = f.indexOf('=lte.');
-                
+
                 let key = f;
                 let op = null;
                 let val = null;
-                
+
                 if (eqIndex > 0) { key = f.substring(0, eqIndex); op = 'eq'; val = f.substring(eqIndex + 4); }
                 else if (neqIndex > 0) { key = f.substring(0, neqIndex); op = 'neq'; val = f.substring(neqIndex + 6); }
                 else if (gtIndex > 0) { key = f.substring(0, gtIndex); op = 'gt'; val = f.substring(gtIndex + 4); }
                 else if (ltIndex > 0) { key = f.substring(0, ltIndex); op = 'lt'; val = f.substring(ltIndex + 4); }
                 else if (gteIndex > 0) { key = f.substring(0, gteIndex); op = 'gte'; val = f.substring(gteIndex + 5); }
                 else if (lteIndex > 0) { key = f.substring(0, lteIndex); op = 'lte'; val = f.substring(lteIndex + 5); }
-                
+
                 if (op && val) {
                     query = query[op](key, val);
                 }
             });
         }
-        const { data, error } = await query;
+        var runQuery = function() { return query; };
+        var result;
+        if (typeof window.withJwtRetry === 'function') {
+            result = await window.withJwtRetry(runQuery);
+        } else {
+            result = await runQuery();
+        }
+        const { data, error } = result;
         if (error) {
             console.error('SUPABASE GET error:', error);
             return { data: [], error: error.message };
@@ -95,6 +102,14 @@ async function supabaseInsert(table, record) {
 }
 
 // --- 加载优惠券列表 ---
+// 包装 Supabase 查询，若报 "JWT issued at future" 则自动等待重试
+async function spQuery(builderFn) {
+    if (typeof window.withJwtRetry === 'function') {
+        return await window.withJwtRetry(builderFn);
+    }
+    return await builderFn();
+}
+
 async function loadCouponsList() {
     const userStr = localStorage.getItem('skyUser');
     if (!userStr) {
@@ -363,23 +378,23 @@ async function loadStats() {
         // 并行查询：用户资料、普通订单、接单求助、派的单、我接的单、组队接单、优惠券、收藏
         // 注意：Supabase 查询构建器不是原生 Promise，不能直接用 .catch()
         const [profileRes, ordersRes, wizardOrdersRes, myRequestPostsRes, myRequestAcceptsRes, myDispatchPostsRes, myDispatchAcceptsRes, teamMemberRes, couponsRes, favoritesRes] = await Promise.all([
-            (async () => { try { return await window.supabaseClient.from('profiles').select('nickname, balance').eq('id', user.id).maybeSingle(); } catch(e) { return { data: null, error: e }; } })(),
-            (async () => { try { return await window.supabaseClient.from('orders').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await spQuery(() => window.supabaseClient.from('profiles').select('nickname, balance').eq('id', user.id).maybeSingle()); } catch(e) { return { data: null, error: e }; } })(),
+            (async () => { try { return await spQuery(() => window.supabaseClient.from('orders').select('*').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })(),
             (async () => { 
                 try { 
-                    const pr = await window.supabaseClient.from('profiles').select('nickname').eq('id', user.id).maybeSingle();
+                    const pr = await spQuery(() => window.supabaseClient.from('profiles').select('nickname').eq('id', user.id).maybeSingle());
                     const nickname = pr.data && pr.data.nickname ? pr.data.nickname : (user.nickname || '');
                     if(!nickname) return { data: [] };
-                    return await window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname);
+                    return await spQuery(() => window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname));
                 } catch(e) { return { data: [], error: e }; } 
             })(),
-            (async () => { try { return await window.supabaseClient.from('order_requests').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await window.supabaseClient.from('order_requests').select('*').eq('accepted_by', user.id); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('accepted_by', user.id); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await window.supabaseClient.from('dispatch_team_members').select('dispatch_order_id').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await window.supabaseClient.from('coupons').select('*').eq('user_id', user.id).eq('used', false); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await window.supabaseClient.from('favorites').select('*').eq('user_id', user.id); } catch(e) { return { data: [], error: e }; } })()
+            (async () => { try { return await spQuery(() => window.supabaseClient.from('order_requests').select('*').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await spQuery(() => window.supabaseClient.from('order_requests').select('*').eq('accepted_by', user.id)); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await spQuery(() => window.supabaseClient.from('dispatch_orders').select('*').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await spQuery(() => window.supabaseClient.from('dispatch_orders').select('*').eq('accepted_by', user.id)); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await spQuery(() => window.supabaseClient.from('dispatch_team_members').select('dispatch_order_id').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await spQuery(() => window.supabaseClient.from('coupons').select('*').eq('user_id', user.id).eq('used', false)); } catch(e) { return { data: [], error: e }; } })(),
+            (async () => { try { return await spQuery(() => window.supabaseClient.from('favorites').select('*').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })()
         ]);
 
         const profile = profileRes.data || {};
@@ -390,7 +405,7 @@ async function loadStats() {
         let teamDispatchRes = { data: [] };
         if(teamDispatchIds.length > 0) {
             try {
-                teamDispatchRes = await window.supabaseClient.from('dispatch_orders').select('*').in('id', teamDispatchIds);
+                teamDispatchRes = await spQuery(() => window.supabaseClient.from('dispatch_orders').select('*').in('id', teamDispatchIds));
             } catch(e) { teamDispatchRes = { data: [] }; }
         }
 
