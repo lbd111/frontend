@@ -484,6 +484,24 @@ app.get('/api/orders/status/:bj_order_no', authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * 查询当前用户的支付/充值记录
+ * GET /api/payment-records
+ */
+app.get('/api/payment-records', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await dbPool.execute(
+      `SELECT bj_order_no, item_type, amount, channel, status, paid_at, created_at
+       FROM payment_orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`,
+      [req.user.id]
+    );
+    res.json({ code: 1, records: rows });
+  } catch (err) {
+    console.error('/api/payment-records 异常:', err);
+    res.status(500).json({ code: 0, error: '服务器内部错误' });
+  }
+});
+
 // ================== 启动 ==================
 async function startServer() {
   try {
