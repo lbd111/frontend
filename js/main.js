@@ -94,18 +94,37 @@ function sleep(ms) {
     return new Promise(function(resolve) { setTimeout(resolve, ms); });
 }
 
-// 执行 Supabase 查询，若报 "JWT issued at future"，则等待 token 生效时间后重试一次。
+// 判断是否为 "JWT issued at future" 类错误，兼容 Supabase 返回的对象和异常。
+function isJwtFutureError(errOrResult) {
+    if (!errOrResult) return false;
+    // 如果传入的是查询结果对象 { data, error }，取 error
+    var err = errOrResult.error || errOrResult;
+    var msg = String(err && (err.message || err.msg || err)).toLowerCase();
+    return msg.indexOf('issued at future') !== -1 ||
+           msg.indexOf('jwt') !== -1 && msg.indexOf('future') !== -1 ||
+           msg.indexOf('iat') !== -1 && msg.indexOf('future') !== -1 ||
+           msg.indexOf('401') !== -1 && msg.indexOf('unauthorized') !== -1;
+}
+
+// 执行 Supabase 查询，若报 "JWT issued at future"，则等待 token 生效时间后重试。
 // 适用于 Supabase auth/REST 服务存在时钟 skew 的场景。
 async function withJwtRetry(queryFn, maxRetries) {
-    maxRetries = (maxRetries == null) ? 1 : maxRetries;
-    var lastError;
+    maxRetries = (maxRetries == null) ? 3 : maxRetries;
+    var lastResult;
     for (var i = 0; i <= maxRetries; i++) {
         try {
-            return await queryFn();
+            lastResult = await queryFn();
         } catch (err) {
-            lastError = err;
-            var msg = String(err && (err.message || err.msg || err)).toLowerCase();
-            if (i < maxRetries && msg.indexOf('issued at future') !== -1) {
+            lastResult = err;
+        }
+
+        // Supabase 通常不抛异常，而是返回 { error } 对象
+        if (lastResult && !lastResult.error && typeof lastResult === 'object' && (lastResult.message || lastResult.msg)) {
+            lastResult = { error: lastResult };
+        }
+
+        if (lastResult && lastResult.error && isJwtFutureError(lastResult)) {
+            if (i < maxRetries) {
                 try {
                     var res = await window.supabaseClient.auth.getSession();
                     var token = res && res.data && res.data.session && res.data.session.access_token;
@@ -118,10 +137,10 @@ async function withJwtRetry(queryFn, maxRetries) {
                 } catch (e) {}
                 continue;
             }
-            throw err;
         }
+        return lastResult;
     }
-    throw lastError;
+    return lastResult;
 }
 window.withJwtRetry = withJwtRetry;
 async function loadNotifications() {
