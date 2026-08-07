@@ -2648,6 +2648,17 @@ async function syncBalanceFromDB() {
 
 
 
+        // 先确保 session/token 有效，避免服务端报 "JWT issued at future"
+        try {
+            const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
+            if (!session || sessionError) {
+                await window.supabaseClient.auth.refreshSession();
+            }
+        } catch (e) {
+            console.warn('检查 session 失败，尝试刷新:', e);
+            await window.supabaseClient.auth.refreshSession();
+        }
+
         const { data: profiles, error } = await window.supabaseClient
 
             .from('profiles')
