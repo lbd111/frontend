@@ -80,6 +80,27 @@ function isJWTError(err) {
     return /jwt|token|issued at future|expired|invalid signature|not authenticated/.test(msg);
 }
 
+// 安全解析 JWT payload（不验证签名，仅取时间戳）
+function decodeJwtPayload(token) {
+    if (!token) return null;
+    try {
+        var parts = token.split('.');
+        if (parts.length < 2) return null;
+        var base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        var json = atob(base64);
+        return JSON.parse(json);
+    } catch (e) {
+        return null;
+    }
+}
+
+// 等待指定毫秒
+function sleep(ms) {
+    return new Promise(function(resolve) { setTimeout(resolve, ms); });
+}
+
+var __jwtFutureWarned = false;
+
 // 执行 Supabase 查询，若因 JWT 问题失败则自动刷新 session 并重试一次
 async function withSessionRefresh(queryFn, maxRetries) {
     maxRetries = maxRetries == null ? 1 : maxRetries;
@@ -90,12 +111,43 @@ async function withSessionRefresh(queryFn, maxRetries) {
         } catch (err) {
             lastError = err;
             if (i < maxRetries && isJWTError(err)) {
+                var msg = String(err.message || err.msg || err).toLowerCase();
+                var isFuture = msg.indexOf('issued at future') !== -1;
                 console.warn('检测到 JWT 异常，尝试刷新 session:', err.message || err);
+
                 try {
+                    var before = await window.supabaseClient.auth.getSession();
+                    var beforePayload = before.data && before.data.session && before.data.session.access_token
+                        ? decodeJwtPayload(before.data.session.access_token) : null;
+                    var beforeIat = beforePayload && beforePayload.iat ? beforePayload.iat * 1000 : 0;
+                    var now = Date.now();
+
+                    // 若 token 的 iat 在未来，先等到它生效后再继续（最多等 5 秒）
+                    if (beforeIat && beforeIat > now) {
+                        var wait = Math.min(beforeIat - now + 500, 5000);
+                        console.warn('JWT iat 在未来，等待 ' + wait + 'ms 后重试');
+                        await sleep(wait);
+                    }
+
                     var refreshRes = await window.supabaseClient.auth.refreshSession();
                     if (refreshRes && refreshRes.error) throw refreshRes.error;
+
+                    // 刷新后再检查新 token，若仍然 future，给出明确提示
+                    var after = await window.supabaseClient.auth.getSession();
+                    var afterPayload = after.data && after.data.session && after.data.session.access_token
+                        ? decodeJwtPayload(after.data.session.access_token) : null;
+                    var afterIat = afterPayload && afterPayload.iat ? afterPayload.iat * 1000 : 0;
+                    if (afterIat && afterIat > Date.now() && !__jwtFutureWarned) {
+                        __jwtFutureWarned = true;
+                        showNotification('检测到系统时间异常，请同步网络时间后刷新页面', 'error', 6000);
+                        console.error('刷新后 token 的 iat 仍为未来时间，请同步系统时间:', new Date(afterIat).toISOString());
+                    }
                 } catch (refreshErr) {
                     console.error('刷新 session 失败:', refreshErr);
+                    if (isFuture && !__jwtFutureWarned) {
+                        __jwtFutureWarned = true;
+                        showNotification('登录状态异常，请检查系统时间或重新登录', 'error', 6000);
+                    }
                     throw refreshErr;
                 }
                 continue;
