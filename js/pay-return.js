@@ -26,7 +26,9 @@
     const interval = 3000;  // 每 3 秒一次，总计约 90 秒
 
     async function checkStatus() {
+        if (stopped) return;
         attempts++;
+
         let token = null;
         try {
             const { data: { session } } = await window.supabaseClient.auth.getSession();
@@ -40,15 +42,31 @@
             return;
         }
 
+        abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController && abortController.abort(), 10000);
+
         try {
             const res = await fetch(window.API_BASE + '/api/orders/status/' + encodeURIComponent(bjOrderNo), {
-                headers: { 'Authorization': 'Bearer ' + token }
+                headers: { 'Authorization': 'Bearer ' + token },
+                signal: abortController.signal
             });
-            const data = await res.json();
+            clearTimeout(timeoutId);
+
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                console.error('解析订单状态响应失败:', jsonErr);
+                data = { code: 0, error: '服务器响应异常' };
+            }
+
+            if (stopped) return;
 
             if (!res.ok || data.code !== 1) {
                 if (attempts >= maxAttempts) {
                     showError('查询失败', data.error || '无法获取订单状态，请联系客服。');
+                } else {
+                    scheduleNext();
                 }
                 return;
             }
@@ -65,13 +83,33 @@
             // 继续轮询
             if (attempts >= maxAttempts) {
                 showPending('尚未收到支付结果', '如果您已完成付款，权益将在到账后自动发放，请稍后到个人中心查看。');
+                return;
             }
+
+            scheduleNext();
         } catch (err) {
+            clearTimeout(timeoutId);
+            // 页面停止轮询或请求被取消时，静默忽略，不打印错误
+            if (stopped || err.name === 'AbortError') return;
             console.error('轮询异常:', err);
             if (attempts >= maxAttempts) {
                 showError('网络异常', '无法连接支付服务器，请稍后到个人中心查看余额/会员状态。');
+                return;
+            }
+            scheduleNext();
+        } finally {
+            if (abortController) {
+                abortController = null;
             }
         }
+    }
+
+    function scheduleNext() {
+        if (stopped || timer) return;
+        timer = setTimeout(() => {
+            timer = null;
+            checkStatus();
+        }, interval);
     }
 
     async function showSuccess(order) {
@@ -132,15 +170,23 @@
     }
 
     let timer = null;
+    let abortController = null;
+    let stopped = false;
+
     function startPolling() {
+        stopped = false;
         checkStatus();
-        timer = setInterval(checkStatus, interval);
     }
 
     function stopPolling() {
+        stopped = true;
         if (timer) {
-            clearInterval(timer);
+            clearTimeout(timer);
             timer = null;
+        }
+        if (abortController) {
+            abortController.abort();
+            abortController = null;
         }
     }
 
