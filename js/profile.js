@@ -195,7 +195,7 @@ async function loadCouponsList() {
     list.innerHTML = html;
 }
 
-async function loadUserProfile() {
+async function loadUserProfile(prefetchedProfile) {
     try {
         const userStr = localStorage.getItem('skyUser');
         let user = null;
@@ -229,12 +229,18 @@ const wEl = document.getElementById('wangzheIdValue');
         }
         console.log('加载用户数据:', user);
 
-        const filters = ['id=eq.' + user.id];
-        const result = await supabaseGet('profiles', filters);
-        console.log('Profile result:', result);
-        
-        if (result.data && result.data.length > 0) {
-            const profile = result.data[0];
+        let profile = prefetchedProfile || null;
+        if (!profile) {
+            const filters = ['id=eq.' + user.id];
+            const result = await supabaseGet('profiles', filters);
+            console.log('Profile result:', result);
+            if (result.data && result.data.length > 0) {
+                profile = result.data[0];
+            }
+        }
+        console.log('Profile data:', profile);
+
+        if (profile) {
             console.log('Profile data:', profile);
 
             var displayName = profile.nickname || user.email.split('@')[0] || (user.username || '玩家');
@@ -374,7 +380,49 @@ const avatarContainer = document.querySelector('.avatar-inner');
     }
 }
 
-async function loadStats() {
+// 通过后端 /api/profile-data 一次性获取个人中心数据，绕过 Supabase REST 的 JWT iat 时间校验
+async function loadProfileDataFromApi() {
+    try {
+        const userStr = localStorage.getItem('skyUser');
+        if (!userStr) return false;
+        let user = null;
+        try { user = JSON.parse(userStr); } catch(e) { return false; }
+        if (!user || !user.id) return false;
+
+        let token = null;
+        try {
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            token = session && session.access_token;
+        } catch(e) {
+            console.error('获取 session 失败:', e);
+        }
+        if (!token) return false;
+
+        const apiBase = (typeof window.API_BASE !== 'undefined') ? window.API_BASE : 'https://api.skypw.dpdns.org';
+        const res = await fetch(apiBase + '/api/profile-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            }
+        });
+        const result = await res.json();
+        if (!res.ok || result.code !== 1) {
+            console.warn('[loadProfileDataFromApi] 后端返回异常:', result);
+            return false;
+        }
+
+        console.log('[loadProfileDataFromApi] 后端数据已返回');
+        await loadUserProfile(result.data.profile || null);
+        await loadStats(result.data || null);
+        return true;
+    } catch (err) {
+        console.error('[loadProfileDataFromApi] 调用后端失败:', err);
+        return false;
+    }
+}
+
+async function loadStats(prefetchedData) {
     try {
         const userStr = localStorage.getItem('skyUser');
         let user = null;
@@ -402,9 +450,23 @@ async function loadStats() {
             return;
         }
 
-        // 并行查询：用户资料、普通订单、接单求助、派的单、我接的单、组队接单、优惠券、收藏
-        // 注意：Supabase 查询构建器不是原生 Promise，不能直接用 .catch()
-        const [profileRes, ordersRes, wizardOrdersRes, myRequestPostsRes, myRequestAcceptsRes, myDispatchPostsRes, myDispatchAcceptsRes, teamMemberRes, couponsRes, favoritesRes] = await Promise.all([
+        let profileRes, ordersRes, wizardOrdersRes, myRequestPostsRes, myRequestAcceptsRes, myDispatchPostsRes, myDispatchAcceptsRes, teamMemberRes, couponsRes, favoritesRes, teamDispatchRes;
+        if (prefetchedData) {
+            profileRes = { data: prefetchedData.profile || null };
+            ordersRes = { data: prefetchedData.orders || [] };
+            wizardOrdersRes = { data: prefetchedData.wizardOrders || [] };
+            myRequestPostsRes = { data: prefetchedData.myRequestPosts || [] };
+            myRequestAcceptsRes = { data: prefetchedData.myRequestAccepts || [] };
+            myDispatchPostsRes = { data: prefetchedData.myDispatchPosts || [] };
+            myDispatchAcceptsRes = { data: prefetchedData.myDispatchAccepts || [] };
+            teamMemberRes = { data: (prefetchedData.teamDispatchOrders || []).map(d => ({ dispatch_order_id: d.id })) };
+            couponsRes = { data: prefetchedData.coupons || [] };
+            favoritesRes = { data: prefetchedData.favorites || [] };
+            teamDispatchRes = { data: prefetchedData.teamDispatchOrders || [] };
+        } else {
+            // 并行查询：用户资料、普通订单、接单求助、派的单、我接的单、组队接单、优惠券、收藏
+            // 注意：Supabase 查询构建器不是原生 Promise，不能直接用 .catch()
+            [profileRes, ordersRes, wizardOrdersRes, myRequestPostsRes, myRequestAcceptsRes, myDispatchPostsRes, myDispatchAcceptsRes, teamMemberRes, couponsRes, favoritesRes] = await Promise.all([
             (async () => { try { return await spQuery(() => window.supabaseClient.from('profiles').select('nickname, balance').eq('id', user.id).maybeSingle()); } catch(e) { return { data: null, error: e }; } })(),
             (async () => { try { return await spQuery(() => window.supabaseClient.from('orders').select('*').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })(),
             (async () => { 
@@ -423,13 +485,14 @@ async function loadStats() {
             (async () => { try { return await spQuery(() => window.supabaseClient.from('coupons').select('*').eq('user_id', user.id).eq('used', false)); } catch(e) { return { data: [], error: e }; } })(),
             (async () => { try { return await spQuery(() => window.supabaseClient.from('favorites').select('*').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })()
         ]);
+        }
 
         const profile = profileRes.data || {};
         const nickname = profile.nickname || user.nickname || '';
 
         // 通过 dispatch_team_members 查找我加入的组队派单
         const teamDispatchIds = (teamMemberRes.data || []).map(m => m.dispatch_order_id).filter(Boolean);
-        let teamDispatchRes = { data: [] };
+        teamDispatchRes = { data: [] };
         if(teamDispatchIds.length > 0) {
             try {
                 teamDispatchRes = await spQuery(() => window.supabaseClient.from('dispatch_orders').select('*').in('id', teamDispatchIds));
@@ -485,9 +548,13 @@ async function loadStats() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadUserProfile();
-    loadStats();
+document.addEventListener('DOMContentLoaded', async () => {
+    const ok = await loadProfileDataFromApi();
+    if (!ok) {
+        console.log('[profile] 后端接口未就绪，回退到 Supabase 直连');
+        loadUserProfile();
+        loadStats();
+    }
 
     document.querySelectorAll('.orders-modal .tabs .tab').forEach(tab => {
         tab.addEventListener('click', () => {

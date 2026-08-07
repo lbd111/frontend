@@ -140,10 +140,12 @@ function authMiddleware(req, res, next) {
       // Supabase 新 JWT Signing Keys：使用 ES256 非对称验签，PUBLIC_KEY 为 JWK JSON
       const jwk = JSON.parse(SUPABASE_JWT_PUBLIC_KEY);
       const publicKey = crypto.createPublicKey({ key: jwk, format: 'jwk' });
-      payload = jwt.verify(token, publicKey, { algorithms: ['ES256'] });
+      // clockTolerance: 300 秒，容忍 auth 与 REST 服务端的时钟 skew（常见 "JWT issued at future" 根因）
+      payload = jwt.verify(token, publicKey, { algorithms: ['ES256'], clockTolerance: 300 });
     } else {
       // 旧版 Supabase：HS256/HS384/HS512 对称验签，JWT Secret 是 base64 编码字符串，需先 decode
-      payload = jwt.verify(token, Buffer.from(SUPABASE_JWT_SECRET, 'base64'), { algorithms: ['HS256', 'HS384', 'HS512'] });
+      // clockTolerance: 300 秒，容忍 auth 与 REST 服务端的时钟 skew
+      payload = jwt.verify(token, Buffer.from(SUPABASE_JWT_SECRET, 'base64'), { algorithms: ['HS256', 'HS384', 'HS512'], clockTolerance: 300 });
     }
     req.user = { id: payload.sub, email: payload.email };
     next();
@@ -551,6 +553,78 @@ app.get('/api/balance', async (req, res) => {
   } catch (err) {
     console.error('/api/balance 异常:', err);
     res.status(500).json({ code: 0, error: '查询余额失败' });
+  }
+});
+
+/**
+ * 个人中心数据聚合查询（绕过前端 JWT iat 时间校验）
+ * POST /api/profile-data
+ * 使用 service_role 一次性查询个人中心所需全部数据，按 req.user.id 过滤
+ */
+app.post('/api/profile-data', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('nickname, balance, avatar_url, server, sky_id, wangzhe_id, wz_server, created_at, rating, vip_expire_at')
+      .eq('id', userId)
+      .maybeSingle();
+    if (profileError) throw profileError;
+
+    const nickname = profile && profile.nickname ? profile.nickname : '';
+
+    const [
+      ordersRes,
+      wizardOrdersRes,
+      myRequestPostsRes,
+      myRequestAcceptsRes,
+      myDispatchPostsRes,
+      myDispatchAcceptsRes,
+      teamMemberRes,
+      couponsRes,
+      favoritesRes
+    ] = await Promise.all([
+      supabase.from('orders').select('*').eq('user_id', userId),
+      nickname ? supabase.from('orders').select('*').eq('wizard_name', nickname) : Promise.resolve({ data: [] }),
+      supabase.from('order_requests').select('*').eq('user_id', userId),
+      supabase.from('order_requests').select('*').eq('accepted_by', userId),
+      supabase.from('dispatch_orders').select('*').eq('user_id', userId),
+      supabase.from('dispatch_orders').select('*').eq('accepted_by', userId),
+      supabase.from('dispatch_team_members').select('dispatch_order_id').eq('user_id', userId),
+      supabase.from('coupons').select('*').eq('user_id', userId).eq('used', false),
+      supabase.from('favorites').select('*').eq('user_id', userId)
+    ]);
+
+    let teamDispatchOrders = [];
+    const teamDispatchIds = (teamMemberRes.data || [])
+      .map(m => m.dispatch_order_id)
+      .filter(id => id != null);
+    if (teamDispatchIds.length > 0) {
+      const { data: teamDispatchData } = await supabase
+        .from('dispatch_orders')
+        .select('*')
+        .in('id', teamDispatchIds);
+      teamDispatchOrders = teamDispatchData || [];
+    }
+
+    res.json({
+      code: 1,
+      data: {
+        profile: profile || null,
+        orders: ordersRes.data || [],
+        wizardOrders: wizardOrdersRes.data || [],
+        myRequestPosts: myRequestPostsRes.data || [],
+        myRequestAccepts: myRequestAcceptsRes.data || [],
+        myDispatchPosts: myDispatchPostsRes.data || [],
+        myDispatchAccepts: myDispatchAcceptsRes.data || [],
+        teamDispatchOrders,
+        coupons: couponsRes.data || [],
+        favorites: favoritesRes.data || []
+      }
+    });
+  } catch (err) {
+    console.error('/api/profile-data 异常:', err);
+    res.status(500).json({ code: 0, error: '查询个人中心数据失败' });
   }
 });
 
