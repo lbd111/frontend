@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-微信支付窗口监控（替代老版 wxmonitor）v1.4
+微信支付窗口监控（替代老版 wxmonitor）v1.5
 原理：按标题找到微信支付窗口 → 定时截图 → OCR 识别金额 → POST /mpayNotify
 
 两种运行模式：
   1. 默认（有 GUI）：弹 tkinter 窗口，可点「开始监控」「停止监控」「手动上报」
   2. --headless：无窗口，启动即自动监控，日志写文件，适合计划任务/开机自启
 
-v1.4 改进：
-  - 去重 key 改为「金额 + 到账时间」，避免同金额但不同笔的收款被 300s 去重挡住
-  - 默认去重间隔从 300s 降到 30s，测试时无需再手动 --dedup 0
-  - 保留 v1.3 的下半窗口截图、排除累计金额、优先最下方金额等逻辑
+v1.5 改进：
+  - 去重默认间隔降到 5 秒；并对 --dedup 参数加保险：>=60 秒会自动钳制为 5 秒，
+    防止计划任务误配 --dedup 300 导致同金额新订单被挡 5 分钟才上报。
+  - 保留 v1.4 的「金额 + 到账时间」去重 key，不同笔收款互不干扰。
+  - 依赖 mpay / BJ 服务端幂等：无对应订单的上报不会误回调，可安全高频上报。
 """
 import argparse
 import base64
@@ -208,7 +209,7 @@ def send_notify(amount):
 class MonitorCore:
     """无 GUI 的监控核心，GUI 与 headless 共用"""
 
-    def __init__(self, log_func=print, dedup_seconds=300):
+    def __init__(self, log_func=print, dedup_seconds=5):
         self.log = log_func
         self.dedup_seconds = dedup_seconds
         self.running = False
@@ -360,8 +361,13 @@ class MonitorApp:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="微信支付窗口监控")
     parser.add_argument("--headless", action="store_true", help="无窗口模式，启动即自动监控")
-    parser.add_argument("--dedup", type=int, default=30, help="同一笔收款去重间隔秒数，默认 30（按金额+到账时间去重）")
+    parser.add_argument("--dedup", type=int, default=5, help="同一笔收款去重间隔秒数，默认 5（按金额+到账时间去重）。注意：>=60 会被自动钳制为 5，以免支付延迟。")
     args = parser.parse_args()
+
+    # 保险：去重间隔过大会导致支付延迟（旧订单挡住新订单），上限钳制为 5 秒
+    if args.dedup >= 60:
+        print(f"[WARN] --dedup {args.dedup} 过大，自动钳制为 5 秒，避免支付延迟")
+        args.dedup = 5
 
     if args.headless:
         core = MonitorCore(dedup_seconds=args.dedup)
