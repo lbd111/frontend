@@ -144,20 +144,6 @@ function closeConfirmModal() {
     }
 }
 
-// 安全获取有效 access_token；若 JWT 异常则自动刷新 session 重试
-async function getValidAccessToken() {
-    var getSessionFn = async function() {
-        var res = await window.supabaseClient.auth.getSession();
-        if (res.error) throw res.error;
-        if (!res.data || !res.data.session) throw new Error('未登录');
-        return res.data.session.access_token;
-    };
-    if (typeof window.withSessionRefresh === 'function') {
-        return await window.withSessionRefresh(getSessionFn);
-    }
-    return await getSessionFn();
-}
-
 // 从后端拉取当前用户的充值/支付记录并渲染
 async function loadTransferRecords() {
     const listEl = document.getElementById('recordsList');
@@ -167,7 +153,8 @@ async function loadTransferRecords() {
 
     let token = null;
     try {
-        token = await getValidAccessToken();
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        token = session?.access_token;
     } catch (e) {
         console.error('获取 session 失败:', e);
     }
@@ -177,29 +164,13 @@ async function loadTransferRecords() {
     }
 
     try {
-        var fetchRecords = async function() {
-            const res = await fetch(window.API_BASE + '/api/payment-records', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            const data = await res.json();
-            if (!res.ok || data.code !== 1) {
-                throw new Error(data.error || '记录加载失败');
-            }
-            return data;
-        };
-
-        var data;
-        try {
-            data = await fetchRecords();
-        } catch (firstErr) {
-            // 第一次失败且为 JWT/token 类错误，刷新 token 后重试一次
-            var firstMsg = String(firstErr.message || firstErr).toLowerCase();
-            if (firstMsg.indexOf('jwt') !== -1 || firstMsg.indexOf('token') !== -1 || firstMsg.indexOf('unauthorized') !== -1) {
-                token = await getValidAccessToken();
-                data = await fetchRecords();
-            } else {
-                throw firstErr;
-            }
+        const res = await fetch(window.API_BASE + '/api/payment-records', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (!res.ok || data.code !== 1) {
+            listEl.innerHTML = '<div class="records-empty">记录加载失败，请稍后重试</div>';
+            return;
         }
 
         const records = data.records || [];
@@ -232,12 +203,7 @@ async function loadTransferRecords() {
         }).join('');
     } catch (err) {
         console.error('加载充值记录异常:', err);
-        var msg = String(err.message || err).toLowerCase();
-        if (msg.indexOf('jwt') !== -1 || msg.indexOf('token') !== -1 || msg.indexOf('unauthorized') !== -1) {
-            listEl.innerHTML = '<div class="records-empty">登录状态异常，请检查系统时间或重新登录</div>';
-        } else {
-            listEl.innerHTML = '<div class="records-empty">网络错误，无法连接服务器</div>';
-        }
+        listEl.innerHTML = '<div class="records-empty">网络错误，无法连接服务器</div>';
     }
 }
 
@@ -255,7 +221,8 @@ async function deleteTransferRecord(bjOrderNo, btnEl) {
 
     let token = null;
     try {
-        token = await getValidAccessToken();
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        token = session?.access_token;
     } catch (e) {
         console.error('获取 session 失败:', e);
     }
@@ -350,10 +317,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // 取有效 access_token（自动刷新）
+            // 取 access_token
             let token = null;
             try {
-                token = await getValidAccessToken();
+                const { data: { session } } = await window.supabaseClient.auth.getSession();
+                token = session?.access_token;
             } catch (err) {
                 console.error('获取 session 失败:', err);
             }
