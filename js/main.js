@@ -113,8 +113,7 @@ async function loadNotifications() {
         renderNotificationList(list);
         updateNotifBadge(list);
     } catch(e) {
-        console.warn('加载消息通知失败:', e);
-        // 失败时仍用缓存渲染
+        // 加载失败不打印警告，静默使用缓存渲染
         renderNotificationList(getNotifications());
     }
 }
@@ -2652,60 +2651,48 @@ async function syncBalanceFromDB() {
         const userId = user && (user.id || user.user_id);
         if (!userId) return null;
 
-        // 走后端 service_role 接口查询余额，绕过前端 token 的时间校验问题
-        const resp = await fetch(window.API_BASE + '/api/balance?userId=' + encodeURIComponent(userId));
-        const result = await resp.json();
-        if (!resp.ok || result.code !== 1) {
-            console.warn('余额接口返回异常:', result);
-            return null;
+        // 先拿本地缓存余额更新显示，避免请求失败时页面一直显示 0.00
+        var cachedBalance = parseFloat(user.balance) || 0;
+        var rechargeEl = document.getElementById('balanceValue');
+        if (rechargeEl) rechargeEl.textContent = cachedBalance.toFixed(2);
+        var statCards = document.querySelectorAll('.stat-card');
+        if (statCards && statCards[3]) {
+            var v = statCards[3].querySelector('.stat-value');
+            if (v) v.textContent = '\uffe5' + cachedBalance.toFixed(2);
         }
 
-        const balance = parseFloat(result.balance) || 0;
-
-
-
-        // 更新 localStorage
-
-        user.balance = balance;
-
-        localStorage.setItem('skyUser', JSON.stringify(user));
-
-
+        // 尝试从 Supabase 同步最新余额；若失败（如系统时间偏差导致 JWT 异常），直接静默使用缓存值
+        var balance = cachedBalance;
+        try {
+            const { data: profiles } = await window.supabaseClient
+                .from('profiles')
+                .select('balance')
+                .eq('id', userId)
+                .limit(1);
+            const profile = profiles && profiles.length > 0 ? profiles[0] : null;
+            if (profile) {
+                balance = parseFloat(profile.balance) || 0;
+                user.balance = balance;
+                localStorage.setItem('skyUser', JSON.stringify(user));
+            }
+        } catch (err) {
+            // 同步失败不抛错、不打断页面，缓存余额已经显示在上面
+        }
 
         // 更新充值中心余额显示
-
-        const rechargeEl = document.getElementById('balanceValue');
-
-        if (rechargeEl) {
-
-            rechargeEl.textContent = balance.toFixed(2);
-
-        }
-
-
+        if (rechargeEl) rechargeEl.textContent = balance.toFixed(2);
 
         // 更新个人中心余额显示
-
-        const statCards = document.querySelectorAll('.stat-card');
-
         if (statCards && statCards[3]) {
-
-            const v = statCards[3].querySelector('.stat-value');
-
-            if (v) v.textContent = '\uffe5' + balance.toFixed(2);
-
+            var v2 = statCards[3].querySelector('.stat-value');
+            if (v2) v2.textContent = '\uffe5' + balance.toFixed(2);
         }
-
-
 
         return balance;
 
     } catch (err) {
-
-        console.error('同步余额失败:', err);
-
+        // 外层异常也静默处理，避免控制台报错影响体验
         return null;
-
     }
 
 }
