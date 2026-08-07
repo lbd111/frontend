@@ -144,9 +144,9 @@ async function loadTransferRecords() {
                     <span class="record-method"><i class="${channelIcon}"></i> ${channelName}${statusTag}</span>
                     <span class="record-orderno">订单号：${r.bj_order_no}</span>
                 </div>
-                <div class="record-right">
+                <div class="record-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
                     <div class="record-amount">${sign}￥${parseFloat(r.amount).toFixed(2)}</div>
-                    <button class="record-delete" title="删除此记录" onclick="deleteTransferRecord('${r.bj_order_no}', this)">
+                    <button class="record-delete" title="删除此记录" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:none;background:transparent;color:#bdbdbd;border-radius:50%;cursor:pointer;font-size:0.85rem;padding:0;" onmouseover="this.style.background='#ffebee';this.style.color='#c62828';" onmouseout="this.style.background='transparent';this.style.color='#bdbdbd';" onclick="deleteTransferRecord('${r.bj_order_no}', this)">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
