@@ -79,6 +79,10 @@
             text-align: center;
             justify-content: center;
         }
+        .pay-return-actions .btn:only-child {
+            flex: 1 1 100%;
+            width: 100%;
+        }
         @media (max-width: 480px) {
             .pay-return-card {
                 padding: 28px 20px;
@@ -153,8 +157,6 @@
             </div>
 
             <div class="pay-return-actions" id="returnActions" style="display:none;">
-                <a href="vip.html" class="btn btn-outline" id="btnVip">会员中心</a>
-                <a href="recharge.html" class="btn btn-outline" id="btnRecharge">充值中心</a>
                 <a href="recharge.html" class="btn btn-primary" id="btnProfile">返回充值中心</a>
             </div>
         </div>
