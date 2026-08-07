@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-微信支付窗口监控（替代老版 wxmonitor）v1.3
+微信支付窗口监控（替代老版 wxmonitor）v1.4
 原理：按标题找到微信支付窗口 → 定时截图 → OCR 识别金额 → POST /mpayNotify
 
 两种运行模式：
   1. 默认（有 GUI）：弹 tkinter 窗口，可点「开始监控」「停止监控」「手动上报」
   2. --headless：无窗口，启动即自动监控，日志写文件，适合计划任务/开机自启
 
-v1.3 改进：
-  - 截图时只取窗口下半部分（最新通知通常在最下方），避开顶部历史记录干扰
-  - 金额提取排除「累计金额」等统计信息，多个候选时优先选择最下方（最新）金额
-  - 保留 v1.2 的放大/灰度/二值化预处理和候选日志
+v1.4 改进：
+  - 去重 key 改为「金额 + 到账时间」，避免同金额但不同笔的收款被 300s 去重挡住
+  - 默认去重间隔从 300s 降到 30s，测试时无需再手动 --dedup 0
+  - 保留 v1.3 的下半窗口截图、排除累计金额、优先最下方金额等逻辑
 """
 import argparse
 import base64
@@ -127,6 +127,24 @@ def ocr_image(img):
         return "\n".join(result)
 
 
+def extract_pay_time(text):
+    """从 OCR 文本中提取到账时间，作为同一笔收款的唯一标识。
+
+    微信到账通知常见格式：「到账时间 2026-08-07 12:47:49」，
+    OCR 也可能把「账」识别成「长」，写成「到长时间」。
+    """
+    patterns = [
+        r"到[账长]时间\s*[：:/]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})",
+        r"(?:到账|到长)时间\s*[：:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})",
+        r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s*(?:到账|到长|入账)",
+    ]
+    for p in patterns:
+        m = re.search(p, text)
+        if m:
+            return m.group(1)
+    return None
+
+
 def extract_amount(text):
     """从 OCR 文本里提取金额，返回 (最佳金额, 候选列表)
 
@@ -218,22 +236,26 @@ class MonitorCore:
                 preview = text.replace("\n", " / ")[:200]
                 self.log_msg(f"OCR: {preview}")
                 amount, candidates = extract_amount(text)
+                pay_time = extract_pay_time(text) if amount else None
                 if candidates:
                     self.log_msg(f"候选金额: {candidates}")
                 if amount:
-                    self.log_msg(f"识别到金额: ¥{amount}")
+                    extra = f", 到账时间: {pay_time}" if pay_time else ""
+                    self.log_msg(f"识别到金额: ¥{amount}{extra}")
                     now = time.time()
-                    # 同金额去重（避免同一笔收款反复通知）
-                    last = self.seen_amounts.get(amount, 0)
+                    # 按「金额 + 到账时间」去重：同一笔真实收款 30s 内只上报一次；
+                    # 不同笔但金额相同（到账时间不同）可正常上报。
+                    dedup_key = (amount, pay_time)
+                    last = self.seen_amounts.get(dedup_key, 0)
                     elapsed = now - last
                     if elapsed > self.dedup_seconds:
                         code, resp = send_notify(amount)
                         self.log_msg(f"上报结果: HTTP {code}, {resp}")
                         if code == 200:
-                            self.seen_amounts[amount] = now
+                            self.seen_amounts[dedup_key] = now
                     else:
                         remain = int(self.dedup_seconds - elapsed)
-                        self.log_msg(f"该金额 {remain} 秒内已上报，跳过（去重间隔 {self.dedup_seconds}s）")
+                        self.log_msg(f"该收款 {remain} 秒内已上报，跳过（去重间隔 {self.dedup_seconds}s）")
                 else:
                     self.log_msg("未识别到金额")
         except Exception as e:
@@ -338,7 +360,7 @@ class MonitorApp:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="微信支付窗口监控")
     parser.add_argument("--headless", action="store_true", help="无窗口模式，启动即自动监控")
-    parser.add_argument("--dedup", type=int, default=300, help="同金额去重间隔秒数，默认 300（5 分钟）")
+    parser.add_argument("--dedup", type=int, default=30, help="同一笔收款去重间隔秒数，默认 30（按金额+到账时间去重）")
     args = parser.parse_args()
 
     if args.headless:
