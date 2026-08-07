@@ -138,18 +138,88 @@ async function loadTransferRecords() {
                 ? ''
                 : ` <span class="record-status record-status-${r.status}">${r.status === 'pending' ? '待支付' : '失败'}</span>`;
             const sign = r.status === 'paid' ? '+' : '';
-            return `<div class="record-item">
+            return `<div class="record-item" data-order-no="${r.bj_order_no}">
                 <div class="record-info">
                     <span class="record-date">${date}</span>
                     <span class="record-method"><i class="${channelIcon}"></i> ${channelName}${statusTag}</span>
                     <span class="record-orderno">订单号：${r.bj_order_no}</span>
                 </div>
-                <div class="record-amount">${sign}￥${parseFloat(r.amount).toFixed(2)}</div>
+                <div class="record-right">
+                    <div class="record-amount">${sign}￥${parseFloat(r.amount).toFixed(2)}</div>
+                    <button class="record-delete" title="删除此记录" onclick="deleteTransferRecord('${r.bj_order_no}', this)">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
             </div>`;
         }).join('');
     } catch (err) {
         console.error('加载充值记录异常:', err);
         listEl.innerHTML = '<div class="records-empty">网络错误，无法连接服务器</div>';
+    }
+}
+
+// 删除单条充值记录
+async function deleteTransferRecord(bjOrderNo, btnEl) {
+    if (!bjOrderNo) return;
+    if (!confirm('确定要删除这条充值记录吗？')) return;
+
+    let token = null;
+    try {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        token = session?.access_token;
+    } catch (e) {
+        console.error('获取 session 失败:', e);
+    }
+    if (!token) {
+        showNotification('请先登录', 'error');
+        return;
+    }
+
+    // 按钮临时禁用并显示删除中
+    if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+
+    try {
+        const res = await fetch(window.API_BASE + '/api/payment-records/' + encodeURIComponent(bjOrderNo), {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.code !== 1) {
+            showNotification(data.error || '删除失败', 'error');
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = '<i class="fas fa-trash-alt"></i>';
+            }
+            return;
+        }
+
+        // 删除成功后移除该行并刷新列表
+        const row = document.querySelector(`.record-item[data-order-no="${bjOrderNo}"]`);
+        if (row) {
+            row.style.transition = 'all 0.25s ease';
+            row.style.opacity = '0';
+            row.style.transform = 'translateX(20px)';
+            setTimeout(() => {
+                row.remove();
+                // 如果删完没有记录了，显示空状态
+                if (!document.querySelector('.record-item')) {
+                    const listEl = document.getElementById('recordsList');
+                    if (listEl) listEl.innerHTML = '<div class="records-empty">暂无充值记录</div>';
+                }
+            }, 250);
+        }
+        showNotification('已删除', 'success');
+    } catch (err) {
+        console.error('删除充值记录异常:', err);
+        showNotification('网络错误，删除失败', 'error');
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = '<i class="fas fa-trash-alt"></i>';
+        }
     }
 }
 

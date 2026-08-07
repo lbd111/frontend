@@ -502,6 +502,33 @@ app.get('/api/payment-records', authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * 删除当前用户指定的充值记录
+ * DELETE /api/payment-records/:bj_order_no
+ */
+app.delete('/api/payment-records/:bj_order_no', authMiddleware, async (req, res) => {
+  try {
+    const bjOrderNo = req.params.bj_order_no;
+    if (!bjOrderNo) {
+      return res.status(400).json({ code: 0, error: '缺少订单编号' });
+    }
+
+    const [result] = await dbPool.execute(
+      `DELETE FROM payment_orders WHERE user_id = ? AND bj_order_no = ?`,
+      [req.user.id, bjOrderNo]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ code: 0, error: '记录不存在或无权删除' });
+    }
+
+    res.json({ code: 1, message: '删除成功' });
+  } catch (err) {
+    console.error('/api/payment-records/:bj_order_no 删除异常:', err);
+    res.status(500).json({ code: 0, error: '服务器内部错误' });
+  }
+});
+
 // ================== 启动 ==================
 async function startServer() {
   try {
