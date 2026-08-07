@@ -529,6 +529,31 @@ app.delete('/api/payment-records/:bj_order_no', authMiddleware, async (req, res)
   }
 });
 
+/**
+ * 余额查询（绕过前端 token 时间校验）
+ * GET /api/balance?userId=xxx
+ * 直接用 service_role 查 profiles.balance，不受前端 JWT 的 iat 时间偏差影响
+ */
+app.get('/api/balance', async (req, res) => {
+  const userId = req.query.userId;
+  if (!userId) {
+    return res.status(400).json({ code: 0, error: '缺少 userId' });
+  }
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('balance')
+      .eq('id', userId)
+      .single();
+    if (error) throw error;
+    const balance = data && data.balance != null ? parseFloat(data.balance) : 0;
+    res.json({ code: 1, balance });
+  } catch (err) {
+    console.error('/api/balance 异常:', err);
+    res.status(500).json({ code: 0, error: '查询余额失败' });
+  }
+});
+
 // ================== 启动 ==================
 async function startServer() {
   try {

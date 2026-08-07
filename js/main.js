@@ -2649,19 +2649,18 @@ async function syncBalanceFromDB() {
 
 
 
-        const { data: profiles, error } = await window.supabaseClient
-            .from('profiles')
-            .select('balance')
-            .eq('id', user.id)
-            .limit(1);
+        const userId = user && (user.id || user.user_id);
+        if (!userId) return null;
 
+        // 走后端 service_role 接口查询余额，绕过前端 token 的时间校验问题
+        const resp = await fetch(window.API_BASE + '/api/balance?userId=' + encodeURIComponent(userId));
+        const result = await resp.json();
+        if (!resp.ok || result.code !== 1) {
+            console.warn('余额接口返回异常:', result);
+            return null;
+        }
 
-
-        const profile = profiles && profiles.length > 0 ? profiles[0] : null;
-
-
-
-        const balance = profile ? parseFloat(profile.balance) || 0 : 0;
+        const balance = parseFloat(result.balance) || 0;
 
 
 
