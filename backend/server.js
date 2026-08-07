@@ -40,6 +40,12 @@ const MPAY_PID = process.env.MPAY_PID;
 const MPAY_SECRET = process.env.MPAY_SECRET;
 const MPAY_NOTIFY_URL = process.env.MPAY_NOTIFY_URL;
 const BJ_RETURN_URL = process.env.BJ_RETURN_URL;
+// 微信监控脚本访问 /api/pending-amounts 的简单 Token；未配置则自动生成一个并打印到日志
+const MONITOR_TOKEN = process.env.MONITOR_TOKEN || (() => {
+  const token = crypto.randomBytes(16).toString('hex');
+  console.log('[WARN] 未配置 MONITOR_TOKEN，已自动生成:', token);
+  return token;
+})();
 
 if (!SUPABASE_SERVICE_KEY || (!SUPABASE_JWT_SECRET && !SUPABASE_JWT_PUBLIC_KEY) || !MPAY_SECRET) {
   console.error('错误：缺少必要环境变量，请检查 .env 文件（SUPABASE_SERVICE_KEY 与 SUPABASE_JWT_SECRET/PUBLIC_KEY 至少二选一）');
@@ -149,6 +155,25 @@ function authMiddleware(req, res, next) {
 
 function generateOrderNo() {
   return crypto.randomUUID();
+}
+
+// ================== 微信监控：待支付金额缓存 ==================
+// key: bj_order_no, value: { amount, createdAt, itemType, userId }
+const pendingOrders = new Map();
+const PENDING_TTL_MS = 30 * 60 * 1000; // 30 分钟，与 mpay 订单有效期对齐
+
+function addPendingOrder(bjOrderNo, amount, itemType, userId) {
+  pendingOrders.set(bjOrderNo, { amount, createdAt: Date.now(), itemType, userId });
+  // 30 分钟后自动清理
+  setTimeout(() => {
+    if (pendingOrders.get(bjOrderNo)?.createdAt <= Date.now() - PENDING_TTL_MS) {
+      pendingOrders.delete(bjOrderNo);
+    }
+  }, PENDING_TTL_MS);
+}
+
+function removePendingOrder(bjOrderNo) {
+  pendingOrders.delete(bjOrderNo);
 }
 
 // ================== 权益发放 ==================
@@ -267,6 +292,9 @@ app.post('/api/checkout', authMiddleware, async (req, res) => {
       [bjOrderNo, userId, item, numAmount.toFixed(2), channel, JSON.stringify({ created_from: 'checkout', channel })]
     );
 
+    // 写入微信监控待支付金额缓存，避免旧收款通知误触发新订单
+    addPendingOrder(bjOrderNo, numAmount, item, userId);
+
     // 商品名
     const itemName = item === 'vip_month' ? 'BJ陪玩团月度VIP会员' : 'BJ陪玩团账户充值';
 
@@ -384,6 +412,9 @@ app.get('/api/mpay/notify', async (req, res) => {
       [mpayTradeNo, JSON.stringify({ mpay_notify: params }), bjOrderNo]
     );
 
+    // 从微信监控待支付缓存移除
+    removePendingOrder(bjOrderNo);
+
     // 发放权益
     await grantBenefit(order);
 
@@ -393,6 +424,35 @@ app.get('/api/mpay/notify', async (req, res) => {
     console.error('/api/mpay/notify 异常:', err);
     return res.status(500).type('text/plain').send('fail');
   }
+});
+
+/**
+ * 微信监控拉取当前待支付金额列表
+ * GET /api/pending-amounts?token=MONITOR_TOKEN
+ * 无 pending 时返回空数组，wx_monitor 据此决定是否截图/上报
+ */
+app.get('/api/pending-amounts', (req, res) => {
+  const token = req.query.token;
+  if (token !== MONITOR_TOKEN) {
+    console.warn('[pending-amounts] Token 不匹配，拒绝访问');
+    return res.status(403).json({ code: 0, error: 'forbidden' });
+  }
+  const now = Date.now();
+  const amounts = [];
+  for (const [bjOrderNo, o] of pendingOrders.entries()) {
+    // 只返回 30 分钟内创建的待支付订单
+    if (now - o.createdAt < PENDING_TTL_MS) {
+      amounts.push({
+        bj_order_no: bjOrderNo,
+        amount: o.amount.toFixed(2),
+        item_type: o.itemType,
+        created_at: o.createdAt
+      });
+    }
+  }
+  // 按创建时间倒序，监控脚本优先关注最新订单
+  amounts.sort((a, b) => b.created_at - a.created_at);
+  res.json({ code: 1, amounts });
 });
 
 /**

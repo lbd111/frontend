@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-微信支付窗口监控（替代老版 wxmonitor）v1.6
-原理：按标题找到微信支付窗口 → 定时截图 → OCR 识别金额与到账时间 → POST /mpayNotify
+微信支付窗口监控（替代老版 wxmonitor）v1.7
+原理：先向 BJ 后端拉取「当前待支付金额」→ 只在有待付金额时才截图 → OCR 识别 → 只上报 pending 列表里的金额 → POST /mpayNotify
 
 两种运行模式：
   1. 默认（有 GUI）：弹 tkinter 窗口，可点「开始监控」「停止监控」「手动上报」
   2. --headless：无窗口，启动即自动监控，日志写文件，适合计划任务/开机自启
 
-v1.6 改进：
-  - 增加到账时间过滤：只上报最近 60 秒内的收款通知，避免微信窗口里残留的旧通知
-    把新订单误匹配成已支付。
-  - 去重默认间隔 5 秒；并对 --dedup 参数加保险：>=60 秒会自动钳制为 5 秒。
-  - 按「金额 + 到账时间」去重，同一笔真实收款不会重复上报。
+v1.7 改进（根治旧通知误触发）：
+  - 监控脚本不再盲目截图/上报，而是先调用 BJ /api/pending-amounts 获取当前真正待支付的金额。
+  - 没有 pending 订单时，脚本进入静默休眠（不截图、不 OCR、不刷屏），极大降低资源占用。
+  - 只有识别到的金额在 pending 列表中才上报；微信窗口里残留的历史同金额通知不会再触发新订单。
+  - 保留 5 秒去重，避免同一笔真实收款重复上报。
 """
 import argparse
 import base64
@@ -72,8 +72,11 @@ PID = "1000"
 AID = "3"
 CHAN = "2"  # 微信支付固定类型编号，不是 aid
 NOTIFY_URL = "http://mpay.skypw.dpdns.org/mpayNotify"
+# BJ 后端地址，用于拉取当前待支付金额列表
+BJ_API_URL = os.environ.get("BJ_API_URL", "https://api.skypw.dpdns.org")
+BJ_MONITOR_TOKEN = os.environ.get("BJ_MONITOR_TOKEN", "")
 CHECK_INTERVAL = 2  # 秒
-MAX_PAY_AGE_SECONDS = 60  # 只上报最近 60 秒内的收款通知，防止旧通知误触发新订单
+PENDING_FETCH_INTERVAL = 3  # 秒：拉取 pending-amounts 的间隔
 WINDOW_TITLES = ["微信支付", "微信收款助手", "微信收款商业版", "赞赏到账通知"]
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wx_monitor.log")
 
@@ -127,6 +130,27 @@ def ocr_image(img):
         # easyocr
         result = ocr_engine.readtext(proc, detail=0)
         return "\n".join(result)
+
+
+def fetch_pending_amounts():
+    """从 BJ 后端拉取当前待支付金额列表。返回 {amount_str: created_at_ms} 字典。"""
+    if not BJ_MONITOR_TOKEN:
+        return None  # 未配置 token，禁用 pending 过滤（兼容旧部署）
+    try:
+        url = f"{BJ_API_URL}/api/pending-amounts?token={BJ_MONITOR_TOKEN}"
+        resp = requests.get(url, timeout=10)
+        if resp.status_code != 200:
+            print(f"[WARN] pending-amounts 请求失败: HTTP {resp.status_code} {resp.text[:80]}")
+            return None
+        data = resp.json()
+        if data.get("code") != 1:
+            print(f"[WARN] pending-amounts 返回错误: {data}")
+            return None
+        amounts = data.get("amounts", [])
+        return {a["amount"]: a["created_at"] for a in amounts}
+    except Exception as e:
+        print(f"[WARN] 拉取 pending-amounts 异常: {e}")
+        return None
 
 
 def extract_pay_time(text):
@@ -216,6 +240,9 @@ class MonitorCore:
         self.running = False
         self.seen_amounts = {}
         self._stop = threading.Event()
+        self.pending_amounts = {}  # amount_str -> created_at_ms
+        self._last_pending_fetch = 0
+        self._pending_fetch_failures = 0
 
     def log_msg(self, msg):
         ts = datetime.now().strftime("%H:%M:%S")
@@ -227,63 +254,97 @@ class MonitorCore:
         except Exception:
             pass
 
+    def refresh_pending(self, force=False):
+        """刷新待支付金额列表。失败时保留旧值，连续失败过多则降级为不过滤。"""
+        now = time.time()
+        if not force and now - self._last_pending_fetch < PENDING_FETCH_INTERVAL:
+            return
+        self._last_pending_fetch = now
+        new_pending = fetch_pending_amounts()
+        if new_pending is None:
+            self._pending_fetch_failures += 1
+            if self._pending_fetch_failures >= 3:
+                # 连续失败 3 次，降级为不过滤（避免 BJ 后端不可用导致无法收款）
+                if self.pending_amounts:
+                    self.log_msg("[WARN] pending-amounts 连续失败 3 次，降级为不过滤模式")
+                    self.pending_amounts = {}
+        else:
+            self._pending_fetch_failures = 0
+            if new_pending != self.pending_amounts:
+                self.pending_amounts = new_pending
+                if new_pending:
+                    self.log_msg(f"[PENDING] 当前待支付金额: {list(new_pending.keys())}")
+
     def run_once(self):
         try:
+            # 1. 先刷新 pending 列表；无 pending 时直接静默休眠（不截图、不 OCR）
+            self.refresh_pending()
+            if BJ_MONITOR_TOKEN and not self.pending_amounts:
+                # 没有待支付订单，进入静默。headless 模式下不打印，避免刷屏。
+                return
+
             win, title = find_window()
             if not win:
                 self.log_msg("未找到微信支付窗口，请把聊天窗口/通知窗口单独拖出来并保持可见")
+                return
+
+            img = capture_window(win)
+            text = ocr_image(img)
+            preview = text.replace("\n", " / ")[:200]
+            self.log_msg(f"OCR: {preview}")
+            amount, candidates = extract_amount(text)
+            pay_time = extract_pay_time(text) if amount else None
+            if candidates:
+                self.log_msg(f"候选金额: {candidates}")
+
+            if not amount:
+                self.log_msg("未识别到金额")
+                return
+
+            extra = f", 到账时间: {pay_time}" if pay_time else ""
+            self.log_msg(f"识别到金额: ¥{amount}{extra}")
+
+            # 2. 金额必须属于 pending 列表才上报；旧通知/无关金额直接忽略
+            if BJ_MONITOR_TOKEN and amount not in self.pending_amounts:
+                self.log_msg(f"[SKIP] ¥{amount} 不在当前待支付金额列表 {list(self.pending_amounts.keys())} 中，不上报")
+                return
+
+            # 3. 必须有到账时间；没有则不上报，避免误触发
+            if not pay_time:
+                self.log_msg("[SKIP] OCR 未识别到到账时间，无法确认是新收款，不上报")
+                return
+
+            try:
+                pay_ts = datetime.strptime(pay_time, "%Y-%m-%d %H:%M:%S").timestamp()
+            except ValueError:
+                self.log_msg(f"[SKIP] 到账时间格式异常: {pay_time}")
+                return
+
+            # 4. 到账时间必须晚于该 pending 订单的创建时间，进一步过滤旧通知
+            order_created_at = self.pending_amounts.get(amount, 0)
+            if order_created_at and pay_ts * 1000 < order_created_at:
+                self.log_msg(f"[SKIP] 到账时间早于订单创建时间，不上报")
+                return
+
+            now = time.time()
+            # 5. 按「金额 + 到账时间」去重：同一笔真实收款在 dedup_seconds 内只上报一次
+            dedup_key = (amount, pay_time)
+            last = self.seen_amounts.get(dedup_key, 0)
+            elapsed = now - last
+            if elapsed > self.dedup_seconds:
+                code, resp = send_notify(amount)
+                self.log_msg(f"上报结果: HTTP {code}, {resp}")
+                if code == 200:
+                    self.seen_amounts[dedup_key] = now
             else:
-                img = capture_window(win)
-                text = ocr_image(img)
-                preview = text.replace("\n", " / ")[:200]
-                self.log_msg(f"OCR: {preview}")
-                amount, candidates = extract_amount(text)
-                pay_time = extract_pay_time(text) if amount else None
-                if candidates:
-                    self.log_msg(f"候选金额: {candidates}")
-                if amount:
-                    extra = f", 到账时间: {pay_time}" if pay_time else ""
-                    self.log_msg(f"识别到金额: ¥{amount}{extra}")
-
-                    # 必须有到账时间才能判断是不是新通知；没有则不上报，避免误触发。
-                    if not pay_time:
-                        self.log_msg("[SKIP] OCR 未识别到到账时间，无法确认是新收款，不上报")
-                        return
-
-                    # 过滤过期通知：微信窗口里可能残留历史收款，只上报最近 60 秒内的。
-                    try:
-                        pay_ts = datetime.strptime(pay_time, "%Y-%m-%d %H:%M:%S").timestamp()
-                    except ValueError:
-                        self.log_msg(f"[SKIP] 到账时间格式异常: {pay_time}")
-                        return
-                    age = time.time() - pay_ts
-                    if age > MAX_PAY_AGE_SECONDS:
-                        self.log_msg(f"[SKIP] 该通知已过期 {int(age)} 秒（>{MAX_PAY_AGE_SECONDS}s），不上报")
-                        return
-
-                    now = time.time()
-                    # 按「金额 + 到账时间」去重：同一笔真实收款在 dedup_seconds 内只上报一次；
-                    # 不同笔但金额相同（到账时间不同）可正常上报。
-                    dedup_key = (amount, pay_time)
-                    last = self.seen_amounts.get(dedup_key, 0)
-                    elapsed = now - last
-                    if elapsed > self.dedup_seconds:
-                        code, resp = send_notify(amount)
-                        self.log_msg(f"上报结果: HTTP {code}, {resp}")
-                        if code == 200:
-                            self.seen_amounts[dedup_key] = now
-                    else:
-                        remain = int(self.dedup_seconds - elapsed)
-                        self.log_msg(f"该收款 {remain} 秒内已上报，跳过（去重间隔 {self.dedup_seconds}s）")
-                else:
-                    self.log_msg("未识别到金额")
+                remain = int(self.dedup_seconds - elapsed)
+                self.log_msg(f"该收款 {remain} 秒内已上报，跳过（去重间隔 {self.dedup_seconds}s）")
         except Exception as e:
             self.log_msg(f"错误: {e}")
 
     def loop(self):
         """headless 用：阻塞循环，直到被 stop() 或 Ctrl+C 中断"""
         self.running = True
-        self.log_msg("headless 模式启动，开始监控...")
         try:
             while self.running and not self._stop.is_set():
                 self.run_once()
@@ -313,7 +374,7 @@ class MonitorApp:
     def __init__(self, root, core):
         self.root = root
         self.core = core
-        self.root.title("微信支付监控 v1.2")
+        self.root.title("微信支付监控 v1.7")
         self._after_id = None
 
         tk.Label(root, text="监控窗口: 微信支付 / 微信收款助手 / 赞赏到账通知", font=("Microsoft YaHei", 12)).pack(pady=5)
@@ -380,7 +441,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="微信支付窗口监控")
     parser.add_argument("--headless", action="store_true", help="无窗口模式，启动即自动监控")
     parser.add_argument("--dedup", type=int, default=5, help="同一笔收款去重间隔秒数，默认 5（按金额+到账时间去重）。注意：>=60 会被自动钳制为 5，以免支付延迟。")
+    parser.add_argument("--bj-api-url", default=BJ_API_URL, help="BJ 后端地址，默认 https://api.skypw.dpdns.org")
+    parser.add_argument("--bj-token", default=BJ_MONITOR_TOKEN, help="BJ /api/pending-amounts 鉴权 Token")
     args = parser.parse_args()
+
+    # 允许命令行覆盖全局配置
+    if args.bj_api_url:
+        BJ_API_URL = args.bj_api_url
+    if args.bj_token:
+        BJ_MONITOR_TOKEN = args.bj_token
 
     # 保险：去重间隔过大会导致支付延迟（旧订单挡住新订单），上限钳制为 5 秒
     if args.dedup >= 60:
@@ -389,6 +458,9 @@ if __name__ == "__main__":
 
     if args.headless:
         core = MonitorCore(dedup_seconds=args.dedup)
+        core.log_msg(f"headless 模式启动 (v1.7)，BJ 后端: {BJ_API_URL}")
+        if not BJ_MONITOR_TOKEN:
+            core.log_msg("[WARN] 未配置 BJ_MONITOR_TOKEN，pending 过滤已禁用（兼容模式）")
         try:
             core.loop()
         except KeyboardInterrupt:
