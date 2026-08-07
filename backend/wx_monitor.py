@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-微信支付窗口监控（替代老版 wxmonitor）v1.5
-原理：按标题找到微信支付窗口 → 定时截图 → OCR 识别金额 → POST /mpayNotify
+微信支付窗口监控（替代老版 wxmonitor）v1.6
+原理：按标题找到微信支付窗口 → 定时截图 → OCR 识别金额与到账时间 → POST /mpayNotify
 
 两种运行模式：
   1. 默认（有 GUI）：弹 tkinter 窗口，可点「开始监控」「停止监控」「手动上报」
   2. --headless：无窗口，启动即自动监控，日志写文件，适合计划任务/开机自启
 
-v1.5 改进：
-  - 去重默认间隔降到 5 秒；并对 --dedup 参数加保险：>=60 秒会自动钳制为 5 秒，
-    防止计划任务误配 --dedup 300 导致同金额新订单被挡 5 分钟才上报。
-  - 保留 v1.4 的「金额 + 到账时间」去重 key，不同笔收款互不干扰。
-  - 依赖 mpay / BJ 服务端幂等：无对应订单的上报不会误回调，可安全高频上报。
+v1.6 改进：
+  - 增加到账时间过滤：只上报最近 60 秒内的收款通知，避免微信窗口里残留的旧通知
+    把新订单误匹配成已支付。
+  - 去重默认间隔 5 秒；并对 --dedup 参数加保险：>=60 秒会自动钳制为 5 秒。
+  - 按「金额 + 到账时间」去重，同一笔真实收款不会重复上报。
 """
 import argparse
 import base64
@@ -73,6 +73,7 @@ AID = "3"
 CHAN = "2"  # 微信支付固定类型编号，不是 aid
 NOTIFY_URL = "http://mpay.skypw.dpdns.org/mpayNotify"
 CHECK_INTERVAL = 2  # 秒
+MAX_PAY_AGE_SECONDS = 60  # 只上报最近 60 秒内的收款通知，防止旧通知误触发新订单
 WINDOW_TITLES = ["微信支付", "微信收款助手", "微信收款商业版", "赞赏到账通知"]
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wx_monitor.log")
 
@@ -243,8 +244,25 @@ class MonitorCore:
                 if amount:
                     extra = f", 到账时间: {pay_time}" if pay_time else ""
                     self.log_msg(f"识别到金额: ¥{amount}{extra}")
+
+                    # 必须有到账时间才能判断是不是新通知；没有则不上报，避免误触发。
+                    if not pay_time:
+                        self.log_msg("[SKIP] OCR 未识别到到账时间，无法确认是新收款，不上报")
+                        return
+
+                    # 过滤过期通知：微信窗口里可能残留历史收款，只上报最近 60 秒内的。
+                    try:
+                        pay_ts = datetime.strptime(pay_time, "%Y-%m-%d %H:%M:%S").timestamp()
+                    except ValueError:
+                        self.log_msg(f"[SKIP] 到账时间格式异常: {pay_time}")
+                        return
+                    age = time.time() - pay_ts
+                    if age > MAX_PAY_AGE_SECONDS:
+                        self.log_msg(f"[SKIP] 该通知已过期 {int(age)} 秒（>{MAX_PAY_AGE_SECONDS}s），不上报")
+                        return
+
                     now = time.time()
-                    # 按「金额 + 到账时间」去重：同一笔真实收款 30s 内只上报一次；
+                    # 按「金额 + 到账时间」去重：同一笔真实收款在 dedup_seconds 内只上报一次；
                     # 不同笔但金额相同（到账时间不同）可正常上报。
                     dedup_key = (amount, pay_time)
                     last = self.seen_amounts.get(dedup_key, 0)
