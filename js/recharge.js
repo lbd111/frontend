@@ -83,6 +83,7 @@ function showTransferModal() {
     if (modal) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
+        loadTransferRecords();
     }
 }
 
@@ -92,6 +93,74 @@ function closeTransferModal() {
         modal.classList.remove('active');
         document.body.style.overflow = '';
     }
+}
+
+// 从后端拉取当前用户的充值/支付记录并渲染
+async function loadTransferRecords() {
+    const listEl = document.getElementById('recordsList');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div class="records-loading">加载中...</div>';
+
+    let token = null;
+    try {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        token = session?.access_token;
+    } catch (e) {
+        console.error('获取 session 失败:', e);
+    }
+    if (!token) {
+        listEl.innerHTML = '<div class="records-empty">请先登录后查看充值记录</div>';
+        return;
+    }
+
+    try {
+        const res = await fetch(window.API_BASE + '/api/payment-records', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (!res.ok || data.code !== 1) {
+            listEl.innerHTML = '<div class="records-empty">记录加载失败，请稍后重试</div>';
+            return;
+        }
+
+        const records = data.records || [];
+        if (!records.length) {
+            listEl.innerHTML = '<div class="records-empty">暂无充值记录</div>';
+            return;
+        }
+
+        listEl.innerHTML = records.map(r => {
+            const date = formatDateTime(r.created_at || r.paid_at);
+            const channelIcon = r.channel === 'alipay' ? 'fab fa-alipay' : 'fab fa-weixin';
+            const channelName = r.channel === 'alipay' ? '支付宝' : '微信支付';
+            const statusTag = r.status === 'paid'
+                ? ''
+                : ` <span class="record-status record-status-${r.status}">${r.status === 'pending' ? '待支付' : '失败'}</span>`;
+            const sign = r.status === 'paid' ? '+' : '';
+            return `<div class="record-item">
+                <div class="record-info">
+                    <span class="record-date">${date}</span>
+                    <span class="record-method"><i class="${channelIcon}"></i> ${channelName}${statusTag}</span>
+                    <span class="record-orderno">订单号：${r.bj_order_no}</span>
+                </div>
+                <div class="record-amount">${sign}￥${parseFloat(r.amount).toFixed(2)}</div>
+            </div>`;
+        }).join('');
+    } catch (err) {
+        console.error('加载充值记录异常:', err);
+        listEl.innerHTML = '<div class="records-empty">网络错误，无法连接服务器</div>';
+    }
+}
+
+// 将 MySQL DATETIME / ISO 字符串格式化为 YYYY-MM-DD HH:mm
+function formatDateTime(str) {
+    if (!str) return '';
+    // 兼容 "2026-08-07T13:40:09.000Z" 与 "2026-08-07 13:40:09"
+    const d = new Date(str.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return str;
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // --- 表单提交 ---

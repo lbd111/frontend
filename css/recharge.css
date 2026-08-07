@@ -270,6 +270,38 @@
     color: #4CAF50;
 }
 
+/* 小字灰色订单号 */
+.record-orderno {
+    display: block;
+    font-size: 0.72rem;
+    color: #9e9e9e;
+    margin-top: 4px;
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+/* 订单状态标签（非已支付时显示） */
+.record-status {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-weight: 600;
+}
+.record-status-pending { background: #FFF3E0; color: #EF6C00; }
+.record-status-failed { background: #FFEBEE; color: #C62828; }
+
+/* 加载中 / 空状态 */
+.records-loading,
+.records-empty {
+    text-align: center;
+    color: var(--text-light);
+    font-size: 0.9rem;
+    padding: 40px 16px;
+}
+
 /* --- 响应式 --- */
 @media (max-width: 768px) {
     .plans-grid {
