@@ -70,11 +70,38 @@ async function supabaseGet(table, filters) {
             });
         }
         var runQuery = function() { return query; };
+        // 每次重试都需要一个新的 QueryBuilder，否则 await 同一个 builder 不会重新发请求
+        var builderFn = function() { return window.supabaseClient.from(table).select('*'); };
+        if (filters && filters.length > 0) {
+            filters.forEach(function(f) {
+                var eqIndex = f.indexOf('=eq.');
+                var neqIndex = f.indexOf('=neq.');
+                var gtIndex = f.indexOf('=gt.');
+                var ltIndex = f.indexOf('=lt.');
+                var gteIndex = f.indexOf('=gte.');
+                var lteIndex = f.indexOf('=lte.');
+                var key = f, op = null, val = null;
+                if (eqIndex > 0) { key = f.substring(0, eqIndex); op = 'eq'; val = f.substring(eqIndex + 4); }
+                else if (neqIndex > 0) { key = f.substring(0, neqIndex); op = 'neq'; val = f.substring(neqIndex + 6); }
+                else if (gtIndex > 0) { key = f.substring(0, gtIndex); op = 'gt'; val = f.substring(gtIndex + 4); }
+                else if (ltIndex > 0) { key = f.substring(0, ltIndex); op = 'lt'; val = f.substring(ltIndex + 4); }
+                else if (gteIndex > 0) { key = f.substring(0, gteIndex); op = 'gte'; val = f.substring(gteIndex + 5); }
+                else if (lteIndex > 0) { key = f.substring(0, lteIndex); op = 'lte'; val = f.substring(lteIndex + 5); }
+                if (op && val) {
+                    builderFn = (function(prevBuilder, k, o, v) {
+                        return function() {
+                            var q = prevBuilder();
+                            return q[o](k, v);
+                        };
+                    })(builderFn, key, op, val);
+                }
+            });
+        }
         var result;
         if (typeof window.withJwtRetry === 'function') {
-            result = await window.withJwtRetry(runQuery);
+            result = await window.withJwtRetry(builderFn);
         } else {
-            result = await runQuery();
+            result = await builderFn();
         }
         const { data, error } = result;
         if (error) {

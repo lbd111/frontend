@@ -109,7 +109,7 @@ function isJwtFutureError(errOrResult) {
 // 执行 Supabase 查询，若报 "JWT issued at future"，则等待 token 生效时间后重试。
 // 适用于 Supabase auth/REST 服务存在时钟 skew 的场景。
 async function withJwtRetry(queryFn, maxRetries) {
-    maxRetries = (maxRetries == null) ? 3 : maxRetries;
+    maxRetries = (maxRetries == null) ? 5 : maxRetries;
     var lastResult;
     for (var i = 0; i <= maxRetries; i++) {
         try {
@@ -123,6 +123,8 @@ async function withJwtRetry(queryFn, maxRetries) {
             lastResult = { error: lastResult };
         }
 
+        var errObj = lastResult && lastResult.error ? lastResult.error : lastResult;
+        var errMsg = String(errObj && (errObj.message || errObj.msg || errObj)).toLowerCase();
         if (lastResult && lastResult.error && isJwtFutureError(lastResult)) {
             if (i < maxRetries) {
                 try {
@@ -130,12 +132,19 @@ async function withJwtRetry(queryFn, maxRetries) {
                     var token = res && res.data && res.data.session && res.data.session.access_token;
                     var payload = token ? decodeJwtPayload(token) : null;
                     var iatMs = payload && payload.iat ? payload.iat * 1000 : 0;
-                    var wait = iatMs ? (iatMs - Date.now() + 1000) : 2000;
+                    var nowMs = Date.now();
+                    var wait = iatMs ? (iatMs - nowMs + 1000) : 2000;
                     if (wait < 500) wait = 500;
                     if (wait > 10000) wait = 10000; // 最多等 10 秒
+                    console.warn('[withJwtRetry] 第' + (i + 1) + '次遇到 JWT future，iat=' + (iatMs ? new Date(iatMs).toISOString() : 'unknown') + '，now=' + new Date(nowMs).toISOString() + '，等待 ' + wait + 'ms 后重试');
                     await sleep(wait);
-                } catch (e) {}
+                } catch (e) {
+                    console.warn('[withJwtRetry] 计算等待时间失败，等 2s:', e);
+                    await sleep(2000);
+                }
                 continue;
+            } else {
+                console.warn('[withJwtRetry] 超过最大重试次数，返回错误:', errMsg);
             }
         }
         return lastResult;
