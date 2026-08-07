@@ -1,20 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-微信支付窗口监控（替代老版 wxmonitor）v1.8
+微信支付窗口监控（替代老版 wxmonitor）v1.9
 原理：先向 BJ 后端拉取「当前待支付金额」→ 只在有待付金额时才截图 → OCR 识别 → 只上报 pending 列表里的金额 → POST /mpayNotify
 
 两种运行模式：
   1. 默认（有 GUI）：弹 tkinter 窗口，可点「开始监控」「停止监控」「手动上报」
   2. --headless：无窗口，启动即自动监控，日志写文件，适合计划任务/开机自启
 
-v1.8 改进（解决到账时间识别失败导致漏报）：
-  - 保留 v1.7 的 pending-amounts 前置过滤：没有待支付订单时不截图、不上报。
-  - 到账时间改为「可选辅助过滤」：OCR 识别到则用于过滤旧通知；识别不到也允许上报，避免真实收款被漏掉。
-  - 保留 5 秒去重，避免同一笔真实收款重复上报。
+v1.9 改进（解决同金额旧通知误触发新订单）：
+  - 增强「到账时间」OCR 提取：兼容全角斜杠「／」、全角冒号「：」及 OCR 常见错字（到长/到帐）。
+  - 识别到账时间后，对该 (金额, 时间) 组合启用 5 分钟去重，防止同一笔历史通知反复匹配后续新订单。
+  - 未识别到账时间时仍保持 5 秒短去重，不误伤新的真实付款。
 
-v1.7 核心改进（已保留）：
-  - 监控脚本先调用 BJ /api/pending-amounts 获取当前真正待支付的金额。
-  - 只有识别到的金额在 pending 列表中才上报；微信窗口里残留的历史同金额通知不会再触发新订单。
+v1.8 已保留：
+  - 到账时间改为可选辅助过滤，识别不到也允许上报，避免真实收款漏报。
+
+v1.7 已保留：
+  - pending-amounts 前置过滤：没有待支付订单时不截图、不上报；只有 pending 列表中的金额才上报。
 """
 import argparse
 import base64
@@ -80,6 +82,8 @@ BJ_API_URL = os.environ.get("BJ_API_URL", "https://api.skypw.dpdns.org")
 BJ_MONITOR_TOKEN = os.environ.get("BJ_MONITOR_TOKEN", "")
 CHECK_INTERVAL = 2  # 秒
 PENDING_FETCH_INTERVAL = 3  # 秒：拉取 pending-amounts 的间隔
+# 已识别到账时间的通知，5 分钟内不再重复上报，防止旧通知反复触发同金额新订单
+REPORTED_DEDUP_SECONDS = 300
 WINDOW_TITLES = ["微信支付", "微信收款助手", "微信收款商业版", "赞赏到账通知"]
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wx_monitor.log")
 
@@ -160,17 +164,36 @@ def extract_pay_time(text):
     """从 OCR 文本中提取到账时间，作为同一笔收款的唯一标识。
 
     微信到账通知常见格式：「到账时间 2026-08-07 12:47:49」，
-    OCR 也可能把「账」识别成「长」，写成「到长时间」。
+    OCR 也可能把「账」识别成「长」，写成「到长时间」；
+    微信通知里实际分隔符还可能是全角斜杠「／」、全角冒号「：」。
     """
+    # 先做一次文本归一化：全角标点 → 半角，常见 OCR 错字 → 正确字
+    norm = (
+        text.replace("／", "/")
+        .replace("：", ":")
+        .replace("；", ";")
+        .replace("，", ",")
+        .replace("。", ".")
+        .replace("到长", "到账")
+        .replace("到帐", "到账")
+    )
+
     patterns = [
         r"到[账长]时间\s*[：:/]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})",
-        r"(?:到账|到长)时间\s*[：:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})",
+        r"(?:到账|到长|入账)时间\s*[：:/]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})",
+        r"(?:到账|到长|入账)\s*[：:/]?\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})",
         r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s*(?:到账|到长|入账)",
     ]
     for p in patterns:
-        m = re.search(p, text)
+        m = re.search(p, norm)
         if m:
             return m.group(1)
+
+    # 兜底：如果上下文里根本没出现「到账/入账」等关键字，但存在唯一/最后一个日期时间，
+    # 也把它当成到账时间（避免 OCR 完全没识别到中文关键字而漏报）。
+    all_dt = re.findall(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}", norm)
+    if all_dt:
+        return all_dt[-1]
     return None
 
 
@@ -331,19 +354,28 @@ class MonitorCore:
                     return
 
             now = time.time()
-            # 5. 按「金额 + 到账时间」去重；若未识别到时间，则用当前时间分桶去重
-            dedup_time = pay_time or f"bucket_{int(now / max(1, self.dedup_seconds))}"
-            dedup_key = (amount, dedup_time)
+            # 5. 按「金额 + 到账时间」去重；
+            #    识别到时间 → 5 分钟去重，阻止旧通知反复匹配后续同金额新订单；
+            #    未识别时间 → 5 秒短去重，不误伤新的真实付款。
+            if pay_time:
+                dedup_key = (amount, pay_time)
+                dedup_seconds = REPORTED_DEDUP_SECONDS
+                dedup_desc = f"识别到时间，去重 {REPORTED_DEDUP_SECONDS}s"
+            else:
+                dedup_key = (amount, f"bucket_{int(now / max(1, self.dedup_seconds))}")
+                dedup_seconds = self.dedup_seconds
+                dedup_desc = f"未识别时间，去重 {self.dedup_seconds}s"
+
             last = self.seen_amounts.get(dedup_key, 0)
             elapsed = now - last
-            if elapsed > self.dedup_seconds:
+            if elapsed > dedup_seconds:
                 code, resp = send_notify(amount)
                 self.log_msg(f"上报结果: HTTP {code}, {resp}")
                 if code == 200:
                     self.seen_amounts[dedup_key] = now
             else:
-                remain = int(self.dedup_seconds - elapsed)
-                self.log_msg(f"该收款 {remain} 秒内已上报，跳过（去重间隔 {self.dedup_seconds}s）")
+                remain = int(dedup_seconds - elapsed)
+                self.log_msg(f"该收款 {remain} 秒内已上报，跳过（{dedup_desc}）")
         except Exception as e:
             self.log_msg(f"错误: {e}")
 
@@ -379,7 +411,7 @@ class MonitorApp:
     def __init__(self, root, core):
         self.root = root
         self.core = core
-        self.root.title("微信支付监控 v1.8")
+        self.root.title("微信支付监控 v1.9")
         self._after_id = None
 
         tk.Label(root, text="监控窗口: 微信支付 / 微信收款助手 / 赞赏到账通知", font=("Microsoft YaHei", 12)).pack(pady=5)
@@ -463,7 +495,7 @@ if __name__ == "__main__":
 
     if args.headless:
         core = MonitorCore(dedup_seconds=args.dedup)
-        core.log_msg(f"headless 模式启动 (v1.8)，BJ 后端: {BJ_API_URL}")
+        core.log_msg(f"headless 模式启动 (v1.9)，BJ 后端: {BJ_API_URL}")
         if not BJ_MONITOR_TOKEN:
             core.log_msg("[WARN] 未配置 BJ_MONITOR_TOKEN，pending 过滤已禁用（兼容模式）")
         try:
