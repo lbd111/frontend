@@ -180,6 +180,18 @@
         </div>
     </div>
 
+    <!-- 确认弹窗（白色卡片） -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal confirm-modal">
+            <h3 id="confirmTitle">确认操作</h3>
+            <p id="confirmMessage">确定要执行此操作吗？</p>
+            <div class="confirm-actions">
+                <button class="btn btn-outline" id="confirmCancel" onclick="closeConfirmModal()">取消</button>
+                <button class="btn btn-primary" id="confirmOk">确定</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 登录弹窗 -->
     <div class="modal-overlay" id="loginModal">
         <div class="modal login-modal">
@@ -226,7 +238,7 @@
     
 
 <script src="../js/supabase-config.js"></script><script src="../js/main.js?v=202607312233"></script>
-    <script src="../js/recharge.js?v=202608071830"></script>
+    <script src="../js/recharge.js?v=202608071920"></script>
 
     <!-- 移动端底部 Dock 栏 -->
     

@@ -342,6 +342,64 @@
     padding: 40px 16px;
 }
 
+/* 确认弹窗 */
+.confirm-modal {
+    max-width: 360px;
+    padding: 28px;
+    text-align: center;
+}
+
+.confirm-modal h3 {
+    margin: 0 0 12px;
+    font-size: 1.15rem;
+    color: var(--text-dark);
+}
+
+.confirm-modal p {
+    margin: 0 0 24px;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.confirm-actions .btn {
+    flex: 1;
+    min-width: 90px;
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.confirm-actions .btn-outline {
+    background: #fff;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
+.confirm-actions .btn-outline:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.confirm-actions .btn-primary {
+    background: var(--primary);
+    color: #fff;
+    border: 1px solid var(--primary);
+}
+
+.confirm-actions .btn-primary:hover {
+    opacity: 0.9;
+}
+
 /* --- 响应式 --- */
 @media (max-width: 768px) {
     .plans-grid {

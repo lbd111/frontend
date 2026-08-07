@@ -95,6 +95,55 @@ function closeTransferModal() {
     }
 }
 
+// --- 自定义确认弹窗（白色卡片） ---
+let confirmResolve = null;
+
+function showConfirmModal(options) {
+    const modal = document.getElementById('confirmModal');
+    const titleEl = document.getElementById('confirmTitle');
+    const msgEl = document.getElementById('confirmMessage');
+    const okBtn = document.getElementById('confirmOk');
+    const cancelBtn = document.getElementById('confirmCancel');
+    if (!modal || !msgEl || !okBtn) return Promise.resolve(false);
+
+    const title = options.title || '确认操作';
+    const message = options.message || '确定要执行此操作吗？';
+    const okText = options.okText || '确定';
+    const cancelText = options.cancelText || '取消';
+
+    if (titleEl) titleEl.textContent = title;
+    msgEl.textContent = message;
+    okBtn.textContent = okText;
+    if (cancelBtn) cancelBtn.textContent = cancelText;
+
+    modal.classList.add('active');
+
+    return new Promise((resolve) => {
+        confirmResolve = resolve;
+        okBtn.onclick = () => {
+            closeConfirmModal();
+            resolve(true);
+        };
+        if (cancelBtn) {
+            cancelBtn.onclick = () => {
+                closeConfirmModal();
+                resolve(false);
+            };
+        }
+    });
+}
+
+function closeConfirmModal() {
+    const modal = document.getElementById('confirmModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+    if (confirmResolve) {
+        confirmResolve(false);
+        confirmResolve = null;
+    }
+}
+
 // 从后端拉取当前用户的充值/支付记录并渲染
 async function loadTransferRecords() {
     const listEl = document.getElementById('recordsList');
@@ -161,7 +210,14 @@ async function loadTransferRecords() {
 // 删除单条充值记录
 async function deleteTransferRecord(bjOrderNo, btnEl) {
     if (!bjOrderNo) return;
-    if (!confirm('确定要删除这条充值记录吗？')) return;
+
+    const confirmed = await showConfirmModal({
+        title: '确认删除',
+        message: '确定要删除这条充值记录吗？删除后不可恢复。',
+        okText: '确定',
+        cancelText: '取消'
+    });
+    if (!confirmed) return;
 
     let token = null;
     try {
@@ -312,6 +368,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
+                // 确认弹窗点击外部等同于取消，避免 Promise 挂起
+                if (overlay.id === 'confirmModal') {
+                    closeConfirmModal();
+                    return;
+                }
                 overlay.classList.remove('active');
                 document.body.style.overflow = '';
             }
