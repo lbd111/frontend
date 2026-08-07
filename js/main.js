@@ -73,6 +73,39 @@ function formatNotifTime(iso) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
+// 判断是否为 JWT/token 类错误
+function isJWTError(err) {
+    if (!err) return false;
+    var msg = (err.message || err.msg || String(err)).toLowerCase();
+    return /jwt|token|issued at future|expired|invalid signature|not authenticated/.test(msg);
+}
+
+// 执行 Supabase 查询，若因 JWT 问题失败则自动刷新 session 并重试一次
+async function withSessionRefresh(queryFn, maxRetries) {
+    maxRetries = maxRetries == null ? 1 : maxRetries;
+    var lastError;
+    for (var i = 0; i <= maxRetries; i++) {
+        try {
+            return await queryFn();
+        } catch (err) {
+            lastError = err;
+            if (i < maxRetries && isJWTError(err)) {
+                console.warn('检测到 JWT 异常，尝试刷新 session:', err.message || err);
+                try {
+                    var refreshRes = await window.supabaseClient.auth.refreshSession();
+                    if (refreshRes && refreshRes.error) throw refreshRes.error;
+                } catch (refreshErr) {
+                    console.error('刷新 session 失败:', refreshErr);
+                    throw refreshErr;
+                }
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw lastError;
+}
+
 async function loadNotifications() {
     if(!window.supabaseClient) return;
     try {
@@ -89,13 +122,15 @@ async function loadNotifications() {
 
         // 只显示 3 小时内的通知（过期由数据库定时任务物理删除）
         var cutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
-        var res = await window.supabaseClient
-            .from('notifications')
-            .select('id, user_id, title, message, type, read, created_at, metadata')
-            .eq('user_id', userId)
-            .gte('created_at', cutoff)
-            .order('created_at', { ascending: false })
-            .limit(50);
+        var res = await withSessionRefresh(function() {
+            return window.supabaseClient
+                .from('notifications')
+                .select('id, user_id, title, message, type, read, created_at, metadata')
+                .eq('user_id', userId)
+                .gte('created_at', cutoff)
+                .order('created_at', { ascending: false })
+                .limit(50);
+        });
         if(res.error) throw res.error;
 
         var list = (res.data || []).map(function(n) {
@@ -2648,26 +2683,14 @@ async function syncBalanceFromDB() {
 
 
 
-        // 先确保 session/token 有效，避免服务端报 "JWT issued at future"
-        try {
-            const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
-            if (!session || sessionError) {
-                await window.supabaseClient.auth.refreshSession();
-            }
-        } catch (e) {
-            console.warn('检查 session 失败，尝试刷新:', e);
-            await window.supabaseClient.auth.refreshSession();
-        }
-
-        const { data: profiles, error } = await window.supabaseClient
-
-            .from('profiles')
-
-            .select('balance')
-
-            .eq('id', user.id)
-
-            .limit(1);
+        // 使用自动刷新重试机制，避免服务端报 "JWT issued at future"
+        const { data: profiles, error } = await withSessionRefresh(function() {
+            return window.supabaseClient
+                .from('profiles')
+                .select('balance')
+                .eq('id', user.id)
+                .limit(1);
+        });
 
 
 
