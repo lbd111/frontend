@@ -172,6 +172,7 @@
         if (tab === 'dashboard') loadDashboard();
         else if (tab === 'users') loadUsers();
         else if (tab === 'wizards') loadWizards();
+        else if (tab === 'shelves') loadShelves();
         else if (tab === 'orders') loadOrders();
         else if (tab === 'dispatch') loadDispatch();
         else if (tab === 'requests') loadRequests();
@@ -343,13 +344,42 @@
         const t = document.getElementById('wizardsTable');
         t.innerHTML = '<tr><td class="admin-empty">加载中...</td></tr>';
         const kw = (document.getElementById('wizardSearch').value || '').trim();
+        let query = sb.from('profiles').select('*').eq('role', '陪陪');
+        if (kw) query = query.or('nickname.ilike.%' + kw + '%,game_type.ilike.%' + kw + '%,server.ilike.%' + kw + '%');
+        query = query.order('created_at', { ascending: false }).limit(100);
+        try {
+            const { data, error } = await query;
+            if (error) throw error;
+            if (!data || !data.length) { t.innerHTML = '<tr><td class="admin-empty">没有已通过的陪玩</td></tr>'; return; }
+            t.innerHTML = '<thead><tr><th>昵称</th><th>邮箱</th><th>游戏</th><th>区服</th><th>等级</th><th>评分</th><th>余额</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
+                data.map(p => '<tr>' +
+                    '<td>' + esc(p.nickname || '') + '</td>' +
+                    '<td>' + esc(p.email || '') + '</td>' +
+                    '<td>' + esc(p.game_type || '') + '</td>' +
+                    '<td>' + esc(p.server || '') + '</td>' +
+                    '<td>' + esc(p.level || '') + '</td>' +
+                    '<td>' + (p.rating || '0') + '</td>' +
+                    '<td>' + money(p.balance) + '</td>' +
+                    '<td><span class="admin-tag tag-completed">已通过</span></td>' +
+                    '<td><div class="admin-actions">' +
+                    '<button class="admin-btn admin-btn-edit" onclick="openProfileEditor(\'' + esc(p.id) + '\')">编辑</button>' +
+                    '</div></td></tr>').join('') + '</tbody>';
+        } catch (e) {
+            t.innerHTML = '<tr><td class="admin-empty">加载失败：' + esc(e.message) + '</td></tr>';
+        }
+    }
+
+    async function loadShelves() {
+        const t = document.getElementById('shelvesTable');
+        t.innerHTML = '<tr><td class="admin-empty">加载中...</td></tr>';
+        const kw = (document.getElementById('shelfSearch').value || '').trim();
         let query = sb.from('wizards').select('*');
         if (kw) query = query.or('wizard_name.ilike.%' + kw + '%,game_type.ilike.%' + kw + '%');
         query = query.order('created_at', { ascending: false }).limit(100);
         try {
             const { data, error } = await query;
             if (error) throw error;
-            if (!data || !data.length) { t.innerHTML = '<tr><td class="admin-empty">没有陪玩记录</td></tr>'; return; }
+            if (!data || !data.length) { t.innerHTML = '<tr><td class="admin-empty">没有上架记录</td></tr>'; return; }
             t.innerHTML = '<thead><tr><th>陪玩名</th><th>关联用户</th><th>游戏</th><th>时薪</th><th>服务类型</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
                 data.map(w => '<tr>' +
                     '<td>' + esc(w.wizard_name || '') + '</td>' +
@@ -359,6 +389,7 @@
                     '<td class="wrap">' + esc(Array.isArray(w.skills) ? w.skills.join('、') : (w.skills || '')) + '</td>' +
                     '<td>' + statusTag(w.is_active === false ? 'false' : 'true') + '</td>' +
                     '<td><div class="admin-actions">' +
+                    '<button class="admin-btn admin-btn-edit" onclick="openWizardEditor(\'' + esc(w.id) + '\')">编辑</button>' +
                     '<button class="admin-btn admin-btn-edit" onclick="toggleWizard(\'' + esc(w.id) + '\',' + (w.is_active === false) + ')">' + (w.is_active === false ? '上架' : '下架') + '</button>' +
                     '<button class="admin-btn admin-btn-del" onclick="delRow(\'wizards\',\'' + esc(w.id) + '\',\'陪玩\')">删除</button>' +
                     '</div></td></tr>').join('') + '</tbody>';
@@ -367,12 +398,50 @@
         }
     }
 
+    window.openProfileEditor = async function (id) {
+        let p = {};
+        try {
+            const { data, error } = await sb.from('profiles').select('*').eq('id', id).maybeSingle();
+            if (error) throw error;
+            if (data) p = data;
+        } catch (e) { adminToast('读取失败：' + e.message, 'error'); return; }
+        openModal('<div class="admin-form"><h2>编辑陪玩资料</h2>' +
+            '<div class="form-group"><label>昵称</label><input id="pfNickname" value="' + esc(p.nickname || '') + '"></div>' +
+            '<div class="form-row"><div class="form-group"><label>游戏</label><input id="pfGame" value="' + esc(p.game_type || '') + '"></div>' +
+            '<div class="form-group"><label>区服</label><input id="pfServer" value="' + esc(p.server || '') + '"></div></div>' +
+            '<div class="form-row"><div class="form-group"><label>等级</label><input id="pfLevel" value="' + esc(p.level || '') + '"></div>' +
+            '<div class="form-group"><label>评分</label><input id="pfRating" type="number" step="0.1" value="' + esc(p.rating || 0) + '"></div></div>' +
+            '<div class="form-group"><label>sky ID</label><input id="pfSkyId" value="' + esc(p.sky_id || '') + '"></div>' +
+            '<div class="form-group"><label>王者 ID</label><input id="pfWangzheId" value="' + esc(p.wangzhe_id || '') + '"></div>' +
+            '<div class="admin-form-actions"><button class="btn btn-primary" onclick="saveProfile(\'' + esc(id) + '\')">保存</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>' +
+            '</div>');
+    };
+
+    window.saveProfile = async function (id) {
+        const payload = {
+            nickname: document.getElementById('pfNickname').value,
+            game_type: document.getElementById('pfGame').value,
+            server: document.getElementById('pfServer').value,
+            level: document.getElementById('pfLevel').value,
+            rating: Number(document.getElementById('pfRating').value || 0),
+            sky_id: document.getElementById('pfSkyId').value,
+            wangzhe_id: document.getElementById('pfWangzheId').value
+        };
+        try {
+            const { error } = await sb.from('profiles').update(payload).eq('id', id);
+            if (error) throw error;
+            adminToast('资料已保存', 'success');
+            closeModal();
+            loadWizards();
+        } catch (e) { adminToast('保存失败：' + e.message, 'error'); }
+    };
+
     window.toggleWizard = async function (id, currentlyOff) {
         try {
             const { error } = await sb.from('wizards').update({ is_active: currentlyOff }).eq('id', id);
             if (error) throw error;
             adminToast(currentlyOff ? '已上架' : '已下架', 'success');
-            loadWizards();
+            loadShelves();
         } catch (e) { adminToast('操作失败：' + e.message, 'error'); }
     };
 
@@ -420,7 +489,7 @@
             if (error) throw error;
             adminToast('陪玩已保存', 'success');
             closeModal();
-            loadWizards();
+            loadShelves();
         } catch (e) { adminToast('保存失败：' + e.message, 'error'); }
     };
 

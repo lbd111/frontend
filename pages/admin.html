@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理后台 - BJ陪玩团</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="../css/style.css?v=202608081858">
-    <link rel="stylesheet" href="../css/admin.css?v=202608081858">
+    <link rel="stylesheet" href="../css/style.css?v=202608081909">
+    <link rel="stylesheet" href="../css/admin.css?v=202608081909">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -38,6 +38,7 @@
                 <li class="active" data-tab="dashboard"><i class="fas fa-chart-pie"></i><span>数据概览</span></li>
                 <li data-tab="users"><i class="fas fa-users"></i><span>用户管理</span></li>
                 <li data-tab="wizards"><i class="fas fa-gamepad"></i><span>陪玩管理</span></li>
+                <li data-tab="shelves"><i class="fas fa-plus-square"></i><span>上架陪玩</span></li>
                 <li data-tab="orders"><i class="fas fa-receipt"></i><span>订单管理</span></li>
                 <li data-tab="dispatch"><i class="fas fa-people-carry"></i><span>派单管理</span></li>
                 <li data-tab="requests"><i class="fas fa-clipboard-list"></i><span>点单请求</span></li>
@@ -72,12 +73,23 @@
             <section class="admin-section" id="section-wizards">
                 <div class="admin-section-head">
                     <h2 class="section-title">陪玩管理</h2>
-                    <button class="btn btn-primary btn-small" onclick="openWizardEditor()"><i class="fas fa-plus"></i> 新增陪玩</button>
                     <div class="admin-search">
-                        <input type="text" id="wizardSearch" placeholder="搜索昵称 / 游戏" oninput="loadWizards()">
+                        <input type="text" id="wizardSearch" placeholder="搜索昵称 / 游戏 / 区服" oninput="loadWizards()">
                     </div>
                 </div>
                 <div class="admin-table-wrap"><table class="admin-table" id="wizardsTable"></table></div>
+            </section>
+
+            <!-- 上架陪玩 -->
+            <section class="admin-section" id="section-shelves">
+                <div class="admin-section-head">
+                    <h2 class="section-title">上架陪玩</h2>
+                    <button class="btn btn-primary btn-small" onclick="openWizardEditor()"><i class="fas fa-plus"></i> 新增陪玩</button>
+                    <div class="admin-search">
+                        <input type="text" id="shelfSearch" placeholder="搜索陪玩名 / 游戏" oninput="loadShelves()">
+                    </div>
+                </div>
+                <div class="admin-table-wrap"><table class="admin-table" id="shelvesTable"></table></div>
             </section>
 
             <!-- 订单管理 -->
@@ -160,7 +172,7 @@
     <!-- 通知容器 -->
     <div id="adminToast"></div>
 
-    <script src="../js/supabase-config.js?v=202608081858"></script>
-    <script src="../js/admin.js?v=202608081858"></script>
+    <script src="../js/supabase-config.js?v=202608081909"></script>
+    <script src="../js/admin.js?v=202608081909"></script>
 </body>
 </html>
