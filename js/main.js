@@ -229,7 +229,7 @@ async function loadNotifications() {
                 var res = await fetchWithTimeout(getApiBase() + '/api/notifications?limit=50', {
                     method: 'GET',
                     headers: { 'Authorization': 'Bearer ' + token }
-                }, 8000);
+                }, 25000);
                 if (res.ok) {
                     var result = await res.json();
                     if (result.code === 1 && Array.isArray(result.data)) {

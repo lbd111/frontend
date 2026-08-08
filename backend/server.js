@@ -812,7 +812,7 @@ app.get('/api/notifications', authMiddleware, async (req, res) => {
         .gte('created_at', cutoff)
         .order('created_at', { ascending: false })
         .limit(limit),
-      8000,
+      20000,
       '/api/notifications'
     );
     if (error) throw error;
