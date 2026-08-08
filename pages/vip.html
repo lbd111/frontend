@@ -5,9 +5,9 @@
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>会员中心 - BJ陪玩团</title>
-    <link rel="stylesheet" href="../css/style.css?v=202608082323">
-<link rel="stylesheet" href="../css/profile.css?v=202608082323">
-    <link rel="stylesheet" href="../css/vip.css?v=202608082323">
+    <link rel="stylesheet" href="../css/style.css?v=202608090015">
+<link rel="stylesheet" href="../css/profile.css?v=202608090015">
+    <link rel="stylesheet" href="../css/vip.css?v=202608090015">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body><script>
@@ -128,7 +128,33 @@
                     </label>
                 </div>
                 
-                <div class="payment-hint" style="text-align:center;color:#999;font-size:13px;margin-bottom:8px;"><i class="fas fa-wallet"></i> 支付方式：微信 / 支付宝扫码支付</div>
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label style="display:block;text-align:center;color:#666;font-size:14px;margin-bottom:10px;"><i class="fas fa-credit-card"></i> 支付方式</label>
+                    <div class="payment-options three-options" id="vipPaymentOptions">
+                        <label class="payment-option">
+                            <input type="radio" name="vip_payment" value="wxpay" checked>
+                            <div class="payment-card">
+                                <i class="fab fa-weixin"></i>
+                                <span>微信支付</span>
+                            </div>
+                        </label>
+                        <label class="payment-option">
+                            <input type="radio" name="vip_payment" value="alipay">
+                            <div class="payment-card">
+                                <i class="fab fa-alipay"></i>
+                                <span>支付宝</span>
+                            </div>
+                        </label>
+                        <label class="payment-option">
+                            <input type="radio" name="vip_payment" value="balance">
+                            <div class="payment-card">
+                                <i class="fas fa-wallet"></i>
+                                <span>余额支付</span>
+                                <small id="vipBalanceValue" style="color:#999;font-size:11px;">(余额 ￥0.00)</small>
+                            </div>
+                        </label>
+                    </div>
+                </div>
 <div class="vip-total">
                     <span>应付金额：</span>
                     <strong id="vipTotalPrice">￥9.9</strong>
@@ -212,9 +238,9 @@
 
     
 
-<script src="../js/supabase-config.js?v=202608082323"></script>
-    <script src="../js/main.js?v=202608082323"></script>
-    <script src="../js/vip.js?v=202608082323"></script>
+<script src="../js/supabase-config.js?v=202608090015"></script>
+    <script src="../js/main.js?v=202608090015"></script>
+    <script src="../js/vip.js?v=202608090015"></script>
 
     <!-- 移动端底部 Dock 栏 -->
     

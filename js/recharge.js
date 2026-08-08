@@ -95,53 +95,48 @@ function closeTransferModal() {
     }
 }
 
-// --- 自定义确认弹窗（白色卡片） ---
-let confirmResolve = null;
-
+// --- 自定义确认弹窗（动态创建，避免被其他弹窗遮挡） ---
 function showConfirmModal(options) {
-    const modal = document.getElementById('confirmModal');
-    const titleEl = document.getElementById('confirmTitle');
-    const msgEl = document.getElementById('confirmMessage');
-    const okBtn = document.getElementById('confirmOk');
-    const cancelBtn = document.getElementById('confirmCancel');
-    if (!modal || !msgEl || !okBtn) return Promise.resolve(false);
-
     const title = options.title || '确认操作';
     const message = options.message || '确定要执行此操作吗？';
     const okText = options.okText || '确定';
     const cancelText = options.cancelText || '取消';
 
-    if (titleEl) titleEl.textContent = title;
-    msgEl.textContent = message;
-    okBtn.textContent = okText;
-    if (cancelBtn) cancelBtn.textContent = cancelText;
+    // 如果已有动态确认弹窗，先移除
+    const existing = document.getElementById('confirmModalDynamic');
+    if (existing) existing.remove();
 
-    modal.classList.add('active');
+    const overlay = document.createElement('div');
+    overlay.id = 'confirmModalDynamic';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `
+        <div class="modal confirm-modal" style="background:#fff;border-radius:20px;padding:30px;max-width:360px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.2);text-align:center;">
+            <h3 style="margin:0 0 10px;color:#1a1a2e;font-size:18px;">${title}</h3>
+            <p style="margin:0 0 24px;color:#666;font-size:14px;line-height:1.7;white-space:pre-line;">${message}</p>
+            <div style="display:flex;gap:12px;">
+                <button id="confirmDynamicCancel" style="flex:1;padding:10px 20px;border:2px solid #ddd;border-radius:10px;background:#fff;color:#666;font-size:15px;cursor:pointer;">${cancelText}</button>
+                <button id="confirmDynamicOk" style="flex:1;padding:10px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#f44336,#d32f2f);color:#fff;font-size:15px;font-weight:600;cursor:pointer;">${okText}</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
 
     return new Promise((resolve) => {
-        confirmResolve = resolve;
-        okBtn.onclick = () => {
-            closeConfirmModal();
-            resolve(true);
+        const close = (result) => {
+            overlay.remove();
+            resolve(result);
         };
-        if (cancelBtn) {
-            cancelBtn.onclick = () => {
-                closeConfirmModal();
-                resolve(false);
-            };
-        }
+        overlay.querySelector('#confirmDynamicOk').addEventListener('click', () => close(true));
+        overlay.querySelector('#confirmDynamicCancel').addEventListener('click', () => close(false));
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close(false);
+        });
     });
 }
 
 function closeConfirmModal() {
-    const modal = document.getElementById('confirmModal');
-    if (modal) {
-        modal.classList.remove('active');
-    }
-    if (confirmResolve) {
-        confirmResolve(false);
-        confirmResolve = null;
-    }
+    const overlay = document.getElementById('confirmModalDynamic');
+    if (overlay) overlay.remove();
 }
 
 // 从后端拉取当前用户的充值/支付记录并渲染

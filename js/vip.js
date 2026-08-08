@@ -36,9 +36,23 @@ function showCardMessage(title, message, type) {
 const VIP_PRICE_MONTHLY = 9.9;
 
 // --- 会员开通弹窗 ---
+function refreshVipBalanceDisplay() {
+    const el = document.getElementById('vipBalanceValue');
+    if (!el) return;
+    try {
+        const userStr = localStorage.getItem('skyUser');
+        const user = userStr ? JSON.parse(userStr) : null;
+        const balance = parseFloat(user?.balance) || 0;
+        el.textContent = '(余额 ￥' + balance.toFixed(2) + ')';
+    } catch (e) {
+        el.textContent = '(余额 ￥0.00)';
+    }
+}
+
 function showVipModal(plan) {
     const modal = document.getElementById('vipModal');
     if (modal) {
+        refreshVipBalanceDisplay();
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
     }
@@ -220,13 +234,75 @@ async function activateVip() {
         return;
     }
 
+    // 读取支付方式（默认微信支付）
+    const paymentMethod = (document.querySelector('input[name="vip_payment"]:checked') || {}).value || 'wxpay';
+
+    // 余额支付需先校验余额是否充足
+    if (paymentMethod === 'balance') {
+        const balance = parseFloat(user.balance) || 0;
+        if (balance < VIP_PRICE_MONTHLY) {
+            showCardMessage('余额不足', '当前余额 ￥' + balance.toFixed(2) + '，还需 ￥' + (VIP_PRICE_MONTHLY - balance).toFixed(2), 'error');
+            return;
+        }
+    }
+
     // 显示自定义确认卡片
-    const confirmMsg = '费用：￥' + VIP_PRICE_MONTHLY.toFixed(2) + '\n将跳转至微信/支付宝扫码支付\n\n开通后可享受：\n• 全部基础功能\n• 每周95折优惠券（无门槛）';
+    let confirmMsg = '费用：￥' + VIP_PRICE_MONTHLY.toFixed(2) + '\n';
+    if (paymentMethod === 'balance') {
+        confirmMsg += '支付方式：余额支付（直接扣除账户余额）\n\n';
+    } else if (paymentMethod === 'alipay') {
+        confirmMsg += '支付方式：支付宝扫码支付\n将跳转至支付宝扫码页面\n\n';
+    } else {
+        confirmMsg += '支付方式：微信支付\n将跳转至微信扫码页面\n\n';
+    }
+    confirmMsg += '开通后可享受：\n• 全部基础功能\n• 每周95折优惠券（无门槛）';
     const confirmed = await confirmVip(confirmMsg);
     if (!confirmed) return;
 
+    // 余额支付分支：直接扣除余额并发放权益
+    if (paymentMethod === 'balance') {
+        try {
+            const res = await window.fetchWithTimeout(window.API_BASE + '/api/pay-balance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({
+                    item: 'vip_month',
+                    amount: VIP_PRICE_MONTHLY
+                })
+            }, 25000);
+            const data = await res.json();
+            if (!res.ok || data.code !== 1) {
+                showCardMessage('支付失败', data.error || '余额支付失败', 'error');
+                return;
+            }
+            // 更新本地缓存
+            try {
+                user.balance = data.balance;
+                if (data.benefit) {
+                    if (data.benefit.level) user.level = data.benefit.level;
+                    if (data.benefit.vip_expire_at) user.vip_expire_at = data.benefit.vip_expire_at;
+                }
+                localStorage.setItem('skyUser', JSON.stringify(user));
+            } catch (e) {
+                console.warn('更新本地 skyUser 失败:', e);
+            }
+            showCardMessage('开通成功', '已使用余额支付 ￥' + VIP_PRICE_MONTHLY.toFixed(2) + '\n会员权益已生效', 'success');
+            refreshVipBalanceDisplay();
+            loadMemberStatus();
+        } catch (err) {
+            console.error('余额支付异常:', err);
+            showCardMessage('网络错误', '余额支付请求失败，请稍后重试', 'error');
+        }
+        return;
+    }
+
+    // 扫码支付分支：走 /api/checkout 创建 mpay 订单
     try {
-        const res = await fetch(window.API_BASE + '/api/checkout', {
+        const channel = paymentMethod === 'alipay' ? 'alipay' : 'wxpay';
+        const res = await window.fetchWithTimeout(window.API_BASE + '/api/checkout', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -235,9 +311,9 @@ async function activateVip() {
             body: JSON.stringify({
                 item: 'vip_month',
                 amount: VIP_PRICE_MONTHLY,
-                channel: 'wxpay'
+                channel: channel
             })
-        });
+        }, 25000);
 
         const data = await res.json();
         if (!res.ok || data.code !== 1) {

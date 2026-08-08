@@ -300,6 +300,79 @@
     color: var(--accent);
 }
 
+/* --- 支付方式选择（复用充值页风格） --- */
+.payment-options {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 4px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.payment-options.three-options {
+    gap: 10px;
+}
+
+.payment-option {
+    flex: 0 0 110px;
+    cursor: pointer;
+    max-width: 110px;
+}
+
+.payment-options.three-options .payment-option {
+    flex: 0 0 105px;
+    max-width: 105px;
+}
+
+.payment-option input {
+    display: none;
+}
+
+.payment-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 110px;
+    height: 86px;
+    box-sizing: border-box;
+    padding: 8px 4px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+    background: #fff;
+}
+
+.payment-options.three-options .payment-card {
+    width: 105px;
+    height: 86px;
+}
+
+.payment-option input:checked + .payment-card {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.payment-card i {
+    font-size: 1.6rem;
+    color: var(--text-secondary);
+}
+
+.payment-option input:checked + .payment-card i {
+    color: var(--primary);
+}
+
+.payment-card span {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.payment-card small {
+    display: block;
+    line-height: 1.2;
+}
+
 /* --- 响应式 --- */
 @media (max-width: 768px) {
     .status-card {

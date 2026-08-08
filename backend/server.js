@@ -493,6 +493,79 @@ app.post('/api/checkout', authMiddleware, async (req, res) => {
 });
 
 /**
+ * 余额支付（直接扣除 profiles.balance 并发放权益）
+ * POST /api/pay-balance
+ * Body: { item: 'vip_month' | 'recharge', amount: number }
+ */
+app.post('/api/pay-balance', authMiddleware, async (req, res) => {
+  try {
+    const { item, amount } = req.body;
+    const userId = req.user.id;
+
+    if (!['vip_month', 'recharge'].includes(item)) {
+      return res.status(400).json({ code: 0, error: '商品类型错误' });
+    }
+    const numAmount = parseFloat(amount);
+    if (!numAmount || numAmount <= 0 || numAmount > 99999) {
+      return res.status(400).json({ code: 0, error: '金额不合法' });
+    }
+
+    // 查询当前余额
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('balance')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) throw new Error('查询余额失败: ' + profileError.message);
+
+    const current = parseFloat(profile?.balance) || 0;
+    if (current < numAmount) {
+      return res.status(400).json({
+        code: 0,
+        error: '余额不足',
+        balance: current.toFixed(2),
+        need: numAmount.toFixed(2)
+      });
+    }
+
+    const newBalance = (current - numAmount).toFixed(2);
+
+    // 扣除余额
+    const { error: updError } = await supabase
+      .from('profiles')
+      .update({ balance: newBalance })
+      .eq('id', userId);
+
+    if (updError) throw new Error('扣除余额失败: ' + updError.message);
+
+    // 生成订单号并写入已支付流水
+    const bjOrderNo = generateOrderNo();
+    const now = new Date();
+    await dbPool.execute(
+      `INSERT INTO payment_orders (bj_order_no, user_id, item_type, amount, channel, status, paid_at, payload)
+       VALUES (?, ?, ?, ?, ?, 'paid', ?, ?)`,
+      [bjOrderNo, userId, item, numAmount.toFixed(2), 'balance', now, JSON.stringify({ paid_from: 'balance' })]
+    );
+
+    // 发放权益
+    const benefit = await grantBenefit({ user_id: userId, item_type: item, amount: numAmount });
+
+    res.json({
+      code: 1,
+      message: '支付成功',
+      bj_order_no: bjOrderNo,
+      balance: newBalance,
+      benefit
+    });
+  } catch (err) {
+    console.error('/api/pay-balance 异常:', err);
+    setCorsHeaders(req, res);
+    res.status(500).json({ code: 0, error: '服务器内部错误', detail: err.message });
+  }
+});
+
+/**
  * mpay 异步通知回调
  * GET /api/mpay/notify
  */
