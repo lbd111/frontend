@@ -1,9 +1,10 @@
 ﻿// ============================================
-// 生产环境：屏蔽调试日志，保持控制台整洁（仅保留 error）
-// 如需临时开启，在控制台执行：localStorage.setItem('debug','1');location.reload()
+// 调试日志开关（排查中：默认开启）
+// 如需屏蔽，在控制台执行：localStorage.setItem('quiet','1');location.reload()
+// 如需恢复开启，执行：localStorage.removeItem('quiet');location.reload()
 // ============================================
 (function () {
-    if (typeof console !== 'undefined' && !localStorage.getItem('debug')) {
+    if (typeof console !== 'undefined' && localStorage.getItem('quiet')) {
         console.log = function () {};
         console.warn = function () {};
         console.info = function () {};
