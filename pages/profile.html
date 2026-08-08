@@ -375,9 +375,9 @@
         </div>
     </footer>
 
-    <script src="../js/supabase-config.js?v=202608072257"></script>
-    <script src="../js/main.js?v=202608072257"></script>
-    <script src="../js/profile.js?v=202608072257"></script>
+    <script src="../js/supabase-config.js?v=202608081445"></script>
+    <script src="../js/main.js?v=202608081445"></script>
+    <script src="../js/profile.js?v=202608081445"></script>
     <script>
         // Profile page avatar upload
         document.addEventListener('DOMContentLoaded', function() {
@@ -785,43 +785,55 @@
         btn.classList.toggle('expanded', expanded);
     }
 
-    async function loadRecentOrders() {
+    async function loadRecentOrders(prefetchedData) {
         try {
+            const container = document.getElementById('recentOrdersList');
+            if (!container) return;
+
             const userStr = localStorage.getItem('skyUser');
-            if (!userStr) return;
+            if (!userStr) {
+                container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">请先登录</p>';
+                return;
+            }
             const user = JSON.parse(userStr);
             const userId = user.id || user.user_id || user.sub;
-            if (!userId) return;
-
-            // 并行查询所有与当前用户相关的订单来源，把「我派的单」和「我接的单」分开查
-            const [profileRes, ordersRes, wizardOrdersRes, myRequestPostsRes, myRequestAcceptsRes, myDispatchPostsRes, myDispatchAcceptsRes, teamMemberRes] = await Promise.all([
-                (async () => { try { return await window.supabaseClient.from('profiles').select('nickname').eq('id', userId).maybeSingle(); } catch(e) { return { data: null, error: e }; } })(),
-                (async () => { try { return await window.supabaseClient.from('orders').select('*').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })(),
-                (async () => { 
-                    try { 
-                        const pr = await window.supabaseClient.from('profiles').select('nickname').eq('id', userId).maybeSingle();
-                        const nickname = pr.data && pr.data.nickname ? pr.data.nickname : '';
-                        if(!nickname) return { data: [] };
-                        return await window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname);
-                    } catch(e) { return { data: [], error: e }; } 
-                })(),
-                (async () => { try { return await window.supabaseClient.from('order_requests').select('*').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })(),
-                (async () => { try { return await window.supabaseClient.from('order_requests').select('*').eq('accepted_by', userId); } catch(e) { return { data: [], error: e }; } })(),
-                (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })(),
-                (async () => { try { return await window.supabaseClient.from('dispatch_orders').select('*').eq('accepted_by', userId); } catch(e) { return { data: [], error: e }; } })(),
-                (async () => { try { return await window.supabaseClient.from('dispatch_team_members').select('dispatch_order_id').eq('user_id', userId); } catch(e) { return { data: [], error: e }; } })()
-            ]);
-
-            const nickname = profileRes.data && profileRes.data.nickname ? profileRes.data.nickname : '';
-
-            // 通过 dispatch_team_members 查找我加入的组队派单
-            const teamDispatchIds = (teamMemberRes.data || []).map(m => m.dispatch_order_id).filter(Boolean);
-            let teamDispatchRes = { data: [] };
-            if(teamDispatchIds.length > 0) {
-                try {
-                    teamDispatchRes = await window.supabaseClient.from('dispatch_orders').select('*').in('id', teamDispatchIds);
-                } catch(e) { teamDispatchRes = { data: [] }; }
+            if (!userId) {
+                container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">请先登录</p>';
+                return;
             }
+
+            // 本地 file:// 因 Supabase JWT iat 时间校验会 401，
+            // 优先使用 profile.js 中 loadProfileDataFromApi 已请求到的全量数据
+            let data = prefetchedData || window.__profileData;
+
+            // 若还没有数据，尝试从后端 /api/profile-data 拉一次
+            if (!data) {
+                try {
+                    const token = (typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null;
+                    const apiBase = (typeof window.getApiBase === 'function') ? window.getApiBase() : 'https://api.skypw.dpdns.org';
+                    if (token) {
+                        const res = await fetch(apiBase + '/api/profile-data', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify({})
+                        });
+                        const result = await res.json();
+                        if (result.code === 1 && result.data) {
+                            data = result.data;
+                            window.__profileData = data;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[loadRecentOrders] 后端取数据失败:', e);
+                }
+            }
+
+            if (!data) {
+                container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">暂无订单记录</p>';
+                return;
+            }
+
+            const nickname = (data.profile && data.profile.nickname) ? data.profile.nickname : '';
 
             // 合并、去重并按时间倒序取前 3
             const seen = {};
@@ -854,14 +866,14 @@
                 }
                 all.push(item);
             }
-            (ordersRes.data || []).forEach(o => add(o, 'board'));
-            (wizardOrdersRes.data || []).forEach(o => add(o, 'wizard'));
+            (data.orders || []).forEach(o => add(o, 'board'));
+            (data.wizardOrders || []).forEach(o => add(o, 'wizard'));
             // order_requests 统一视为「我接的单」
-            (myRequestAcceptsRes.data || []).forEach(r => add({...r, id: 'req_' + r.id}, 'wizard', 'order_requests', r.id));
-            (myRequestPostsRes.data || []).forEach(r => add({...r, id: 'req_post_' + r.id}, 'wizard', 'order_requests', r.id));
-            (myDispatchAcceptsRes.data || []).forEach(d => add({...d, id: 'disp_' + d.id}, 'wizard', 'dispatch_orders', d.id));
-            (myDispatchPostsRes.data || []).forEach(d => add({...d, id: 'disp_post_' + d.id}, 'dispatch', 'dispatch_orders', d.id));
-            (teamDispatchRes.data || []).forEach(d => add({...d, id: 'disp_' + d.id}, 'wizard', 'dispatch_orders', d.id));
+            (data.myRequestAccepts || []).forEach(r => add({...r, id: 'req_' + r.id}, 'wizard', 'order_requests', r.id));
+            (data.myRequestPosts || []).forEach(r => add({...r, id: 'req_post_' + r.id}, 'wizard', 'order_requests', r.id));
+            (data.myDispatchAccepts || []).forEach(d => add({...d, id: 'disp_' + d.id}, 'wizard', 'dispatch_orders', d.id));
+            (data.myDispatchPosts || []).forEach(d => add({...d, id: 'disp_post_' + d.id}, 'dispatch', 'dispatch_orders', d.id));
+            (data.teamDispatchOrders || []).forEach(d => add({...d, id: 'disp_' + d.id}, 'wizard', 'dispatch_orders', d.id));
 
             all.sort(function(a, b) {
                 return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
@@ -881,15 +893,14 @@
                 if(curUserId) { await loadDispatchCancelInfo(orders, curUserId); await autoResolveExpiredDispatchCancels(orders); }
             } catch(e) { console.warn('dispatch cancel info failed', e); }
 
-            const container = document.getElementById('recentOrdersList');
-            if (!container) return;
-
             if (!orders.length) {
                 container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">暂无订单记录</p>';
                 return;
             }
 
             // 批量获取头像：优先按填写邮箱查，没有邮箱再 fallback 按昵称查
+            // 优先使用 profile.js 中 loadProfileDataFromApi 已返回的 profiles 映射（暂无），故仍查询 profiles，
+            // 但仅查一次且失败时静默，不产生红色报错。
             const emailSet = {};
             const nameSet = {};
             orders.forEach(function(o) {
@@ -908,7 +919,7 @@
             const names = Object.keys(nameSet);
             const avatarMap = {};
             try {
-                if(emails.length > 0) {
+                if(window.supabaseClient && emails.length > 0) {
                     var emailProfRes = await window.supabaseClient.from('profiles').select('email, avatar_url, nickname').in('email', emails);
                     (emailProfRes.data || []).forEach(function(p) {
                         avatarMap[p.email] = p.avatar_url || '';
@@ -917,11 +928,13 @@
                         }
                     });
                 }
-                if(names.length > 0) {
+                if(window.supabaseClient && names.length > 0) {
                     var nameProfRes = await window.supabaseClient.from('profiles').select('nickname, avatar_url').in('nickname', names);
                     (nameProfRes.data || []).forEach(function(p) { avatarMap[p.nickname] = p.avatar_url || ''; });
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.warn('[loadRecentOrders] 头像查询失败（静默）:', e);
+            }
 
             container.innerHTML = '';
             orders.forEach(o => {
@@ -961,9 +974,45 @@
 
         list.innerHTML = '<div class="favorite-empty"><i class="fas fa-heart"></i><p>加载中...</p></div>';
         try {
-            const favorites = await (window.loadFavorites ? window.loadFavorites() : []);
+            let favorites = [];
+            let profiles = [];
+
+            // 本地 file:// 因 Supabase JWT iat 时间校验会 401，
+            // 优先使用 profile.js 中 loadProfileDataFromApi 已请求到的全量数据
+            if (window.__profileData) {
+                favorites = window.__profileData.favorites || [];
+                profiles = window.__profileData.favoriteProfiles || [];
+            } else {
+                // 兜底：尝试从后端 /api/profile-data 拉一次
+                try {
+                    const token = (typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null;
+                    const apiBase = (typeof window.getApiBase === 'function') ? window.getApiBase() : 'https://api.skypw.dpdns.org';
+                    if (token) {
+                        const res = await fetch(apiBase + '/api/profile-data', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify({})
+                        });
+                        const result = await res.json();
+                        if (result.code === 1 && result.data) {
+                            window.__profileData = result.data;
+                            favorites = result.data.favorites || [];
+                            profiles = result.data.favoriteProfiles || [];
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[showFavorites] 后端取数据失败:', e);
+                }
+            }
+
             favCache = favorites || [];
             favProfileMap = {};
+            (profiles || []).forEach(p => {
+                favProfileMap[p.id] = p;
+                if (p.nickname) favProfileMap[p.nickname] = p;
+            });
+
+            // 若后端未返回 favoriteProfiles，再尝试查 profiles；失败时静默，避免 401 刷屏
             function isUuid(v) {
                 return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
             }
@@ -973,7 +1022,7 @@
                 if (f.wizard_id && isUuid(f.wizard_id)) ids.push(f.wizard_id);
                 if (f.wizard_name) names.push(f.wizard_name);
             });
-            if (window.supabaseClient && (ids.length > 0 || names.length > 0)) {
+            if (window.supabaseClient && (ids.length > 0 || names.length > 0) && Object.keys(favProfileMap).length === 0) {
                 try {
                     const promises = [];
                     if (ids.length > 0) {
@@ -1128,17 +1177,19 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         window.refreshCurrentPageOrders = loadRecentOrders;
-        if (window.supabaseClient) {
-            loadRecentOrders();
-        } else {
-            const checkInterval = setInterval(() => {
-                if (window.supabaseClient) {
-                    clearInterval(checkInterval);
-                    loadRecentOrders();
-                }
-            }, 200);
-            setTimeout(() => clearInterval(checkInterval), 5000);
-        }
+        // profile.js 的 loadProfileDataFromApi 完成后会把数据写入 window.__profileData 并调用 loadRecentOrders。
+        // 这里最多等待 3 秒，若 profile.js 未拿到数据则自己兜底请求一次后端。
+        let waited = 0;
+        const checkInterval = setInterval(() => {
+            waited += 200;
+            if (window.__profileData) {
+                clearInterval(checkInterval);
+                loadRecentOrders(window.__profileData);
+            } else if (waited >= 3000) {
+                clearInterval(checkInterval);
+                loadRecentOrders();
+            }
+        }, 200);
     });
 </script>
 </body>

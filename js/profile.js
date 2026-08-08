@@ -137,28 +137,57 @@ async function spQuery(builderFn) {
     return await builderFn();
 }
 
+function getStatsCache(userId) {
+    try {
+        var raw = localStorage.getItem('skyStatsCache');
+        if (!raw) return null;
+        var cache = JSON.parse(raw);
+        if (cache && cache.userId === userId) return cache;
+    } catch (e) {}
+    return null;
+}
+
+function setStatsCache(userId, stats) {
+    try {
+        localStorage.setItem('skyStatsCache', JSON.stringify(Object.assign({ userId: userId, updatedAt: Date.now() }, stats)));
+    } catch (e) {}
+}
+
 async function loadCouponsList() {
     const userStr = localStorage.getItem('skyUser');
+    const list = document.getElementById('dynamicCouponsList');
     if (!userStr) {
-        const list = document.getElementById('dynamicCouponsList');
         if (list) list.innerHTML = '<div class="coupon-empty"><i class="fas fa-ticket-alt"></i><p>请先登录</p></div>';
         return;
     }
     const user = JSON.parse(userStr);
 
-    const { data: coupons, error } = await window.supabaseClient
-        .from('coupons')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-    const list = document.getElementById('dynamicCouponsList');
-    if (!list) return;
-
-    if (error) {
-        list.innerHTML = '<div class="coupon-empty"><i class="fas fa-ticket-alt"></i><p>加载失败</p></div>';
-        return;
+    let coupons = [];
+    // 优先使用 loadProfileDataFromApi 已缓存的全量数据，避免本地 file:// 直连 Supabase 401
+    if (window.__profileData && window.__profileData.coupons) {
+        coupons = window.__profileData.coupons;
+    } else {
+        // 兜底：尝试调一次后端 /api/profile-data（带超时）
+        try {
+            const token = getSupabaseToken();
+            if (token) {
+                const res = await fetchWithTimeout(getApiBase() + '/api/profile-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({})
+                }, 8000);
+                const result = await res.json();
+                if (result.code === 1 && result.data && result.data.coupons) {
+                    coupons = result.data.coupons;
+                    window.__profileData = result.data;
+                }
+            }
+        } catch (e) {
+            console.warn('[loadCouponsList] 后端取优惠券失败:', e);
+        }
     }
+
+    if (!list) return;
 
     const cleanCoupons = typeof deleteExpiredCoupons === 'function'
         ? await deleteExpiredCoupons(coupons || [])
@@ -195,7 +224,7 @@ async function loadCouponsList() {
     list.innerHTML = html;
 }
 
-async function loadUserProfile(prefetchedProfile) {
+async function loadUserProfile(prefetchedProfile, useCacheOnly) {
     try {
         const userStr = localStorage.getItem('skyUser');
         let user = null;
@@ -230,15 +259,12 @@ const wEl = document.getElementById('wangzheIdValue');
         console.log('加载用户数据:', user);
 
         let profile = prefetchedProfile || null;
-        if (!profile) {
-            const filters = ['id=eq.' + user.id];
-            const result = await supabaseGet('profiles', filters);
-            console.log('Profile result:', result);
-            if (result.data && result.data.length > 0) {
-                profile = result.data[0];
-            }
+        // 本地 file:// 因 Supabase JWT iat 时间校验会 401，个人中心资料统一由后端 /api/profile-data 提供。
+        // 若未传入 profile 且允许请求，不再直连 Supabase，而是交给调用方（loadProfileDataFromApi）去后端获取。
+        if (!profile && !useCacheOnly) {
+            console.warn('[loadUserProfile] 未提供 profile 且非缓存模式，但为避免 401 不再直连 Supabase，稍后由 loadProfileDataFromApi 重试');
+            return false;
         }
-        console.log('Profile data:', profile);
 
         if (profile) {
             console.log('Profile data:', profile);
@@ -377,44 +403,156 @@ const avatarContainer = document.querySelector('.avatar-inner');
         console.log('用户信息加载完成');
     } catch (err) {
         console.error('[加载用户信息失败]', err);
+        // 异常兜底：至少用 localStorage 把昵称、余额等显示出来，避免页面一直「加载中」
+        try {
+            const userStr = localStorage.getItem('skyUser');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const nameEl = document.getElementById('userName');
+                const displayName = user.nickname || user.username || (user.email ? user.email.split('@')[0] : '玩家');
+                if (nameEl) nameEl.textContent = displayName;
+                const skyIdEl = document.getElementById('skyIdValue');
+                if (skyIdEl) skyIdEl.textContent = user.sky_id || '未设置';
+                var wMeta = document.getElementById('metaWangzheId');
+                var wEl = document.getElementById('wangzheIdValue');
+                if (wMeta && wEl) { wMeta.style.display = 'inline'; wEl.textContent = user.wangzhe_id || '未设置'; }
+                const levelEl = document.getElementById('levelValue');
+                if (levelEl) levelEl.textContent = user.level || '普通会员';
+                const roleEl = document.getElementById('roleIdDisplay');
+                if (roleEl) {
+                    var roleIcon = user.role === '陪陪' ? 'fa-shield-halved' : 'fa-user';
+                    var roleColor = user.role === '陪陪' ? 'var(--accent)' : 'var(--text-secondary)';
+                    roleEl.innerHTML = '<i class="fas ' + roleIcon + '"></i> 身份：<span style="color:' + roleColor + ';font-weight:600;">' + (user.role || '板板') + '</span>';
+                }
+                const avatarContainer = document.querySelector('.avatar-inner');
+                if (avatarContainer && user.avatar) {
+                    avatarContainer.innerHTML = '<img src="' + user.avatar + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+                }
+            }
+        } catch(e) {}
     }
+}
+
+// 后端代理统一使用 HTTPS 域名（优先用 main.js 已挂载的全局函数）
+function getApiBase() {
+    if (typeof window.getApiBase === 'function' && window.getApiBase !== getApiBase) {
+        return window.getApiBase();
+    }
+    if (typeof window.API_BASE !== 'undefined') return window.API_BASE;
+    return 'https://api.skypw.dpdns.org';
+}
+
+// fetch 超时包装（优先用 main.js 已挂载的全局函数）
+async function fetchWithTimeout(url, options, timeoutMs) {
+    if (typeof window.fetchWithTimeout === 'function' && window.fetchWithTimeout !== fetchWithTimeout) {
+        return await window.fetchWithTimeout(url, options, timeoutMs);
+    }
+    timeoutMs = timeoutMs || 8000;
+    if (typeof AbortController !== 'undefined') {
+        var controller = new AbortController();
+        var id = setTimeout(function() { controller.abort(); }, timeoutMs);
+        try {
+            return await fetch(url, Object.assign({}, options, { signal: controller.signal }));
+        } finally {
+            clearTimeout(id);
+        }
+    }
+    return await fetch(url, options);
+}
+
+// 获取当前用户的 Supabase access_token（优先用 main.js 已挂载的全局函数）
+function getSupabaseToken() {
+    if (typeof window.getSupabaseToken === 'function' && window.getSupabaseToken !== getSupabaseToken) {
+        return window.getSupabaseToken();
+    }
+    try {
+        if (window.supabaseClient && window.supabaseClient.auth && window.supabaseClient.auth.currentSession) {
+            return window.supabaseClient.auth.currentSession.access_token || null;
+        }
+    } catch(e) {}
+    try {
+        var raw = localStorage.getItem('sky-auth-token');
+        if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed && parsed.access_token) return parsed.access_token;
+            if (parsed && parsed.session && parsed.session.access_token) return parsed.session.access_token;
+        }
+    } catch(e) {}
+    try {
+        var userStr = localStorage.getItem('skyUser');
+        if (userStr) {
+            var user = JSON.parse(userStr);
+            if (user && user.access_token) return user.access_token;
+        }
+    } catch(e) {}
+    return null;
 }
 
 // 通过后端 /api/profile-data 一次性获取个人中心数据，绕过 Supabase REST 的 JWT iat 时间校验
 async function loadProfileDataFromApi() {
     try {
         const userStr = localStorage.getItem('skyUser');
-        if (!userStr) return false;
+        if (!userStr) {
+            console.warn('[loadProfileDataFromApi] 无 skyUser，跳过后端代理');
+            return false;
+        }
         let user = null;
         try { user = JSON.parse(userStr); } catch(e) { return false; }
         if (!user || !user.id) return false;
 
-        let token = null;
-        try {
-            const { data: { session } } = await window.supabaseClient.auth.getSession();
-            token = session && session.access_token;
-        } catch(e) {
-            console.error('获取 session 失败:', e);
+        var token = getSupabaseToken();
+        if (!token) {
+            console.warn('[loadProfileDataFromApi] 未获取到 access_token，回退 Supabase');
+            return false;
         }
-        if (!token) return false;
 
-        const apiBase = (typeof window.API_BASE !== 'undefined') ? window.API_BASE : 'https://api.skypw.dpdns.org';
-        const res = await fetch(apiBase + '/api/profile-data', {
+        var apiBase = getApiBase();
+        var url = apiBase + '/api/profile-data';
+        console.log('[loadProfileDataFromApi] 请求后端:', url);
+        const res = await fetchWithTimeout(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
-            }
-        });
-        const result = await res.json();
+            },
+            body: JSON.stringify({})
+        }, 10000);
+
+        if (res.status === 204) {
+            console.warn('[loadProfileDataFromApi] 后端返回 204 No Content，可能 Nginx/Cloudflare 拦截');
+            return false;
+        }
+        var result;
+        try {
+            result = await res.json();
+        } catch(parseErr) {
+            console.warn('[loadProfileDataFromApi] 响应不是 JSON，status=' + res.status);
+            return false;
+        }
         if (!res.ok || result.code !== 1) {
-            console.warn('[loadProfileDataFromApi] 后端返回异常:', result);
+            console.warn('[loadProfileDataFromApi] 后端返回异常:', res.status, result);
             return false;
         }
 
         console.log('[loadProfileDataFromApi] 后端数据已返回');
+        window.__profileData = result.data || null;
         await loadUserProfile(result.data.profile || null);
         await loadStats(result.data || null);
+        // 触发个人中心其他依赖数据的渲染（最近订单、优惠券等）
+        try {
+            if (typeof window.loadRecentOrders === 'function') {
+                window.loadRecentOrders(result.data || null);
+            }
+        } catch (e) { console.warn('[loadProfileDataFromApi] 触发最近订单渲染失败:', e); }
+        try {
+            if (typeof window.loadCouponsList === 'function') {
+                // 优惠券弹窗未打开时也预渲染一次空列表到容器，避免打开时重复请求
+                const list = document.getElementById('dynamicCouponsList');
+                if (list && list.querySelector('.coupon-empty') && list.textContent.indexOf('加载中') > -1) {
+                    window.loadCouponsList();
+                }
+            }
+        } catch (e) { console.warn('[loadProfileDataFromApi] 触发优惠券渲染失败:', e); }
         return true;
     } catch (err) {
         console.error('[loadProfileDataFromApi] 调用后端失败:', err);
@@ -422,7 +560,7 @@ async function loadProfileDataFromApi() {
     }
 }
 
-async function loadStats(prefetchedData) {
+async function loadStats(prefetchedData, useCacheOnly) {
     try {
         const userStr = localStorage.getItem('skyUser');
         let user = null;
@@ -450,6 +588,29 @@ async function loadStats(prefetchedData) {
             return;
         }
 
+        // 读取上次成功缓存的统计，作为本次同步失败时的兜底
+        const cache = getStatsCache(user.id);
+
+        // 纯缓存模式：直接用 skyStatsCache / skyUser 渲染，不发任何请求
+        if (useCacheOnly) {
+            const ordersCount = cache ? cache.ordersCount : 0;
+            const couponsCount = cache ? cache.couponsCount : 0;
+            const favoritesCount = cache ? cache.favoritesCount : 0;
+            const balance = parseFloat(cache && cache.balance) || parseFloat(user.balance) || 0;
+
+            const orderEl = document.getElementById('profileOrderCount');
+            if (orderEl) orderEl.textContent = ordersCount || 0;
+            const favEl = document.getElementById('profileFavoriteCount');
+            if (favEl) favEl.textContent = favoritesCount || 0;
+            const couponEl = document.getElementById('profileCouponCount');
+            if (couponEl) couponEl.textContent = couponsCount || 0;
+            const balanceEl = document.getElementById('profileBalanceValue');
+            if (balanceEl) balanceEl.textContent = '\uFFE5' + balance.toFixed(2);
+
+            console.log('[loadStats] 缓存模式渲染:', { ordersCount, couponsCount, favoritesCount, balance });
+            return;
+        }
+
         let profileRes, ordersRes, wizardOrdersRes, myRequestPostsRes, myRequestAcceptsRes, myDispatchPostsRes, myDispatchAcceptsRes, teamMemberRes, couponsRes, favoritesRes, teamDispatchRes;
         if (prefetchedData) {
             profileRes = { data: prefetchedData.profile || null };
@@ -464,36 +625,39 @@ async function loadStats(prefetchedData) {
             favoritesRes = { data: prefetchedData.favorites || [] };
             teamDispatchRes = { data: prefetchedData.teamDispatchOrders || [] };
         } else {
-            // 并行查询：用户资料、普通订单、接单求助、派的单、我接的单、组队接单、优惠券、收藏
-            // 注意：Supabase 查询构建器不是原生 Promise，不能直接用 .catch()
-            [profileRes, ordersRes, wizardOrdersRes, myRequestPostsRes, myRequestAcceptsRes, myDispatchPostsRes, myDispatchAcceptsRes, teamMemberRes, couponsRes, favoritesRes] = await Promise.all([
-            (async () => { try { return await spQuery(() => window.supabaseClient.from('profiles').select('nickname, balance').eq('id', user.id).maybeSingle()); } catch(e) { return { data: null, error: e }; } })(),
-            (async () => { try { return await spQuery(() => window.supabaseClient.from('orders').select('*').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { 
-                try { 
-                    const pr = await spQuery(() => window.supabaseClient.from('profiles').select('nickname').eq('id', user.id).maybeSingle());
-                    const nickname = pr.data && pr.data.nickname ? pr.data.nickname : (user.nickname || '');
-                    if(!nickname) return { data: [] };
-                    return await spQuery(() => window.supabaseClient.from('orders').select('*').eq('wizard_name', nickname));
-                } catch(e) { return { data: [], error: e }; } 
-            })(),
-            (async () => { try { return await spQuery(() => window.supabaseClient.from('order_requests').select('*').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await spQuery(() => window.supabaseClient.from('order_requests').select('*').eq('accepted_by', user.id)); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await spQuery(() => window.supabaseClient.from('dispatch_orders').select('*').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await spQuery(() => window.supabaseClient.from('dispatch_orders').select('*').eq('accepted_by', user.id)); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await spQuery(() => window.supabaseClient.from('dispatch_team_members').select('dispatch_order_id').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await spQuery(() => window.supabaseClient.from('coupons').select('*').eq('user_id', user.id).eq('used', false)); } catch(e) { return { data: [], error: e }; } })(),
-            (async () => { try { return await spQuery(() => window.supabaseClient.from('favorites').select('*').eq('user_id', user.id)); } catch(e) { return { data: [], error: e }; } })()
-        ]);
+            // 本地 file:// 因 Supabase JWT iat 时间校验会 401，
+            // 统计数量统一由后端 /api/profile-data 提供；若未预取则直接用本地缓存渲染，不再直连 Supabase。
+            console.warn('[loadStats] 未预取数据，不再直连 Supabase，使用本地缓存兜底');
+            const cache = getStatsCache(user.id);
+            const ordersCount = cache ? cache.ordersCount : 0;
+            const couponsCount = cache ? cache.couponsCount : 0;
+            const favoritesCount = cache ? cache.favoritesCount : 0;
+            const balance = parseFloat(cache && cache.balance) || parseFloat(user.balance) || 0;
+
+            const orderEl = document.getElementById('profileOrderCount');
+            if (orderEl) orderEl.textContent = ordersCount || 0;
+            const favEl = document.getElementById('profileFavoriteCount');
+            if (favEl) favEl.textContent = favoritesCount || 0;
+            const couponEl = document.getElementById('profileCouponCount');
+            if (couponEl) couponEl.textContent = couponsCount || 0;
+            const balanceEl = document.getElementById('profileBalanceValue');
+            if (balanceEl) balanceEl.textContent = '\uFFE5' + balance.toFixed(2);
+
+            console.log('[loadStats] 无预取数据，缓存模式渲染:', { ordersCount, couponsCount, favoritesCount, balance });
+            return;
         }
+
+        // 任一查询出错（如 401/JWT future），就用缓存兜底，避免页面全变 0
+        const hasError = !!(profileRes.error || ordersRes.error || wizardOrdersRes.error ||
+            myRequestPostsRes.error || myRequestAcceptsRes.error || myDispatchPostsRes.error ||
+            myDispatchAcceptsRes.error || teamMemberRes.error || couponsRes.error || favoritesRes.error);
 
         const profile = profileRes.data || {};
         const nickname = profile.nickname || user.nickname || '';
 
         // 通过 dispatch_team_members 查找我加入的组队派单
         const teamDispatchIds = (teamMemberRes.data || []).map(m => m.dispatch_order_id).filter(Boolean);
-        teamDispatchRes = { data: [] };
-        if(teamDispatchIds.length > 0) {
+        if (!prefetchedData && teamDispatchIds.length > 0) {
             try {
                 teamDispatchRes = await spQuery(() => window.supabaseClient.from('dispatch_orders').select('*').in('id', teamDispatchIds));
             } catch(e) { teamDispatchRes = { data: [] }; }
@@ -523,10 +687,26 @@ async function loadStats(prefetchedData) {
         (myDispatchPostsRes.data || []).forEach(d => addOrder({...d, id: 'disp_post_' + d.id}, 'dispatch', 'dispatch_orders', d.id));
         (teamDispatchRes.data || []).forEach(d => addOrder({...d, id: 'disp_' + d.id}, 'wizard', 'dispatch_orders', d.id));
 
-        const ordersCount = allOrders.length;
-        const couponsCount = (couponsRes.data || []).length;
-        const favoritesCount = (favoritesRes.data || []).length;
-        const balance = parseFloat(profile.balance) || 0;
+        // 同步失败时用本地缓存兜底；余额优先用刚读到的 DB 值，其次 localStorage，再次缓存
+        let ordersCount = allOrders.length;
+        let couponsCount = (couponsRes.data || []).length;
+        let favoritesCount = (favoritesRes.data || []).length;
+        let balance = parseFloat(profile.balance) || 0;
+
+        if (hasError) {
+            // 任一查询出错（401/JWT future）时，完全用缓存数据兜底，不用 Supabase 返回的空数据覆盖页面
+            if (cache) {
+                ordersCount = cache.ordersCount || 0;
+                couponsCount = cache.couponsCount || 0;
+                favoritesCount = cache.favoritesCount || 0;
+                balance = parseFloat(cache.balance) || 0;
+                console.warn('[loadStats] Supabase 同步异常，使用本地缓存兜底:', cache);
+            } else {
+                // 没有缓存时，至少把 localStorage 里已有的余额显示出来
+                balance = parseFloat(user.balance) || 0;
+                console.warn('[loadStats] Supabase 同步异常且暂无缓存，使用 localStorage 余额兜底');
+            }
+        }
 
         // 同步余额与昵称到 localStorage
         user.balance = balance;
@@ -542,18 +722,40 @@ async function loadStats(prefetchedData) {
         const balanceEl = document.getElementById('profileBalanceValue');
         if (balanceEl) balanceEl.textContent = '\uFFE5' + balance.toFixed(2);
 
-        console.log('统计数据加载完成:', { ordersCount, couponsCount, favoritesCount, balance });
+        // 缓存成功统计，供下次同步失败时使用
+        setStatsCache(user.id, { ordersCount, couponsCount, favoritesCount, balance });
+
+        console.log('统计数据加载完成:', { ordersCount, couponsCount, favoritesCount, balance, hasError });
     } catch (err) {
         console.error('加载统计失败:', err);
+        // 函数级异常兜底：尝试用缓存刷新显示，避免一片空白
+        try {
+            const userStr = localStorage.getItem('skyUser');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const cache = user.id ? getStatsCache(user.id) : null;
+                if (cache) {
+                    const orderEl = document.getElementById('profileOrderCount');
+                    if (orderEl) orderEl.textContent = cache.ordersCount || 0;
+                    const favEl = document.getElementById('profileFavoriteCount');
+                    if (favEl) favEl.textContent = cache.favoritesCount || 0;
+                    const couponEl = document.getElementById('profileCouponCount');
+                    if (couponEl) couponEl.textContent = cache.couponsCount || 0;
+                    const balanceEl = document.getElementById('profileBalanceValue');
+                    if (balanceEl) balanceEl.textContent = '\uFFE5' + ((cache.balance || parseFloat(user.balance) || 0).toFixed(2));
+                }
+            }
+        } catch(e) {}
     }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
     const ok = await loadProfileDataFromApi();
     if (!ok) {
-        console.log('[profile] 后端接口未就绪，回退到 Supabase 直连');
-        loadUserProfile();
-        loadStats();
+        // 后端代理失败时不再回退 Supabase（已知会 401），直接用本地缓存渲染
+        console.log('[profile] 后端接口未就绪，使用本地缓存渲染');
+        await loadUserProfile(null, true);
+        await loadStats(null, true);
     }
 
     document.querySelectorAll('.orders-modal .tabs .tab').forEach(tab => {

@@ -94,7 +94,58 @@ function sleep(ms) {
     return new Promise(function(resolve) { setTimeout(resolve, ms); });
 }
 
+// 后端代理统一使用 HTTPS 域名。内网源站 192.168.186.130:3000 在 Windows 侧不可达，
+// 且 file:// 本地页面跨域访问内网 IP 会被浏览器静默拦截，因此统一走 api.skypw.dpdns.org。
+function getApiBase() {
+    if (typeof window.API_BASE !== 'undefined') return window.API_BASE;
+    return 'https://api.skypw.dpdns.org';
+}
+window.getApiBase = getApiBase;
+
+// fetch 超时包装，避免浏览器请求无限挂起
+async function fetchWithTimeout(url, options, timeoutMs) {
+    timeoutMs = timeoutMs || 8000;
+    if (typeof AbortController !== 'undefined') {
+        var controller = new AbortController();
+        var id = setTimeout(function() { controller.abort(); }, timeoutMs);
+        try {
+            return await fetch(url, Object.assign({}, options, { signal: controller.signal }));
+        } finally {
+            clearTimeout(id);
+        }
+    }
+    return await fetch(url, options);
+}
+window.fetchWithTimeout = fetchWithTimeout;
+
+// 获取当前用户的 Supabase access_token：优先读内存，再读 localStorage 的 sky-auth-token
+function getSupabaseToken() {
+    try {
+        if (window.supabaseClient && window.supabaseClient.auth && window.supabaseClient.auth.currentSession) {
+            return window.supabaseClient.auth.currentSession.access_token || null;
+        }
+    } catch(e) {}
+    try {
+        var raw = localStorage.getItem('sky-auth-token');
+        if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed && parsed.access_token) return parsed.access_token;
+            if (parsed && parsed.session && parsed.session.access_token) return parsed.session.access_token;
+        }
+    } catch(e) {}
+    try {
+        var userStr = localStorage.getItem('skyUser');
+        if (userStr) {
+            var user = JSON.parse(userStr);
+            if (user && user.access_token) return user.access_token;
+        }
+    } catch(e) {}
+    return null;
+}
+window.getSupabaseToken = getSupabaseToken;
+
 // 判断是否为 "JWT issued at future" 类错误，兼容 Supabase 返回的对象和异常。
+// 注意：不把普通 401/unauthorized 算进来，避免所有 401 都被死循环重试。
 function isJwtFutureError(errOrResult) {
     if (!errOrResult) return false;
     // 如果传入的是查询结果对象 { data, error }，取 error
@@ -102,8 +153,7 @@ function isJwtFutureError(errOrResult) {
     var msg = String(err && (err.message || err.msg || err)).toLowerCase();
     return msg.indexOf('issued at future') !== -1 ||
            msg.indexOf('jwt') !== -1 && msg.indexOf('future') !== -1 ||
-           msg.indexOf('iat') !== -1 && msg.indexOf('future') !== -1 ||
-           msg.indexOf('401') !== -1 && msg.indexOf('unauthorized') !== -1;
+           msg.indexOf('iat') !== -1 && msg.indexOf('future') !== -1;
 }
 
 // 执行 Supabase 查询，若报 "JWT issued at future"，则等待 token 生效时间后重试。
@@ -134,6 +184,11 @@ async function withJwtRetry(queryFn, maxRetries) {
                     var iatMs = payload && payload.iat ? payload.iat * 1000 : 0;
                     var nowMs = Date.now();
                     var wait = iatMs ? (iatMs - nowMs + 1000) : 2000;
+                    // iat 已过去但 REST 仍判 future：这是服务端时钟 skew，客户端等也没用，直接返回错误
+                    if (wait <= 0) {
+                        console.warn('[withJwtRetry] iat 已过去但 REST 仍拒绝（服务端时钟偏差），停止重试:', errMsg);
+                        return lastResult;
+                    }
                     if (wait < 500) wait = 500;
                     if (wait > 10000) wait = 10000; // 最多等 10 秒
                     console.warn('[withJwtRetry] 第' + (i + 1) + '次遇到 JWT future，iat=' + (iatMs ? new Date(iatMs).toISOString() : 'unknown') + '，now=' + new Date(nowMs).toISOString() + '，等待 ' + wait + 'ms 后重试');
@@ -153,7 +208,6 @@ async function withJwtRetry(queryFn, maxRetries) {
 }
 window.withJwtRetry = withJwtRetry;
 async function loadNotifications() {
-    if(!window.supabaseClient) return;
     try {
         var user = null;
         try {
@@ -161,34 +215,47 @@ async function loadNotifications() {
         } catch(e) {}
         var userId = user && (user.id || user.user_id);
         if(!userId) {
+            if (!window.supabaseClient) return;
             var sessionRes = await window.supabaseClient.auth.getSession();
             userId = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user && sessionRes.data.session.user.id;
         }
         if(!userId) return;
 
-        // 只显示 3 小时内的通知（过期由数据库定时任务物理删除）
-        var cutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
-        var res = await withJwtRetry(function() {
-            return window.supabaseClient
-                .from('notifications')
-                .select('id, user_id, title, message, type, read, created_at, metadata')
-                .eq('user_id', userId)
-                .gte('created_at', cutoff)
-                .order('created_at', { ascending: false })
-                .limit(50);
-        });
-        if(res.error) throw res.error;
+        var list = null;
+        // 优先走后端代理，绕过 Supabase REST 的 JWT iat future 问题
+        try {
+            var token = getSupabaseToken();
+            if (token) {
+                var res = await fetchWithTimeout(getApiBase() + '/api/notifications?limit=50', {
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }, 8000);
+                if (res.ok) {
+                    var result = await res.json();
+                    if (result.code === 1 && Array.isArray(result.data)) {
+                        list = result.data.map(function(n) {
+                            return {
+                                id: n.id,
+                                title: n.title || '系统通知',
+                                text: n.message || '',
+                                time: formatNotifTime(n.created_at),
+                                unread: !n.read,
+                                raw: n
+                            };
+                        });
+                    }
+                }
+            }
+        } catch(apiErr) {
+            // 后端失败，继续走 Supabase 兜底
+        }
 
-        var list = (res.data || []).map(function(n) {
-            return {
-                id: n.id,
-                title: n.title || '系统通知',
-                text: n.message || '',
-                time: formatNotifTime(n.created_at),
-                unread: !n.read,
-                raw: n
-            };
-        });
+        // 后端代理失败时不再回退 Supabase（已知会 401），直接渲染缓存或空列表
+        if (!list) {
+            console.warn('[loadNotifications] 后端代理不可用，使用缓存通知');
+            list = getNotifications() || [];
+        }
+
         setNotificationsCache(list);
         renderNotificationList(list);
         updateNotifBadge(list);
@@ -2092,34 +2159,8 @@ async function updateNavUser() {
 
         var userData = JSON.parse(user);
 
-        // 先用 localStorage 数据立刻渲染，避免空白
+        // 先用 localStorage 数据立刻渲染，避免空白；当前 Supabase 读取会 401，不再异步拉取
         renderNavActions(userData);
-
-        // 如果资料不完整（缺头像/昵称看起来是默认值），异步从 Supabase 拉取最新资料
-        var looksDefault = !userData.avatar || !userData.username || userData.username === '用户' || (userData.email && userData.username === userData.email.split('@')[0]);
-        if (userData.id && window.supabaseClient && looksDefault) {
-            try {
-                var res = await window.supabaseClient.from('profiles').select('nickname, avatar_url').eq('id', userData.id).maybeSingle();
-                if (res.data) {
-                    var changed = false;
-                    if (res.data.nickname && res.data.nickname !== userData.username && res.data.nickname !== userData.nickname) {
-                        userData.username = res.data.nickname;
-                        userData.nickname = res.data.nickname;
-                        changed = true;
-                    }
-                    if (res.data.avatar_url && res.data.avatar_url !== userData.avatar) {
-                        userData.avatar = res.data.avatar_url;
-                        changed = true;
-                    }
-                    if (changed) {
-                        localStorage.setItem('skyUser', JSON.stringify(userData));
-                        renderNavActions(userData);
-                    }
-                }
-            } catch (e) {
-                console.warn('[updateNavUser] 拉取最新资料失败:', e);
-            }
-        }
     } catch (err) {
         console.error('[导航更新异常]', err);
     }
@@ -2148,17 +2189,24 @@ window.forceLogoutAndReload = forceLogoutAndReload;
 function startAccountStatusPolling() {
     if (window.__accountStatusInterval) return;
     window.__accountStatusInterval = setInterval(async function() {
-        if (!window.supabaseClient) return;
+        var user = null;
         try {
-            var sessionRes = await window.supabaseClient.auth.getSession();
-            var user = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user;
-            if (!user) return;
-            var profileRes = await window.supabaseClient
-                .from('profiles')
-                .select('disabled')
-                .eq('id', user.id)
-                .maybeSingle();
-            if (profileRes.data && profileRes.data.disabled === true) {
+            var userStr = localStorage.getItem('skyUser');
+            if (userStr) user = JSON.parse(userStr);
+        } catch(e) {}
+        if (!user || !user.id) return;
+
+        try {
+            var token = getSupabaseToken();
+            if (!token) return;
+            var res = await fetchWithTimeout(getApiBase() + '/api/profile-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({})
+            }, 8000);
+            if (!res.ok) return; // 网络等原因失败时静默，下次轮询再试
+            var result = await res.json();
+            if (result.code === 1 && result.data && result.data.profile && result.data.profile.disabled === true) {
                 clearInterval(window.__accountStatusInterval);
                 await forceLogoutAndReload('该账号已被禁用，请联系管理员');
             }
@@ -2741,24 +2789,34 @@ async function syncBalanceFromDB() {
             if (v) v.textContent = '\uffe5' + cachedBalance.toFixed(2);
         }
 
-        // 尝试从 Supabase 同步最新余额；若失败（如系统时间偏差导致 JWT 异常），直接静默使用缓存值
+        // 优先走后端代理 /api/profile-data，绕过 Supabase REST 的 JWT iat future 问题
         var balance = cachedBalance;
+        var synced = false;
         try {
-            const { data: profiles } = await withJwtRetry(function() {
-                return window.supabaseClient
-                    .from('profiles')
-                    .select('balance')
-                    .eq('id', userId)
-                    .limit(1);
-            });
-            const profile = profiles && profiles.length > 0 ? profiles[0] : null;
-            if (profile) {
-                balance = parseFloat(profile.balance) || 0;
-                user.balance = balance;
-                localStorage.setItem('skyUser', JSON.stringify(user));
+            var token = getSupabaseToken();
+            if (token) {
+                var res = await fetchWithTimeout(getApiBase() + '/api/profile-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({})
+                }, 8000);
+                if (res.ok) {
+                    var result = await res.json();
+                    if (result.code === 1 && result.data && result.data.profile) {
+                        balance = parseFloat(result.data.profile.balance) || cachedBalance;
+                        user.balance = balance;
+                        localStorage.setItem('skyUser', JSON.stringify(user));
+                        synced = true;
+                    }
+                }
             }
         } catch (err) {
-            // 同步失败不抛错、不打断页面，缓存余额已经显示在上面
+            // 后端代理失败，继续走 Supabase 兜底
+        }
+
+        // 后端代理失败时不再回退 Supabase（已知会 401），直接用缓存余额
+        if (!synced) {
+            console.warn('[syncBalanceFromDB] 后端代理不可用，使用 localStorage 缓存余额:', balance);
         }
 
         // 更新充值中心余额显示

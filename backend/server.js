@@ -74,8 +74,25 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  // 显式设置预检缓存时间为 0，避免浏览器缓存不带 CORS 头的 OPTIONS 响应
+  maxAge: 0,
+  // 让 OPTIONS 之外的所有响应也显式暴露这两个头，避免中间层剥离
+  exposedHeaders: ['X-Request-Id']
 }));
+
+// 显式处理所有 OPTIONS 预检请求，确保 file:// (Origin: null) 一定能拿到 CORS 头
+app.options('*', cors());
+
+// 禁止任何中间层（Cloudflare/Nginx/浏览器）缓存 API 响应，避免 CORS 头被缓存吞掉
+app.use(function(req, res, next) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Vary', 'Origin');
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -122,6 +139,16 @@ function getMpaySign(params, secret) {
   str = str.replace(/&$/, '');
   str += secret;
   return crypto.createHash('md5').update(str, 'utf8').digest('hex');
+}
+
+// 给 Supabase 查询加超时，避免服务端请求挂死导致接口无响应
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`查询超时: ${label}`)), ms)
+    )
+  ]);
 }
 
 /**
@@ -563,12 +590,17 @@ app.get('/api/balance', async (req, res) => {
  */
 app.post('/api/profile-data', authMiddleware, async (req, res) => {
   const userId = req.user.id;
-  try {
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('nickname, balance, avatar_url, server, sky_id, wangzhe_id, wz_server, created_at, rating, vip_expire_at')
-      .eq('id', userId)
-      .maybeSingle();
+  // 接口整体超时 20 秒，避免客户端无限挂起
+  const handler = async () => {
+    const { data: profile, error: profileError } = await withTimeout(
+      supabase
+        .from('profiles')
+        .select('nickname, balance, avatar_url, server, sky_id, wangzhe_id, wz_server, created_at, rating, vip_expire_at, role, level')
+        .eq('id', userId)
+        .maybeSingle(),
+      8000,
+      'profiles'
+    );
     if (profileError) throw profileError;
 
     const nickname = profile && profile.nickname ? profile.nickname : '';
@@ -584,15 +616,15 @@ app.post('/api/profile-data', authMiddleware, async (req, res) => {
       couponsRes,
       favoritesRes
     ] = await Promise.all([
-      supabase.from('orders').select('*').eq('user_id', userId),
-      nickname ? supabase.from('orders').select('*').eq('wizard_name', nickname) : Promise.resolve({ data: [] }),
-      supabase.from('order_requests').select('*').eq('user_id', userId),
-      supabase.from('order_requests').select('*').eq('accepted_by', userId),
-      supabase.from('dispatch_orders').select('*').eq('user_id', userId),
-      supabase.from('dispatch_orders').select('*').eq('accepted_by', userId),
-      supabase.from('dispatch_team_members').select('dispatch_order_id').eq('user_id', userId),
-      supabase.from('coupons').select('*').eq('user_id', userId).eq('used', false),
-      supabase.from('favorites').select('*').eq('user_id', userId)
+      withTimeout(supabase.from('orders').select('*').eq('user_id', userId), 8000, 'orders'),
+      nickname ? withTimeout(supabase.from('orders').select('*').eq('wizard_name', nickname), 8000, 'wizardOrders') : Promise.resolve({ data: [] }),
+      withTimeout(supabase.from('order_requests').select('*').eq('user_id', userId), 8000, 'order_requests posts'),
+      withTimeout(supabase.from('order_requests').select('*').eq('accepted_by', userId), 8000, 'order_requests accepts'),
+      withTimeout(supabase.from('dispatch_orders').select('*').eq('user_id', userId), 8000, 'dispatch_orders posts'),
+      withTimeout(supabase.from('dispatch_orders').select('*').eq('accepted_by', userId), 8000, 'dispatch_orders accepts'),
+      withTimeout(supabase.from('dispatch_team_members').select('dispatch_order_id').eq('user_id', userId), 8000, 'dispatch_team_members'),
+      withTimeout(supabase.from('coupons').select('*').eq('user_id', userId).eq('used', false), 8000, 'coupons'),
+      withTimeout(supabase.from('favorites').select('*').eq('user_id', userId), 8000, 'favorites')
     ]);
 
     let teamDispatchOrders = [];
@@ -600,11 +632,34 @@ app.post('/api/profile-data', authMiddleware, async (req, res) => {
       .map(m => m.dispatch_order_id)
       .filter(id => id != null);
     if (teamDispatchIds.length > 0) {
-      const { data: teamDispatchData } = await supabase
-        .from('dispatch_orders')
-        .select('*')
-        .in('id', teamDispatchIds);
+      const { data: teamDispatchData } = await withTimeout(
+        supabase.from('dispatch_orders').select('*').in('id', teamDispatchIds),
+        8000,
+        'teamDispatchOrders'
+      );
       teamDispatchOrders = teamDispatchData || [];
+    }
+
+    // 为收藏弹窗一次性查出被收藏用户的资料，避免前端本地 file:// 再连 Supabase 查 profiles
+    let favoriteProfiles = [];
+    const favorites = favoritesRes.data || [];
+    if (favorites.length > 0) {
+      const isUuid = (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+      const favIds = favorites.map(f => f.wizard_id).filter(isUuid);
+      const favNames = favorites.map(f => f.wizard_name).filter(Boolean);
+      const favQueries = [];
+      if (favIds.length > 0) {
+        favQueries.push(withTimeout(supabase.from('profiles').select('id, role, nickname, avatar_url').in('id', favIds), 8000, 'favoriteProfiles by id'));
+      }
+      if (favNames.length > 0) {
+        favQueries.push(withTimeout(supabase.from('profiles').select('id, role, nickname, avatar_url').in('nickname', favNames), 8000, 'favoriteProfiles by name'));
+      }
+      if (favQueries.length > 0) {
+        const favResults = await Promise.all(favQueries);
+        favResults.forEach(r => {
+          (r.data || []).forEach(p => favoriteProfiles.push(p));
+        });
+      }
     }
 
     res.json({
@@ -619,12 +674,69 @@ app.post('/api/profile-data', authMiddleware, async (req, res) => {
         myDispatchAccepts: myDispatchAcceptsRes.data || [],
         teamDispatchOrders,
         coupons: couponsRes.data || [],
-        favorites: favoritesRes.data || []
+        favorites,
+        favoriteProfiles
       }
     });
+  };
+
+  try {
+    await withTimeout(handler(), 20000, '/api/profile-data total');
   } catch (err) {
     console.error('/api/profile-data 异常:', err);
-    res.status(500).json({ code: 0, error: '查询个人中心数据失败' });
+    if (!res.headersSent) {
+      res.status(500).json({ code: 0, error: '查询个人中心数据失败: ' + (err.message || '未知错误') });
+    }
+  }
+});
+
+/**
+ * 通知列表查询（绕过前端 JWT iat 时间校验）
+ * GET /api/notifications?limit=50
+ * 使用 service_role 查询当前用户最近 3 小时通知
+ */
+app.get('/api/notifications', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const limit = parseInt(req.query.limit, 10) || 50;
+  try {
+    const cutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await withTimeout(
+      supabase
+        .from('notifications')
+        .select('id, user_id, title, message, type, read, created_at, metadata')
+        .eq('user_id', userId)
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+      8000,
+      '/api/notifications'
+    );
+    if (error) throw error;
+    res.json({ code: 1, data: data || [] });
+  } catch (err) {
+    console.error('/api/notifications 异常:', err);
+    // 权限不足时返回空数组，避免前端控制台持续报 500；同时记录日志以便排查
+    if (err && err.code === '42501') {
+      return res.status(200).json({ code: 1, data: [], warning: 'notifications 表未对 service_role 授权 SELECT' });
+    }
+    res.status(500).json({ code: 0, error: '查询通知失败: ' + (err.message || '未知错误') });
+  }
+});
+
+// ================== 全局错误处理（保证任何异常响应都带 CORS 头） ==================
+app.use(function(err, req, res, next) {
+  // 为错误响应也补上 CORS 头，避免 file:// 场景下预检/认证失败只显示 CORS blocked
+  const origin = req.headers.origin;
+  if (!origin || origin === 'null' || ALLOWED_ORIGIN_PATTERNS.some(re => re.test(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  console.error('[全局错误处理]', err && err.stack ? err.stack : err);
+  if (!res.headersSent) {
+    res.status(err && err.status ? err.status : 500).json({
+      code: 0,
+      error: err && err.message ? err.message : '服务器内部错误'
+    });
   }
 });
 
