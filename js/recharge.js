@@ -238,10 +238,10 @@ async function deleteTransferRecord(bjOrderNo, btnEl) {
     }
 
     try {
-        const res = await fetch(window.API_BASE + '/api/payment-records/' + encodeURIComponent(bjOrderNo), {
+        const res = await window.fetchWithTimeout(window.API_BASE + '/api/payment-records/' + encodeURIComponent(bjOrderNo), {
             method: 'DELETE',
             headers: { 'Authorization': 'Bearer ' + token }
-        });
+        }, 15000);
         const data = await res.json();
 
         if (!res.ok || data.code !== 1) {
