@@ -1,4 +1,17 @@
 ﻿// ============================================
+// 生产环境：屏蔽调试日志，保持控制台整洁（仅保留 error）
+// 如需临时开启，在控制台执行：localStorage.setItem('debug','1');location.reload()
+// ============================================
+(function () {
+    if (typeof console !== 'undefined' && !localStorage.getItem('debug')) {
+        console.log = function () {};
+        console.warn = function () {};
+        console.info = function () {};
+        console.debug = function () {};
+    }
+})();
+
+// ============================================
 // Supabase 配置
 // ============================================
 window.SUPABASE_URL = 'https://cumcskaepjofogktmjzz.supabase.co';
