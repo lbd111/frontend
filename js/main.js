@@ -819,44 +819,15 @@ async function requestDispatchCancel(rawId) {
     try {
         rawId = parseInt(rawId, 10);
         if (!rawId) throw new Error('无效的派单 ID');
-        var sess = await window.supabaseClient.auth.getSession();
-        var user = sess.data && sess.data.session ? sess.data.session.user : null;
-        if (!user) { showNotification('请先登录', 'error'); return; }
-        var { data: order, error: fe } = await window.supabaseClient
-            .from('dispatch_orders')
-            .select('id, user_id, status, cancel_requested')
-            .eq('id', rawId)
-            .maybeSingle();
-        if (fe) throw fe;
-        if (!order) throw new Error('未找到该派单');
-        if (String(order.user_id) !== String(user.id)) throw new Error('只有派单人可以发起取消');
-        var s = (order.status || '').toLowerCase();
-        if (s !== 'progress' && s !== '进行中') throw new Error('只有进行中的派单可以申请取消');
-        if (order.cancel_requested) throw new Error('取消投票已在进行中');
-
-        var { error: ue } = await window.supabaseClient
-            .from('dispatch_orders')
-            .update({ cancel_requested: true, cancel_requested_at: new Date().toISOString() })
-            .eq('id', rawId);
-        if (ue) throw ue;
-
-        var memRes = await window.supabaseClient
-            .from('dispatch_team_members')
-            .select('user_id')
-            .eq('dispatch_order_id', rawId);
-        var members = memRes.data || [];
-        for (var i = 0; i < members.length; i++) {
-            var uid = members[i].user_id;
-            if (String(uid) === String(user.id)) continue;
-            await window.supabaseClient.from('notifications').insert({
-                user_id: String(uid),
-                title: '派单取消投票',
-                message: '派单人发起了取消申请，请到「我接的单」投票：同意取消 或 驳回。',
-                type: 'dispatch_cancel_request',
-                metadata: JSON.stringify({ order_id: String(rawId) }),
-                read: false
-            });
-        }
+        var token = (typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null;
+        if (!token) { showNotification('请先登录', 'error'); return; }
+        const resp = await window.fetchWithTimeout(window.getApiBase() + '/api/dispatch-cancel-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ dispatch_id: rawId })
+        });
+        const result = await resp.json();
+        if (result.code !== 1) { showNotification(result.error || '发起取消失败', 'error'); return; }
         showNotification('已发起取消投票，等待接单人表决', 'success');
         if (typeof window.refreshCurrentPageOrders === 'function') window.refreshCurrentPageOrders();
     } catch (e) {
@@ -866,36 +837,20 @@ async function requestDispatchCancel(rawId) {
 }
 window.requestDispatchCancel = requestDispatchCancel;
 
-// 接单人投票（cancel / reject）
 async function voteDispatchCancel(rawId, vote) {
     try {
         rawId = parseInt(rawId, 10);
         if (!rawId) throw new Error('无效的派单 ID');
         if (vote !== 'cancel' && vote !== 'reject') throw new Error('无效投票');
-        var sess = await window.supabaseClient.auth.getSession();
-        var user = sess.data && sess.data.session ? sess.data.session.user : null;
-        if (!user) { showNotification('请先登录', 'error'); return; }
-
-        var memRes = await window.supabaseClient
-            .from('dispatch_team_members')
-            .select('user_id')
-            .eq('dispatch_order_id', rawId)
-            .eq('user_id', user.id)
-            .maybeSingle();
-        if (!memRes.data) throw new Error('你不是该派单的接单人');
-
-        var { error: ve } = await window.supabaseClient
-            .from('dispatch_cancel_votes')
-            .upsert({
-                dispatch_order_id: rawId,
-                user_id: user.id,
-                vote: vote,
-                created_at: new Date().toISOString()
-            }, { onConflict: 'dispatch_order_id,user_id' });
-        if (ve) throw ve;
-
-        await notifyDispatchVoteCounts(rawId, user.id);
-        await checkDispatchCancelResolved(rawId, user.id);
+        var token = (typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null;
+        if (!token) { showNotification('请先登录', 'error'); return; }
+        const resp = await window.fetchWithTimeout(window.getApiBase() + '/api/dispatch-vote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ dispatch_id: rawId, vote: vote })
+        });
+        const result = await resp.json();
+        if (result.code !== 1) { showNotification(result.error || '投票失败', 'error'); return; }
         showNotification('已投票：' + (vote === 'cancel' ? '同意取消' : '驳回取消'), 'success');
         if (typeof window.refreshCurrentPageOrders === 'function') window.refreshCurrentPageOrders();
     } catch (e) {
@@ -2276,139 +2231,43 @@ async function createOrder(orderData) {
             return false;
         }
 
-        // 1. Deduct balance
-        const { data: profile, error: balanceErr } = await window.supabaseClient
-            .from('profiles')
-            .select('balance')
-            .eq('id', user.id)
-            .single();
+        const token = (typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null;
+        if (!token) {
+            showNotification('登录凭证已失效，请重新登录', 'error');
+            return false;
+        }
 
-        if (balanceErr) throw balanceErr;
-
-        const currentBalance = parseFloat(profile && profile.balance) || 0;
         const finalPrice = parseFloat(orderData.totalPrice) || 0;
 
-        if (currentBalance < finalPrice) {
+        // 本地快速余额预检（仅即时反馈，最终以后端为准）
+        const localBalance = parseFloat(user.balance) || 0;
+        if (localBalance < finalPrice) {
             showNotification('余额不足，请前往充值中心充值', 'error');
             return false;
         }
 
-        const newBalance = currentBalance - finalPrice;
+        // 走后端代理创建订单（绕过前端 JWT iat 时钟偏差导致的 401）
+        const resp = await window.fetchWithTimeout(window.getApiBase() + '/api/orders/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ orderData: orderData })
+        });
+        const result = await resp.json();
 
-        const { error: updateErr } = await window.supabaseClient
-            .from('profiles')
-            .update({ balance: newBalance })
-            .eq('id', user.id);
+        if (result.code !== 1) {
+            showNotification(result.error || '下单失败', 'error');
+            return false;
+        }
 
-        if (updateErr) throw updateErr;
-
-        // Update localStorage balance
+        // 同步本地余额
+        const newBalance = result.balance;
         user.balance = newBalance;
         localStorage.setItem('skyUser', JSON.stringify(user));
-
-        // 2. Mark coupon as used if any
-        if (orderData.couponId) {
-            try {
-                await window.supabaseClient
-                    .from('coupons')
-                    .update({ used: true })
-                    .eq('id', orderData.couponId)
-                    .eq('user_id', user.id);
-            } catch(couponErr) {
-                console.error('标记优惠券已用失败:', couponErr);
-                // Do not block order creation on coupon update failure
-            }
-        }
-
-        // 3. Create order record with full details so the order card can expand
-        const orderPayload = {
-            user_id: user.id,
-            wizard_id: orderData.wizardId || null,
-            wizard_name: orderData.wizardName || '',
-            hours: orderData.hours || 1,
-            price: finalPrice,
-            status: 'progress',
-            service_type: orderData.serviceType || '',
-            game_type: orderData.gameType || '光·遇',
-            order_no: orderData.orderNo || ('ORD' + Date.now()),
-            board_name: orderData.boardName || user.nickname || user.username || user.email || '',
-            remark: orderData.remark || ''
-        };
-
-        let insertResult;
-        try {
-            insertResult = await window.supabaseClient.from('orders').insert(orderPayload);
-        } catch (e) {
-            insertResult = { error: e };
-        }
-
-        // If extended columns are missing, fall back to core columns so checkout still works
-        if (insertResult.error && insertResult.error.message) {
-            const msg = insertResult.error.message;
-            const missingCol = ['service_type', 'game_type', 'order_no', 'board_name', 'remark'].some(function(col) {
-                return msg.indexOf(col) !== -1;
-            });
-            if (missingCol) {
-                console.warn('orders 表缺少扩展字段，降级插入核心字段。建议执行 ALTER TABLE 添加这些字段。');
-                const { error: coreError } = await window.supabaseClient.from('orders').insert({
-                    user_id: user.id,
-                    wizard_name: orderData.wizardName || '',
-                    hours: orderData.hours || 1,
-                    price: finalPrice,
-                    status: 'progress'
-                });
-                if (coreError) {
-                    try {
-                        await window.supabaseClient.from('profiles').update({ balance: currentBalance }).eq('id', user.id);
-                    } catch(rollbackErr) {
-                        console.error('订单创建失败后回滚余额失败:', rollbackErr);
-                    }
-                    showNotification('下单失败：' + coreError.message, 'error');
-                    return false;
-                }
-            } else {
-                try {
-                    await window.supabaseClient.from('profiles').update({ balance: currentBalance }).eq('id', user.id);
-                } catch(rollbackErr) {
-                    console.error('订单创建失败后回滚余额失败:', rollbackErr);
-                }
-                showNotification('下单失败：' + msg, 'error');
-                return false;
-            }
-        }
+        if (typeof updateNavUser === 'function') updateNavUser();
 
         showNotification('下单成功，已扣除余额 ¥' + finalPrice.toFixed(2), 'success');
 
-        // 4. 给被下单的陪玩发送通知
-        try {
-            let wizardUserId = orderData.wizardId || '';
-            if (!wizardUserId && orderData.wizardName) {
-                const { data: wizardRows } = await window.supabaseClient
-                    .from('wizards')
-                    .select('user_id, wizard_name')
-                    .eq('wizard_name', orderData.wizardName)
-                    .limit(1);
-                if (wizardRows && wizardRows.length > 0 && wizardRows[0].user_id) {
-                    wizardUserId = wizardRows[0].user_id;
-                }
-            }
-            if (wizardUserId) {
-                const buyerName = user.nickname || user.email || user.username || '某位用户';
-                await window.supabaseClient
-                    .from('notifications')
-                    .insert({
-                        user_id: String(wizardUserId),
-                        title: '新订单提醒',
-                        message: '用户 ' + buyerName + ' 已下单，服务类型：' + (orderData.serviceType || '未指定') + '，请尽快联系对方。',
-                        type: 'order_new',
-                        read: false
-                    });
-            }
-        } catch (notifErr) {
-            console.warn('发送陪玩通知失败:', notifErr);
-        }
-
-        // 5. 实时更新点单大厅按钮为「已接单」
+        // 实时更新点单大厅按钮为「已接单」
         if (typeof window.markWizardOrdered === 'function' && orderData.wizardName) {
             window.markWizardOrdered(orderData.wizardName);
         }
@@ -2523,10 +2382,28 @@ async function loadFavorites() {
 
         if (!userStr) return [];
 
+        // 优先走后端聚合接口，避免本地 file:// 打开时 Supabase REST 因 JWT iat future 401
+        try {
+            const token = typeof window.getSupabaseToken === 'function' ? window.getSupabaseToken() : null;
+            if (token) {
+                const res = await window.fetchWithTimeout(window.getApiBase() + '/api/profile-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({})
+                }, 10000);
+                if (res.ok) {
+                    const result = await res.json();
+                    if (result.code === 1 && result.data && Array.isArray(result.data.favorites)) {
+                        return result.data.favorites;
+                    }
+                }
+            }
+        } catch (apiErr) {
+            console.warn('[loadFavorites] api fallback:', apiErr);
+        }
+
+        // 兜底：回退 Supabase 直连
         const user = JSON.parse(userStr);
-
-        
-
         let res = await window.supabaseClient
 
             .from('favorites')

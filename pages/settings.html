@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>设置 - BJ陪玩团</title>
-    <link rel="stylesheet" href="../css/style.css?v=202607311704">
-    <link rel="stylesheet" href="../css/profile.css">
+    <link rel="stylesheet" href="../css/style.css?v=202608082359">
+    <link rel="stylesheet" href="../css/profile.css?v=202608082359">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../js/supabase-config.js?v=202608081548"></script>
-    <script src="../js/main.js?v=202608081548"></script>
+    <script src="../js/supabase-config.js?v=202608082359"></script>
+    <script src="../js/main.js?v=202608082359"></script>
     <style>
         .settings-page { max-width: 700px; margin: 0 auto; padding: 30px 20px; }
         .settings-header { display: flex; align-items: center; gap: 15px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--border); }
@@ -400,10 +400,16 @@
                 if(signInRes.error || !signInRes.data || !signInRes.data.session) {
                     throw new Error((signInRes.error && signInRes.error.message) || "密码验证失败");
                 }
-                // 2. 调用数据库安全函数删除当前账号（含 auth.users 与关联数据）
-                var rpcRes = await window.supabaseClient.rpc("delete_my_account");
-                if(rpcRes.error) {
-                    throw new Error(rpcRes.error.message || "注销失败");
+                // 2. 调用后端代理注销账号（绕过前端 JWT iat 时钟偏差导致的 401）
+                var freshToken = signInRes.data.session.access_token;
+                var delResp = await window.fetchWithTimeout(window.getApiBase() + '/api/account-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + freshToken },
+                    body: JSON.stringify({})
+                });
+                var delResult = await delResp.json();
+                if (delResult.code !== 1) {
+                    throw new Error(delResult.error || "注销失败");
                 }
                 // 3. 清理本地状态
                 var keys=Object.keys(localStorage);
@@ -468,13 +474,24 @@
                 var wsvEl = document.getElementById("editWangzheServer");
                 var avEl = document.getElementById("editAvatarPreview");
 
-                var session = await window.supabaseClient.auth.getSession();
-                if (!session.data.session) return;
-                var userId = session.data.session.user.id;
-                var result = await window.supabaseClient.from('profiles').select('*').eq('id', userId).single();
-                var profile = result.data;
+            // 改用后端代理拉取资料，避免本地 file:// 直连 Supabase 触发 JWT 401
+            var token = (typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null;
+            var profile = null;
+            if (token) {
+                try {
+                    var resp = await window.fetchWithTimeout(window.getApiBase() + '/api/profile-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                        body: JSON.stringify({})
+                    });
+                    var pResult = await resp.json();
+                    profile = pResult && pResult.data && pResult.data.profile;
+                } catch (e) {
+                    console.warn('[settings] 拉取资料失败，回退本地缓存:', e);
+                }
+            }
 
-                if (!profile) {
+            if (!profile) {
                     var lu = JSON.parse(localStorage.getItem('skyUser') || '{}');
                     if (nickEl && lu.username) nickEl.value = lu.username;
                     if (gtEl && lu.game_type) gtEl.value = lu.game_type;
@@ -510,18 +527,11 @@
                 var reader=new FileReader();
                 reader.onload=function(e){document.getElementById('editAvatarPreview').innerHTML='<img src='+e.target.result+'>'};
                 reader.readAsDataURL(input.files[0]);
-            }
-        }
-        document.addEventListener('DOMContentLoaded',function(){
-
-            var form=document.getElementById('editProfileForm');
-            if(form){
                 form.addEventListener('submit',async function(e){
                     e.preventDefault();
                     try {
-                        var session=await window.supabaseClient.auth.getSession();
-                        if(!session.data.session){showNotification('请先登录','error');return;}
-                        var userId=session.data.session.user.id;
+                        var token = (typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null;
+                        if (!token) { showNotification('请先登录', 'error'); return; }
                         var imgEl=document.querySelector('#editAvatarPreview img');
                         var avatarUrl='';
                         if(imgEl&&imgEl.src&&!imgEl.src.includes('fas fa-user')){
@@ -529,12 +539,6 @@
                         }
                         var nicknameInput = document.getElementById('editNickname').value.trim();
                         if (!nicknameInput) { showNotification('昵称不能为空', 'error'); return; }
-                        var [dupNick, dupUser] = await Promise.all([
-                            window.supabaseClient.from('profiles').select('id').eq('nickname', nicknameInput).neq('id', userId).maybeSingle(),
-                            window.supabaseClient.from('profiles').select('id').eq('username', nicknameInput).neq('id', userId).maybeSingle()
-                        ]);
-                        if (dupNick.data || dupUser.data) { showNotification('该名称已被占用，请更换其他昵称', 'error'); return; }
-
                         var updateData={
                             nickname:nicknameInput,
                             sky_id:document.getElementById('editSkyId').value,
@@ -544,8 +548,14 @@
                             wz_server:document.getElementById('editWangzheServer').value
                         };
                         if(avatarUrl)updateData.avatar_url=avatarUrl;
-                        var res=await window.supabaseClient.from('profiles').update(updateData).eq('id',userId);
-                        if(res.error)throw res.error;
+                        // 走后端代理保存资料（昵称占用校验在服务端完成），绕过前端 JWT iat 时钟偏差
+                        var resp = await window.fetchWithTimeout(window.getApiBase() + '/api/profile-update', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify(updateData)
+                        });
+                        var result = await resp.json();
+                        if (result.code !== 1) { showNotification(result.error || '保存失败', 'error'); return; }
                         try {
                             var su = JSON.parse(localStorage.getItem('skyUser') || '{}');
                             if (updateData.game_type) su.game_type = updateData.game_type;
@@ -556,6 +566,12 @@
                             if (updateData.nickname) { su.username = updateData.nickname; su.nickname = updateData.nickname; }
                             if (updateData.avatar_url) su.avatar = updateData.avatar_url;
                             localStorage.setItem('skyUser', JSON.stringify(su));
+                        } catch (ex) {}
+                        showNotification('资料更新成功', 'success');
+                        closeEditProfileModal();
+                        if(typeof updateNavUser==='function')updateNavUser();
+                    }catch(err){console.error('保存失败:',err);showNotification('保存失败: '+(err.message||'请重试'),'error');}
+                });
                         } catch (ex) {}
                         showNotification('资料更新成功', 'success');
                         closeEditProfileModal();

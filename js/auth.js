@@ -47,17 +47,25 @@ async function checkAuthStatus() {
             let avatar = existing.avatar || '';
 
             try {
-                const pr = await window.supabaseClient.from('profiles').select('nickname, avatar_url, disabled').eq('id', session.user.id).maybeSingle();
-                if (pr.data) {
-                    if (pr.data.disabled === true) {
+                const token = (typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null;
+                let profile = null;
+                if (token) {
+                    const pResp = await window.fetchWithTimeout(window.getApiBase() + '/api/profile-data', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({})
+                    });
+                    const pJson = await pResp.json();
+                    profile = pJson && pJson.data && pJson.data.profile;
+                }
+                if (profile) {
+                    if (profile.disabled === true) {
                         await window.supabaseClient.auth.signOut();
                         localStorage.removeItem('skyUser');
                         if (typeof updateNavUser === 'function') updateNavUser();
                         showNotification('该账号已被禁用，请联系管理员', 'error');
                         return;
                     }
-                    if (pr.data.nickname) displayName = pr.data.nickname;
-                    if (pr.data.avatar_url) avatar = pr.data.avatar_url;
+                    if (profile.nickname) displayName = profile.nickname;
+                    if (profile.avatar_url) avatar = profile.avatar_url;
                 }
             } catch(e) {}
 
@@ -104,18 +112,25 @@ async function handleLogin(email, password) {
         if (data.user) {
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // 先从数据库查最新的 nickname 与账号状态
+            // 先从后端代理查最新的 nickname 与账号状态（绕过前端 JWT iat 时钟偏差）
             var displayName = data.user.email?.split('@')[0] || '玩家';
-            var profileRes = { data: null, error: null };
+            var profile = null;
             try {
-                profileRes = await window.supabaseClient.from("profiles").select("nickname,avatar_url,disabled").eq("id", data.user.id).maybeSingle();
-                if (profileRes.data && profileRes.data.nickname) {
-                    displayName = profileRes.data.nickname;
+                const token = (data.session && data.session.access_token) || ((typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null);
+                if (token) {
+                    const pResp = await window.fetchWithTimeout(window.getApiBase() + '/api/profile-data', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({})
+                    });
+                    const pJson = await pResp.json();
+                    profile = pJson && pJson.data && pJson.data.profile;
+                }
+                if (profile && profile.nickname) {
+                    displayName = profile.nickname;
                 }
             } catch(e) {}
 
             // 如果账号被禁用，立即登出并阻止登录
-            if (profileRes.data && profileRes.data.disabled === true) {
+            if (profile && profile.disabled === true) {
                 try { await window.supabaseClient.auth.signOut(); } catch(e) {}
                 localStorage.removeItem('skyUser');
                 if (typeof updateNavUser === 'function') updateNavUser();
@@ -129,7 +144,7 @@ async function handleLogin(email, password) {
                 username: displayName,
                 nickname: displayName,
                 game_id: data.user.user_metadata?.game_id || '',
-                avatar: profileRes.data?.avatar_url || ''
+                avatar: (profile && profile.avatar_url) || ''
             };
             localStorage.setItem('skyUser', JSON.stringify(user));
             if (typeof updateNavUser === 'function') updateNavUser();

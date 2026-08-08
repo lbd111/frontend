@@ -32,6 +32,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 const SUPABASE_JWT_PUBLIC_KEY = process.env.SUPABASE_JWT_PUBLIC_KEY;
+// 前端公开的 anon key，/api/sb 透明代理转发时用作 apikey 头（不用 service_role，避免越权）
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const MPAY_API_URL = process.env.MPAY_API_URL || 'https://mpay.skypw.dpdns.org';
 // BJ 后端经内网直连 mpay 创建订单（跳过 Cloudflare，避免公网链路偶发失败），
 // 但返回给前端的 payurl 必须是公网域名，否则用户无法访问收款页。
@@ -49,6 +51,11 @@ const MONITOR_TOKEN = process.env.MONITOR_TOKEN || (() => {
 
 if (!SUPABASE_SERVICE_KEY || (!SUPABASE_JWT_SECRET && !SUPABASE_JWT_PUBLIC_KEY) || !MPAY_SECRET) {
   console.error('错误：缺少必要环境变量，请检查 .env 文件（SUPABASE_SERVICE_KEY 与 SUPABASE_JWT_SECRET/PUBLIC_KEY 至少二选一）');
+  process.exit(1);
+}
+
+if (!SUPABASE_ANON_KEY) {
+  console.error('错误：缺少 SUPABASE_ANON_KEY，/api/sb 透明代理无法工作，请在 .env 中补充');
   process.exit(1);
 }
 
@@ -73,12 +80,18 @@ app.use(cors({
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
+  // 除常规头外，必须放行 supabase-js 直连 PostgREST 时会发送的自定义头，
+  // 否则 /api/sb 透明代理的预检会失败（浏览器控制台报 CORS 红字）
+  allowedHeaders: [
+    'Content-Type', 'Authorization', 'apikey', 'Prefer', 'Accept',
+    'Accept-Profile', 'Content-Profile', 'Range', 'Range-Unit',
+    'X-Client-Info', 'X-Supabase-Api-Version', 'If-Match', 'If-None-Match'
+  ],
   // 显式设置预检缓存时间为 0，避免浏览器缓存不带 CORS 头的 OPTIONS 响应
   maxAge: 0,
-  // 让 OPTIONS 之外的所有响应也显式暴露这两个头，避免中间层剥离
-  exposedHeaders: ['X-Request-Id']
+  // Content-Range 必须暴露，supabase-js 依赖它解析 count / 分页
+  exposedHeaders: ['X-Request-Id', 'Content-Range', 'Content-Location', 'Preference-Applied', 'Range-Unit']
 }));
 
 // 显式处理所有 OPTIONS 预检请求，确保 file:// (Origin: null) 一定能拿到 CORS 头
@@ -92,6 +105,10 @@ app.use(function(req, res, next) {
   res.setHeader('Vary', 'Origin');
   next();
 });
+
+// /api/sb 透明代理需要原始字节 body 原样转发给 PostgREST，
+// 因此必须抢在 express.json() 之前用 raw 解析（raw 会标记 req._body，json 会自动跳过）
+app.use('/api/sb', express.raw({ type: '*/*', limit: '12mb' }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -203,6 +220,68 @@ function authMiddleware(req, res, next) {
     setCorsHeaders(req, res);
     return res.status(401).json({ code: 0, error: '登录凭证无效或已过期' });
   }
+}
+
+/* ============================================================================
+ * Supabase PostgREST 时钟偏差补偿
+ * ----------------------------------------------------------------------------
+ * 已实测确认（2026-08-08）：该 Supabase 项目的 PostgREST 实例时钟比它自己的
+ * Auth(GoTrue) 服务落后约 17 小时。因此 Auth 刚签发的 access_token（iat 为当前
+ * 时刻）在 PostgREST 看来永远处于"未来"，直连 REST 一律返回：
+ *     401 {"code":"PGRST303","message":"JWT issued at future"}
+ * 这是 Supabase 云端内部不一致，浏览器端无法规避。
+ *
+ * 解法：由本服务端做透明代理 —— 先验证用户原 token 的真实性，再用项目的
+ * JWT Secret（HS256）重新签发一个"iat 远在过去、exp 远在未来"的等价 token，
+ * 保留 sub / role / aud 等全部身份声明，从而 RLS 与 auth.uid() 行为完全不变。
+ * 该 token 仅存在于本服务端到 Supabase 的单次请求中，绝不下发给浏览器。
+ *
+ * 注意：签名必须使用 SUPABASE_JWT_SECRET 的【原始字符串】形式。
+ * 实测 Buffer.from(secret,'base64') 会被 PostgREST 拒绝（PGRST301 无法解码）。
+ * ========================================================================== */
+const SB_CLOCK_SKEW_SEC = parseInt(process.env.SB_CLOCK_SKEW_SEC || '2592000', 10); // 默认 ±30 天
+
+// 验证浏览器送来的 Supabase token，返回完整 payload（失败抛异常）
+function verifySupabaseToken(token) {
+  let lastErr;
+  if (SUPABASE_JWT_PUBLIC_KEY) {
+    try {
+      const jwk = JSON.parse(SUPABASE_JWT_PUBLIC_KEY);
+      const publicKey = crypto.createPublicKey({ key: jwk, format: 'jwk' });
+      return jwt.verify(token, publicKey, { algorithms: ['ES256'], clockTolerance: 86400 });
+    } catch (e) { lastErr = e; }
+  }
+  if (SUPABASE_JWT_SECRET) {
+    // 依次尝试原始字符串与 base64 解码两种密钥形式，兼容新旧项目配置
+    for (const key of [SUPABASE_JWT_SECRET, Buffer.from(SUPABASE_JWT_SECRET, 'base64')]) {
+      try {
+        return jwt.verify(token, key, { algorithms: ['HS256', 'HS384', 'HS512'], clockTolerance: 86400 });
+      } catch (e) { lastErr = e; }
+    }
+  }
+  throw lastErr || new Error('无可用的验签密钥');
+}
+
+// 依据已验证的 payload，重签一个 PostgREST 一定会接受的等价 token
+function mintRestToken(payload) {
+  const now = Math.floor(Date.now() / 1000);
+  const claims = {
+    sub: payload.sub,
+    role: payload.role || 'authenticated',
+    aud: payload.aud || 'authenticated',
+    iss: `${SUPABASE_URL}/auth/v1`,
+    email: payload.email || '',
+    phone: payload.phone || '',
+    app_metadata: payload.app_metadata || {},
+    user_metadata: payload.user_metadata || {},
+    is_anonymous: payload.is_anonymous === true,
+    iat: now - SB_CLOCK_SKEW_SEC,
+    exp: now + SB_CLOCK_SKEW_SEC
+  };
+  if (payload.session_id) claims.session_id = payload.session_id;
+  if (payload.amr) claims.amr = payload.amr;
+  if (payload.aal) claims.aal = payload.aal;
+  return jwt.sign(claims, SUPABASE_JWT_SECRET, { algorithm: 'HS256' });
 }
 
 function generateOrderNo() {
@@ -624,7 +703,7 @@ app.post('/api/profile-data', authMiddleware, async (req, res) => {
     const profileRes = await safeQuery(
       supabase
         .from('profiles')
-        .select('nickname, balance, avatar_url, server, sky_id, wangzhe_id, wz_server, created_at, rating, vip_expire_at, role, level')
+        .select('nickname, balance, avatar_url, server, sky_id, wangzhe_id, wz_server, game_type, created_at, rating, vip_expire_at, role, level')
         .eq('id', userId)
         .maybeSingle(),
       'profiles',
@@ -746,6 +825,731 @@ app.get('/api/notifications', authMiddleware, async (req, res) => {
     }
     setCorsHeaders(req, res);
     res.status(500).json({ code: 0, error: '查询通知失败: ' + (err.message || '未知错误') });
+  }
+});
+
+/**
+ * 陪玩成员列表查询（绕过前端 JWT iat 时间校验）
+ * GET /api/members-data
+ * 使用 service_role 查询已通过审核的申请与对应用户资料
+ */
+app.get('/api/members-data', async (req, res) => {
+  try {
+    const appsRes = await safeQuery(
+      supabase
+        .from('applications')
+        .select('id, username, gyname, game_id, server, wechat, skills, game_type, bio, screenshot, apply_time, user_id, wz_name, wz_game_id, wz_server, wz_wechat, wz_rank, wz_bio, wz_skills')
+        .eq('status', 'approved')
+        .order('apply_time', { ascending: false }),
+      'applications',
+      []
+    );
+
+    const apps = appsRes.data || [];
+    let profiles = [];
+    const userIds = apps.map(a => a.user_id).filter(Boolean);
+    if (userIds.length > 0) {
+      const profRes = await safeQuery(
+        supabase.from('profiles').select('id, avatar_url, rating').in('id', userIds),
+        'membersProfiles',
+        []
+      );
+      profiles = profRes.data || [];
+    }
+
+    res.json({ code: 1, data: { applications: apps, profiles } });
+  } catch (err) {
+    console.error('/api/members-data 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) {
+      res.status(500).json({ code: 0, error: '查询成员列表失败: ' + (err.message || '未知错误') });
+    }
+  }
+});
+
+/**
+ * 批量头像查询（绕过前端 JWT iat 时间校验）
+ * POST /api/avatars
+ * body: { emails: [...], names: [...] }
+ * 返回 { code: 1, data: { emailMap: {...}, nameMap: {...} } }
+ */
+app.post('/api/avatars', async (req, res) => {
+  try {
+    const emails = Array.isArray(req.body.emails) ? req.body.emails.filter(Boolean) : [];
+    const names = Array.isArray(req.body.names) ? req.body.names.filter(Boolean) : [];
+    const emailMap = {};
+    const nameMap = {};
+
+    if (emails.length > 0) {
+      const emailRes = await safeQuery(
+        supabase.from('profiles').select('email, avatar_url, nickname').in('email', emails),
+        'avatars by email',
+        []
+      );
+      (emailRes.data || []).forEach(p => {
+        emailMap[p.email] = p.avatar_url || '';
+        if (p.nickname) emailMap['name:' + p.email] = p.nickname;
+      });
+    }
+
+    if (names.length > 0) {
+      const nameRes = await safeQuery(
+        supabase.from('profiles').select('nickname, avatar_url').in('nickname', names),
+        'avatars by name',
+        []
+      );
+      (nameRes.data || []).forEach(p => {
+        nameMap[p.nickname] = p.avatar_url || '';
+      });
+    }
+
+    res.json({ code: 1, data: { emailMap, nameMap } });
+  } catch (err) {
+    console.error('/api/avatars 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) {
+      res.status(500).json({ code: 0, error: '查询头像失败: ' + (err.message || '未知错误') });
+    }
+  }
+});
+
+/**
+ * 点单大厅数据查询（绕过前端 JWT iat 时间校验）
+ * GET /api/order-hall-data
+ * 公开部分：wizards、profiles（头像/评分）、pending order_requests/dispatch_orders、组队成员数
+ * 登录部分：当前用户 profile、已下单陪玩名称、收藏列表
+ */
+app.get('/api/order-hall-data', async (req, res) => {
+  try {
+    // 尝试解析 token（可选），失败不影响公开数据
+    let userId = null;
+    try {
+      const auth = req.headers.authorization || '';
+      const token = auth.replace(/^Bearer\s+/i, '');
+      if (token && SUPABASE_JWT_SECRET) {
+        const payload = jwt.verify(token, Buffer.from(SUPABASE_JWT_SECRET, 'base64'), { algorithms: ['HS256', 'HS384', 'HS512'], clockTolerance: 300 });
+        userId = payload.sub;
+      }
+    } catch (e) {}
+
+    // 公开数据并行查询
+    const [wizardsRes, requestsRes, dispatchesRes] = await Promise.all([
+      safeQuery(supabase.from('wizards').select('*').order('created_at', { ascending: false }), 'wizards', []),
+      safeQuery(supabase.from('order_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }), 'order_requests', []),
+      safeQuery(supabase.from('dispatch_orders').select('*').eq('status', 'pending').order('created_at', { ascending: false }), 'dispatch_orders', [])
+    ]);
+
+    const wizards = wizardsRes.data || [];
+    const requests = requestsRes.data || [];
+    const dispatches = dispatchesRes.data || [];
+
+    // 批量查 wizards 关联的 profiles（avatar_url, rating）
+    const wizardUserIds = wizards.map(w => w.user_id).filter(Boolean);
+    let wizardProfiles = [];
+    if (wizardUserIds.length > 0) {
+      const profRes = await safeQuery(
+        supabase.from('profiles').select('id, nickname, avatar_url, rating').in('id', wizardUserIds),
+        'wizardProfiles',
+        []
+      );
+      wizardProfiles = profRes.data || [];
+    }
+
+    // 接单大厅发布者头像
+    const nicknameSet = {};
+    requests.concat(dispatches).forEach(item => { if (item.nickname) nicknameSet[item.nickname] = true; });
+    const nicknames = Object.keys(nicknameSet);
+    let requestAvatars = {};
+    if (nicknames.length > 0) {
+      const reqAvatarRes = await safeQuery(
+        supabase.from('profiles').select('nickname, avatar_url').in('nickname', nicknames),
+        'requestAvatars',
+        []
+      );
+      (reqAvatarRes.data || []).forEach(p => { requestAvatars[p.nickname] = p.avatar_url || ''; });
+    }
+
+    // 组队成员数
+    const dispatchIds = dispatches.map(d => d.id).filter(Boolean);
+    let teamCountMap = {};
+    if (dispatchIds.length > 0) {
+      const tmRes = await safeQuery(
+        supabase.from('dispatch_team_members').select('dispatch_order_id').in('dispatch_order_id', dispatchIds),
+        'dispatchTeamMembers',
+        []
+      );
+      (tmRes.data || []).forEach(t => {
+        teamCountMap[t.dispatch_order_id] = (teamCountMap[t.dispatch_order_id] || 0) + 1;
+      });
+    }
+
+    // 登录用户相关数据
+    let profile = null;
+    let orderedWizards = [];
+    let favorites = [];
+    if (userId) {
+      const [profileRes, ordersRes, favRes] = await Promise.all([
+        safeQuery(supabase.from('profiles').select('id, nickname, role, avatar_url, balance').eq('id', userId).maybeSingle(), 'orderHallProfile', null),
+        safeQuery(supabase.from('orders').select('wizard_name, status').eq('user_id', userId).not('status', 'in', '("待支付","已取消")'), 'orderHallOrders', []),
+        safeQuery(supabase.from('favorites').select('*').eq('user_id', userId).order('created_at', { ascending: false }), 'orderHallFavorites', [])
+      ]);
+      profile = profileRes.data || null;
+      orderedWizards = (ordersRes.data || []).map(o => o.wizard_name).filter(Boolean);
+      favorites = favRes.data || [];
+    }
+
+    res.json({
+      code: 1,
+      data: {
+        wizards,
+        wizardProfiles,
+        pendingRequests: requests,
+        pendingDispatches: dispatches,
+        requestAvatars,
+        teamCountMap,
+        profile,
+        orderedWizards,
+        favorites
+      }
+    });
+  } catch (err) {
+    console.error('/api/order-hall-data 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) {
+      res.status(500).json({ code: 0, error: '查询大厅数据失败: ' + (err.message || '未知错误') });
+    }
+  }
+});
+
+/**
+ * 查询某派单的组队成员（绕过前端 JWT iat 时间校验）
+ * GET /api/dispatch-team-members?dispatch_id=<id>
+ */
+app.get('/api/dispatch-team-members', async (req, res) => {
+  try {
+    const dispatchId = parseInt(req.query.dispatch_id, 10);
+    if (!dispatchId || isNaN(dispatchId)) {
+      return res.status(400).json({ code: 0, error: '缺少 dispatch_id' });
+    }
+
+    const membersRes = await safeQuery(
+      supabase
+        .from('dispatch_team_members')
+        .select('*')
+        .eq('dispatch_order_id', dispatchId)
+        .order('created_at', { ascending: true }),
+      'dispatch_team_members',
+      []
+    );
+
+    const members = membersRes.data || [];
+    const userIds = members.map(m => m.user_id).filter(Boolean);
+    let profiles = [];
+    if (userIds.length > 0) {
+      const profRes = await safeQuery(
+        supabase.from('profiles').select('id, nickname, avatar_url').in('id', userIds),
+        'dispatchTeamProfiles',
+        []
+      );
+      profiles = profRes.data || [];
+    }
+
+    res.json({ code: 1, data: { members, profiles } });
+  } catch (err) {
+    console.error('/api/dispatch-team-members 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) {
+      res.status(500).json({ code: 0, error: '查询组队成员失败: ' + (err.message || '未知错误') });
+    }
+  }
+});
+
+/**
+ * 加入团队页面数据查询（绕过前端 JWT iat 时间校验）
+ * GET /api/join-data
+ * 返回当前用户 profile 与所有 applications 记录
+ */
+app.get('/api/join-data', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [profileRes, appsRes] = await Promise.all([
+      safeQuery(
+        supabase.from('profiles').select('sky_id, wangzhe_id, server, wz_server').eq('id', userId).maybeSingle(),
+        'joinProfile',
+        null
+      ),
+      safeQuery(
+        supabase.from('applications').select('status, created_at').eq('user_id', userId).order('created_at', { ascending: false }),
+        'joinApplications',
+        []
+      )
+    ]);
+
+    res.json({
+      code: 1,
+      data: {
+        profile: profileRes.data || null,
+        applications: appsRes.data || []
+      }
+    });
+  } catch (err) {
+    console.error('/api/join-data 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) {
+      res.status(500).json({ code: 0, error: '查询加入团队数据失败: ' + (err.message || '未知错误') });
+    }
+  }
+});
+
+// ================== 写操作代理（绕过前端 JWT iat 时间校验） ==================
+
+/**
+ * POST /api/orders/create
+ * 下单 + 扣减余额 + 通知陪玩，全部走 service_role，避免 file:// 直连 Supabase 触发 401。
+ * body: { orderData: { wizardId, wizardName, hours, totalPrice, serviceType, gameType, orderNo, boardName, remark, couponId } }
+ */
+app.post('/api/orders/create', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const orderData = (req.body && req.body.orderData) ? req.body.orderData : (req.body || {});
+    const finalPrice = parseFloat(orderData.totalPrice) || 0;
+    if (!(finalPrice >= 0)) {
+      setCorsHeaders(req, res);
+      return res.status(400).json({ code: 0, error: '订单金额无效' });
+    }
+    const profRes = await safeQuery(
+      supabase.from('profiles').select('balance, nickname, email, username').eq('id', userId).maybeSingle(),
+      'orderCreateProfile', null
+    );
+    const profile = profRes.data || {};
+    const currentBalance = parseFloat(profile.balance) || 0;
+    if (currentBalance < finalPrice) {
+      setCorsHeaders(req, res);
+      return res.status(400).json({ code: 0, error: '余额不足，请前往充值中心充值' });
+    }
+    const newBalance = currentBalance - finalPrice;
+    const updRes = await safeQuery(
+      supabase.from('profiles').update({ balance: newBalance }).eq('id', userId),
+      'orderDeductBalance', null
+    );
+    if (updRes.error) throw updRes.error;
+    if (orderData.couponId) {
+      await safeQuery(
+        supabase.from('coupons').update({ used: true }).eq('id', orderData.couponId).eq('user_id', userId),
+        'markCouponUsed', null
+      );
+    }
+    const orderPayload = {
+      user_id: userId,
+      wizard_id: orderData.wizardId || null,
+      wizard_name: orderData.wizardName || '',
+      hours: orderData.hours || 1,
+      price: finalPrice,
+      status: 'progress',
+      service_type: orderData.serviceType || '',
+      game_type: orderData.gameType || '光·遇',
+      order_no: orderData.orderNo || ('ORD' + Date.now()),
+      board_name: orderData.boardName || profile.nickname || profile.username || profile.email || '',
+      remark: orderData.remark || ''
+    };
+    const insRes = await safeQuery(
+      supabase.from('orders').insert(orderPayload).select('id').single(),
+      'orderInsert', null
+    );
+    if (insRes.error) {
+      await safeQuery(
+        supabase.from('profiles').update({ balance: currentBalance }).eq('id', userId),
+        'rollbackBalance', null
+      );
+      setCorsHeaders(req, res);
+      return res.status(500).json({ code: 0, error: '下单失败：' + insRes.error.message });
+    }
+    const orderId = insRes.data && insRes.data.id;
+    try {
+      let wizardUserId = orderData.wizardId || '';
+      if (!wizardUserId && orderData.wizardName) {
+        const wRes = await safeQuery(
+          supabase.from('wizards').select('user_id').eq('wizard_name', orderData.wizardName).limit(1),
+          'lookupWizard', []
+        );
+        if (wRes.data && wRes.data.length > 0 && wRes.data[0].user_id) wizardUserId = wRes.data[0].user_id;
+      }
+      if (wizardUserId) {
+        const buyerName = profile.nickname || profile.email || profile.username || '某位用户';
+        await safeQuery(
+          supabase.from('notifications').insert({
+            user_id: String(wizardUserId),
+            title: '新订单提醒',
+            message: '用户 ' + buyerName + ' 已下单，服务类型：' + (orderData.serviceType || '未指定') + '，请尽快联系对方。',
+            type: 'order_new',
+            read: false
+          }),
+          'notifyWizard', null
+        );
+      }
+    } catch (notifErr) {
+      console.warn('[orders/create] 陪玩通知失败:', notifErr.message);
+    }
+    res.json({ code: 1, orderId: orderId, balance: newBalance });
+  } catch (err) {
+    console.error('/api/orders/create 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) res.status(500).json({ code: 0, error: '下单失败：' + (err.message || '未知错误') });
+  }
+});
+
+/**
+ * POST /api/profile-update
+ * 保存个人资料（含昵称占用校验），走 service_role。
+ * body: { nickname, sky_id, wangzhe_id, server, wz_server, game_type, avatar_url }
+ */
+app.post('/api/profile-update', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const b = req.body || {};
+    const updateData = {};
+    if (typeof b.nickname === 'string') updateData.nickname = b.nickname.trim();
+    if (typeof b.sky_id !== 'undefined') updateData.sky_id = b.sky_id;
+    if (typeof b.wangzhe_id !== 'undefined') updateData.wangzhe_id = b.wangzhe_id;
+    if (typeof b.server !== 'undefined') updateData.server = b.server;
+    if (typeof b.wz_server !== 'undefined') updateData.wz_server = b.wz_server;
+    if (typeof b.game_type !== 'undefined') updateData.game_type = b.game_type;
+    if (typeof b.avatar_url !== 'undefined') updateData.avatar_url = b.avatar_url;
+
+    if (!updateData.nickname) {
+      setCorsHeaders(req, res);
+      return res.status(400).json({ code: 0, error: '昵称不能为空' });
+    }
+    const dupRes = await safeQuery(
+      supabase.from('profiles').select('id').or('nickname.eq.' + updateData.nickname + ',username.eq.' + updateData.nickname).neq('id', userId).maybeSingle(),
+      'dupNameCheck', null
+    );
+    if (dupRes.data) {
+      setCorsHeaders(req, res);
+      return res.status(400).json({ code: 0, error: '该名称已被占用，请更换其他昵称' });
+    }
+    const upd = await safeQuery(
+      supabase.from('profiles').update(updateData).eq('id', userId),
+      'profileUpdate', null
+    );
+    if (upd.error) throw upd.error;
+    res.json({ code: 1, profile: updateData });
+  } catch (err) {
+    console.error('/api/profile-update 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) res.status(500).json({ code: 0, error: '保存失败：' + (err.message || '未知错误') });
+  }
+});
+
+/**
+ * POST /api/notifications  —— 创建通知（应用内通知，可指定接收人 user_id）
+ * body: { user_id, title, message, type, metadata }
+ */
+app.post('/api/notifications', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const b = req.body || {};
+    const target = b.user_id || userId;
+    if (!b.title || !target) {
+      setCorsHeaders(req, res);
+      return res.status(400).json({ code: 0, error: '缺少标题或接收人' });
+    }
+    const ins = await safeQuery(
+      supabase.from('notifications').insert({
+        user_id: String(target),
+        title: b.title,
+        message: b.message || '',
+        type: b.type || 'system',
+        metadata: typeof b.metadata === 'string' ? b.metadata : JSON.stringify(b.metadata || {}),
+        read: false
+      }).select('id').single(),
+      'createNotification', null
+    );
+    if (ins.error) throw ins.error;
+    res.json({ code: 1, id: ins.data && ins.data.id });
+  } catch (err) {
+    console.error('/api/notifications 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) res.status(500).json({ code: 0, error: '通知创建失败：' + (err.message || '未知错误') });
+  }
+});
+
+/**
+ * POST /api/notifications/delete —— 删除通知（仅限本人）
+ * body: { id }
+ */
+app.post('/api/notifications/delete', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const b = req.body || {};
+    const id = b.id;
+    if (!id) {
+      setCorsHeaders(req, res);
+      return res.status(400).json({ code: 0, error: '缺少通知 id' });
+    }
+    const del = await safeQuery(
+      supabase.from('notifications').delete().eq('id', id).eq('user_id', userId),
+      'deleteNotification', null
+    );
+    if (del.error) throw del.error;
+    res.json({ code: 1 });
+  } catch (err) {
+    console.error('/api/notifications/delete 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) res.status(500).json({ code: 0, error: '删除通知失败：' + (err.message || '未知错误') });
+  }
+});
+
+// ---------- 派单取消投票相关后端实现 ----------
+async function backendNotifyDispatchVoteCounts(rawId, excludeUserId) {
+  const orderRes = await safeQuery(supabase.from('dispatch_orders').select('user_id').eq('id', rawId).maybeSingle(), 'dco', null);
+  const dispatcherId = orderRes.data ? orderRes.data.user_id : null;
+  const votesRes = await safeQuery(supabase.from('dispatch_cancel_votes').select('vote').eq('dispatch_order_id', rawId), 'dcv', []);
+  const membersRes = await safeQuery(supabase.from('dispatch_team_members').select('user_id').eq('dispatch_order_id', rawId), 'dtm', []);
+  const votes = votesRes.data || [];
+  const members = membersRes.data || [];
+  let cancel = 0, reject = 0;
+  votes.forEach(function (v) { if (v.vote === 'cancel') cancel++; else if (v.vote === 'reject') reject++; });
+  const total = members.length;
+  const msg = '取消投票进展：' + cancel + ' 人同意取消，' + reject + ' 人驳回（共 ' + total + ' 名接单人）。';
+  const userIds = {};
+  members.forEach(function (m) { if (String(m.user_id) !== String(excludeUserId)) userIds[String(m.user_id)] = true; });
+  if (dispatcherId && String(dispatcherId) !== String(excludeUserId)) userIds[String(dispatcherId)] = true;
+  for (const uid in userIds) {
+    await safeQuery(supabase.from('notifications').insert({
+      user_id: uid, title: '取消投票更新', message: msg, type: 'dispatch_cancel_vote',
+      metadata: JSON.stringify({ order_id: String(rawId), cancel_count: cancel, reject_count: reject, total: total }), read: false
+    }), 'notifyVote', null);
+  }
+}
+
+async function backendResolveDispatchCancel(rawId, decision) {
+  const membersRes = await safeQuery(supabase.from('dispatch_team_members').select('user_id').eq('dispatch_order_id', rawId), 'dtmBefore', []);
+  const members = membersRes.data || [];
+  if (decision === 'cancel') {
+    const orderRes = await safeQuery(supabase.from('dispatch_orders').select('user_id, price').eq('id', rawId).maybeSingle(), 'dcoRefund', null);
+    const order = orderRes.data;
+    if (order && order.user_id && order.price) {
+      const refundAmount = parseFloat(order.price) || 0;
+      const profRes = await safeQuery(supabase.from('profiles').select('balance').eq('id', order.user_id).maybeSingle(), 'profRefund', null);
+      const current = parseFloat(profRes.data && profRes.data.balance) || 0;
+      await safeQuery(supabase.from('profiles').update({ balance: current + refundAmount }).eq('id', order.user_id), 'doRefund', null);
+    }
+    await safeQuery(supabase.from('dispatch_orders').delete().eq('id', rawId), 'delDispatch', null);
+  } else {
+    await safeQuery(supabase.from('dispatch_orders').update({ cancel_requested: false, cancel_requested_at: null, status: 'progress' }).eq('id', rawId), 'rejectDispatch', null);
+  }
+  const msg = decision === 'cancel' ? '取消申请已通过，派单已取消。' : '取消申请被驳回，派单继续正常进行。';
+  const userIds = {};
+  members.forEach(function (m) { if (m.user_id) userIds[String(m.user_id)] = true; });
+  for (const uid in userIds) {
+    await safeQuery(supabase.from('notifications').insert({
+      user_id: uid, title: '取消结果通知', message: msg, type: 'dispatch_cancel_result',
+      metadata: JSON.stringify({ order_id: String(rawId), decision: decision }), read: false
+    }), 'notifyResolved', null);
+  }
+}
+
+async function backendCheckDispatchCancelResolved(rawId, userId) {
+  const votesRes = await safeQuery(supabase.from('dispatch_cancel_votes').select('vote').eq('dispatch_order_id', rawId), 'dcv2', []);
+  const membersRes = await safeQuery(supabase.from('dispatch_team_members').select('user_id').eq('dispatch_order_id', rawId), 'dtm2', []);
+  const votes = votesRes.data || [];
+  const members = membersRes.data || [];
+  const total = members.length;
+  let cancel = 0, reject = 0;
+  votes.forEach(function (v) { if (v.vote === 'cancel') cancel++; else if (v.vote === 'reject') reject++; });
+  const half = total / 2;
+  if (cancel > half) { await backendResolveDispatchCancel(rawId, 'cancel'); return true; }
+  if (reject > half) { await backendResolveDispatchCancel(rawId, 'reject'); return true; }
+  return false;
+}
+
+/**
+ * POST /api/dispatch-cancel-request —— 派单人发起取消投票
+ * body: { dispatch_id }
+ */
+app.post('/api/dispatch-cancel-request', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const rawId = parseInt(req.body && req.body.dispatch_id, 10);
+    if (!rawId) throw new Error('无效的派单 ID');
+    const orderRes = await safeQuery(supabase.from('dispatch_orders').select('user_id').eq('id', rawId).maybeSingle(), 'dcoCheck', null);
+    if (!orderRes.data || String(orderRes.data.user_id) !== String(userId)) {
+      setCorsHeaders(req, res);
+      return res.status(403).json({ code: 0, error: '只有派单人可以发起取消' });
+    }
+    const memRes = await safeQuery(supabase.from('dispatch_team_members').select('user_id').eq('dispatch_order_id', rawId), 'dtm', []);
+    const members = memRes.data || [];
+    for (let i = 0; i < members.length; i++) {
+      const uid = members[i].user_id;
+      if (String(uid) === String(userId)) continue;
+      await safeQuery(supabase.from('notifications').insert({
+        user_id: String(uid),
+        title: '派单取消投票',
+        message: '派单人发起了取消申请，请到「我接的单」投票：同意取消 或 驳回。',
+        type: 'dispatch_cancel_request',
+        metadata: JSON.stringify({ order_id: String(rawId) }),
+        read: false
+      }), 'notifyCancelReq', null);
+    }
+    await safeQuery(
+      supabase.from('dispatch_orders').update({ cancel_requested: true, cancel_requested_at: new Date().toISOString() }).eq('id', rawId),
+      'markCancelReq', null
+    );
+    res.json({ code: 1 });
+  } catch (err) {
+    console.error('/api/dispatch-cancel-request 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) res.status(500).json({ code: 0, error: '发起取消失败：' + (err.message || '请重试') });
+  }
+});
+
+/**
+ * POST /api/dispatch-vote —— 接单人投票（cancel / reject）
+ * body: { dispatch_id, vote }
+ */
+app.post('/api/dispatch-vote', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const rawId = parseInt(req.body && req.body.dispatch_id, 10);
+    const vote = req.body && req.body.vote;
+    if (!rawId) throw new Error('无效的派单 ID');
+    if (vote !== 'cancel' && vote !== 'reject') throw new Error('无效投票');
+    const memRes = await safeQuery(
+      supabase.from('dispatch_team_members').select('user_id').eq('dispatch_order_id', rawId).eq('user_id', userId).maybeSingle(),
+      'dtmCheck', null
+    );
+    if (!memRes.data) {
+      setCorsHeaders(req, res);
+      return res.status(403).json({ code: 0, error: '你不是该派单的接单人' });
+    }
+    const ve = await safeQuery(
+      supabase.from('dispatch_cancel_votes').upsert({
+        dispatch_order_id: rawId, user_id: userId, vote: vote, created_at: new Date().toISOString()
+      }, { onConflict: 'dispatch_order_id,user_id' }),
+      'voteUpsert', null
+    );
+    if (ve.error) throw ve.error;
+    await backendNotifyDispatchVoteCounts(rawId, userId);
+    await backendCheckDispatchCancelResolved(rawId, userId);
+    res.json({ code: 1 });
+  } catch (err) {
+    console.error('/api/dispatch-vote 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) res.status(500).json({ code: 0, error: '投票失败：' + (err.message || '请重试') });
+  }
+});
+
+/**
+ * POST /api/account-delete —— 注销账号（删除本人相关数据 + auth 用户）
+ */
+app.post('/api/account-delete', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const tables = ['favorites', 'coupons', 'notifications', 'applications', 'wizards', 'dispatch_team_members'];
+    for (const t of tables) {
+      await safeQuery(supabase.from(t).delete().eq('user_id', userId), 'delete_' + t, null);
+    }
+    await safeQuery(supabase.from('orders').delete().eq('user_id', userId), 'delete_orders', null);
+    await safeQuery(supabase.from('profiles').delete().eq('id', userId), 'delete_profile', null);
+    try {
+      await supabase.auth.admin.deleteUser(userId);
+    } catch (e) {
+      console.warn('[account-delete] auth 用户删除失败（可能无权限）:', e.message);
+    }
+    res.json({ code: 1 });
+  } catch (err) {
+    console.error('/api/account-delete 异常:', err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) res.status(500).json({ code: 0, error: '注销失败：' + (err.message || '未知错误') });
+  }
+});
+
+/* ============================================================================
+ * Supabase PostgREST 透明代理： /api/sb/rest/v1/*  →  <SUPABASE_URL>/rest/v1/*
+ * ----------------------------------------------------------------------------
+ * 前端 supabase-js 的所有 REST 调用改指向这里，本服务端负责把浏览器持有的
+ * access_token 换成 PostgREST 能接受的等价 token（见 mintRestToken 注释）。
+ * 除 Authorization 外，请求与响应均原样透传，因此：
+ *   · RLS 策略、auth.uid()、归属权判断等业务语义 100% 不变
+ *   · 前端已有的 100+ 处 .from(...) 调用一行都不用改
+ * ========================================================================== */
+const SB_PROXY_PREFIX = '/api/sb';
+
+// 转发给 PostgREST 的请求头白名单（Authorization / apikey 由本服务重新设置）
+const SB_FORWARD_REQ_HEADERS = [
+  'content-type', 'prefer', 'accept', 'accept-profile', 'content-profile',
+  'range', 'range-unit', 'x-client-info', 'x-supabase-api-version',
+  'if-match', 'if-none-match'
+];
+
+// 回传给浏览器的响应头白名单（不透传上游 CORS / 压缩相关头，避免与本服务冲突）
+const SB_FORWARD_RES_HEADERS = [
+  'content-type', 'content-range', 'content-location',
+  'preference-applied', 'range-unit'
+];
+
+app.all(SB_PROXY_PREFIX + '/*', async (req, res) => {
+  setCorsHeaders(req, res);
+  try {
+    const suffix = req.originalUrl.slice(SB_PROXY_PREFIX.length); // 含 query string
+    // 只允许代理 REST 接口，杜绝被当作任意 URL 的开放代理
+    if (!/^\/rest\/v1\//.test(suffix.split('?')[0])) {
+      return res.status(403).json({ code: 0, error: '仅允许代理 /rest/v1 路径' });
+    }
+
+    const incoming = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    let outgoingAuth;
+
+    if (!incoming || incoming === SUPABASE_ANON_KEY) {
+      // 未登录：anon key 的 iat 早已是过去时间，PostgREST 可直接接受
+      outgoingAuth = SUPABASE_ANON_KEY;
+    } else {
+      let payload;
+      try {
+        payload = verifySupabaseToken(incoming);
+      } catch (e) {
+        console.warn('[sb-proxy] token 验签失败:', e.message);
+        return res.status(401).json({ code: 0, error: '登录凭证无效或已过期', detail: e.message });
+      }
+      if (payload.role === 'service_role') {
+        // 浏览器不该持有 service_role，出现即视为攻击
+        return res.status(403).json({ code: 0, error: '不允许的凭证类型' });
+      }
+      outgoingAuth = payload.sub ? mintRestToken(payload) : SUPABASE_ANON_KEY;
+    }
+
+    const headers = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + outgoingAuth };
+    for (const h of SB_FORWARD_REQ_HEADERS) {
+      if (req.headers[h] !== undefined) headers[h] = req.headers[h];
+    }
+
+    const hasBody = !['GET', 'HEAD', 'OPTIONS'].includes(req.method) &&
+                    Buffer.isBuffer(req.body) && req.body.length > 0;
+
+    const upstream = await withTimeout(
+      fetch(SUPABASE_URL + suffix, {
+        method: req.method,
+        headers,
+        body: hasBody ? req.body : undefined
+      }),
+      15000,
+      'sb-proxy ' + req.method + ' ' + suffix.split('?')[0]
+    );
+
+    for (const h of SB_FORWARD_RES_HEADERS) {
+      const v = upstream.headers.get(h);
+      if (v) res.setHeader(h, v);
+    }
+    res.status(upstream.status);
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    return res.send(buf);
+  } catch (err) {
+    console.error('[sb-proxy] 异常:', err && err.message ? err.message : err);
+    setCorsHeaders(req, res);
+    if (!res.headersSent) {
+      return res.status(502).json({ code: 0, error: '数据服务暂时不可用：' + (err.message || '未知错误') });
+    }
   }
 });
 

@@ -10,7 +10,7 @@
 
 </script>    
 
-<script src='../js/supabase-config.js?v=202608081548'>
+<script src='../js/supabase-config.js?v=202608082359'>
 
 </script>
 
@@ -22,11 +22,11 @@
 
 </title>    
 
-<link rel="stylesheet" href="../css/style.css?v=202607301400">
+<link rel="stylesheet" href="../css/style.css?v=202608082359">
 
-<link rel="stylesheet" href="../css/profile.css">    
+<link rel="stylesheet" href="../css/profile.css?v=202608082359">    
 
-<link rel="stylesheet" href="../css/order.css">    
+<link rel="stylesheet" href="../css/order.css?v=202608082359">    
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -1375,11 +1375,11 @@
 
 </footer>    
 
-<script src="../js/main.js?v=202608081548">
+<script src="../js/main.js?v=202608082359">
 
 </script>    
 
-<script src="../js/order.js?v=202607301400">
+<script src="../js/order.js?v=202608082359">
 
 </script>    
 
@@ -1539,45 +1539,24 @@
         }
 
         async function checkUserRoleAndShowButtons() {
-
             const switcher = document.getElementById('roleSwitcher');
-
             try {
-
-                const { data: { session } } = await window.supabaseClient.auth.getSession();
-
-                if (!session) return;
-
-                const userId = session.user.id;
-
-                const { data: profile } = await window.supabaseClient
-
-                    .from('profiles')
-
-                    .select('role')
-
-                    .eq('id', userId)
-
-                    .single();
-
-                if (profile && profile.role === '陪陪') {
-
-                    switcher.style.display = 'flex';
-
-                } else {
-
-                    switcher.style.display = 'none';
-
+                const userStr = localStorage.getItem('skyUser');
+                if (!userStr) {
+                    if (switcher) switcher.style.display = 'none';
+                    return;
                 }
-
+                const user = JSON.parse(userStr);
+                const role = user.role || '';
+                if (role === '陪陪') {
+                    if (switcher) switcher.style.display = 'flex';
+                } else {
+                    if (switcher) switcher.style.display = 'none';
+                }
             } catch (e) {
-
                 console.error('角色检查失败:', e);
-
-                switcher.style.display = 'none';
-
+                if (switcher) switcher.style.display = 'none';
             }
-
         }
 
         
@@ -1688,58 +1667,48 @@
                 let allItems, avatarMap, teamCountMap;
 
                 if (!serveCache || forceRefresh) {
-                    const [{ data: requests, error: reqErr }, { data: dispatches, error: dispErr }] = await Promise.all([
-                        window.supabaseClient
-                            .from('order_requests')
-                            .select('*')
-                            .eq('status', 'pending')
-                            .order('created_at', { ascending: false }),
-                        window.supabaseClient
-                            .from('dispatch_orders')
-                            .select('*')
-                            .eq('status', 'pending')
-                            .order('created_at', { ascending: false })
-                    ]);
+                    // 使用后端聚合接口，避免本地 file:// 打开时 Supabase REST 因 JWT iat future 401
+                    let hallData = window.__orderHallData || null;
+                    if (!hallData) {
+                        try {
+                            const token = typeof window.getSupabaseToken === 'function' ? window.getSupabaseToken() : null;
+                            const headers = { 'Content-Type': 'application/json' };
+                            if (token) headers['Authorization'] = 'Bearer ' + token;
+                            const res = await window.fetchWithTimeout(window.getApiBase() + '/api/order-hall-data', {
+                                method: 'GET',
+                                headers: headers
+                            }, 15000);
+                            if (res.ok) {
+                                const result = await res.json();
+                                if (result.code === 1 && result.data) {
+                                    hallData = result.data;
+                                    window.__orderHallData = hallData;
+                                }
+                            }
+                        } catch (apiErr) {
+                            console.warn('loadServeModeList api failed:', apiErr);
+                        }
+                    }
 
-                    if (reqErr) console.error('加载求助单失败:', reqErr);
-                    if (dispErr) console.error('加载派的单失败:', dispErr);
+                    const requests = (hallData && hallData.pendingRequests) ? hallData.pendingRequests : [];
+                    const dispatches = (hallData && hallData.pendingDispatches) ? hallData.pendingDispatches : [];
 
                     const requestList = (requests || []).map(r => { r._source = 'request'; return r; });
                     const dispatchList = (dispatches || []).map(d => { d._source = 'dispatch'; return d; });
                     allItems = requestList.concat(dispatchList);
 
-                    // 批量获取头像
-                    const nicknameSet = {};
-                    allItems.forEach(item => { if (item.nickname) nicknameSet[item.nickname] = true; });
-                    avatarMap = {};
-                    const nicknames = Object.keys(nicknameSet);
-                    if (nicknames.length > 0) {
-                        try {
-                            const { data: profiles } = await window.supabaseClient
-                                .from('profiles')
-                                .select('nickname, avatar_url')
-                                .in('nickname', nicknames);
-                            (profiles || []).forEach(p => { avatarMap[p.nickname] = p.avatar_url; });
-                        } catch (profErr) {
-                            console.warn('批量获取头像失败:', profErr);
-                        }
-                    }
+                    // 头像由后端聚合返回
+                    avatarMap = (hallData && hallData.requestAvatars) ? hallData.requestAvatars : {};
 
-                    // 组合接单成员数：用于判断派的单是否已有人开始组队
-                    const dispatchIds = dispatchList.map(d => d.id);
-                    teamCountMap = {};
-                    if (dispatchIds.length > 0) {
-                        try {
-                            const { data: tmData } = await window.supabaseClient
-                                .from('dispatch_team_members')
-                                .select('dispatch_order_id')
-                                .in('dispatch_order_id', dispatchIds);
-                            (tmData || []).forEach(t => {
-                                teamCountMap[t.dispatch_order_id] = (teamCountMap[t.dispatch_order_id] || 0) + 1;
-                            });
-                        } catch (tmErr) {
-                            console.warn('加载组队成员数失败:', tmErr);
-                        }
+                    // 组合接单成员数由后端聚合返回
+                    teamCountMap = (hallData && hallData.teamCountMap) ? hallData.teamCountMap : {};
+
+                    // 同步收藏数据（如果 loadMyFavorites 还没执行完）
+                    if (hallData && Array.isArray(hallData.favorites) && !myFavoritesLoaded) {
+                        myFavorites = hallData.favorites;
+                        myFavoritesMap = {};
+                        myFavorites.forEach(f => { if (f.wizard_name) myFavoritesMap[f.wizard_name] = f.id; });
+                        myFavoritesLoaded = true;
                     }
 
                     serveCache = { items: allItems, avatarMap, teamCountMap };
@@ -2077,37 +2046,32 @@
         }
 
         async function loadTeamMembers(dispatchId) {
-            const { data, error } = await window.supabaseClient
-                .from('dispatch_team_members')
-                .select('*')
-                .eq('dispatch_order_id', dispatchId)
-                .order('created_at', { ascending: true });
-            if (error) {
-                console.error('加载组合成员失败:', error);
+            try {
+                const res = await window.fetchWithTimeout(window.getApiBase() + '/api/dispatch-team-members?dispatch_id=' + encodeURIComponent(dispatchId), {
+                    method: 'GET'
+                }, 10000);
+                if (!res.ok) {
+                    console.error('加载组合成员失败:', res.status);
+                    return [];
+                }
+                const result = await res.json();
+                if (result.code !== 1 || !result.data) return [];
+                const members = result.data.members || [];
+                const profiles = result.data.profiles || [];
+                const profileMap = {};
+                profiles.forEach(p => { profileMap[p.id] = p; });
+                members.forEach(m => {
+                    const p = profileMap[m.user_id];
+                    if (p) {
+                        m.nickname = p.nickname || m.nickname;
+                        m.avatar_url = p.avatar_url || m.avatar_url;
+                    }
+                });
+                return members;
+            } catch (e) {
+                console.error('加载组合成员失败:', e);
                 return [];
             }
-            const members = data || [];
-            const userIds = members.map(m => m.user_id).filter(Boolean);
-            if (userIds.length > 0) {
-                const { data: profiles, error: profileError } = await window.supabaseClient
-                    .from('profiles')
-                    .select('id, nickname, avatar_url')
-                    .in('id', userIds);
-                if (profileError) {
-                    console.error('加载成员资料失败:', profileError);
-                } else if (profiles) {
-                    const profileMap = {};
-                    profiles.forEach(p => { profileMap[p.id] = p; });
-                    members.forEach(m => {
-                        const p = profileMap[m.user_id];
-                        if (p) {
-                            m.nickname = p.nickname || m.nickname;
-                            m.avatar_url = p.avatar_url || m.avatar_url;
-                        }
-                    });
-                }
-            }
-            return members;
         }
 
         async function renderTeamDispatchModal(dispatchId, detail, meta, people) {
@@ -2471,70 +2435,55 @@ async function loadWizardList() {
             }
 
             try {
-
-                let { data: wizards, error } = await window.supabaseClient
-
-                    .from('wizards')
-
-                    .select('*')
-
-                    .order('created_at', { ascending: false });
-
-                if (error) {
-
-                    console.error('加载失败:', error);
-
-                    return;
-
+                // 使用后端聚合接口，避免本地 file:// 打开时 Supabase REST 因 JWT iat future 401
+                let hallData = window.__orderHallData || null;
+                if (!hallData) {
+                    try {
+                        const token = typeof window.getSupabaseToken === 'function' ? window.getSupabaseToken() : null;
+                        const headers = { 'Content-Type': 'application/json' };
+                        if (token) headers['Authorization'] = 'Bearer ' + token;
+                        const res = await window.fetchWithTimeout(window.getApiBase() + '/api/order-hall-data', {
+                            method: 'GET',
+                            headers: headers
+                        }, 15000);
+                        if (res.ok) {
+                            const result = await res.json();
+                            if (result.code === 1 && result.data) {
+                                hallData = result.data;
+                                window.__orderHallData = hallData;
+                            }
+                        }
+                    } catch (apiErr) {
+                        console.warn('loadWizardList api failed:', apiErr);
+                    }
                 }
 
-                // Fetch avatars for each wizard from profiles table
+                let wizards = (hallData && hallData.wizards) ? hallData.wizards : [];
 
+                // 从聚合数据填充头像和评分
+                const profileMap = {};
+                if (hallData && hallData.wizardProfiles) {
+                    hallData.wizardProfiles.forEach(function(p) { profileMap[p.id] = p; });
+                }
                 for (const w of wizards) {
-
-                    if (w.user_id) {
-
-                        const { data: profiles } = await window.supabaseClient
-
-                            .from('profiles')
-
-                            .select('avatar_url, rating')
-
-                            .eq('id', w.user_id)
-
-                            .limit(1);
-
-                        if (profiles && profiles.length > 0) {
-
-                            w._avatar = profiles[0].avatar_url;
-
-                            w._rating = profiles[0].rating;
-
-                        }
-
+                    if (w.user_id && profileMap[w.user_id]) {
+                        w._avatar = profileMap[w.user_id].avatar_url;
+                        w._rating = profileMap[w.user_id].rating;
                     }
-
                 }
 
-                // 查询当前用户已下单的陪玩名称（状态不为待支付/已取消）
+                // 当前用户已下单的陪玩名称（状态不为待支付/已取消）
                 window.orderedWizards.clear();
-                try {
-                    const userStr = localStorage.getItem('skyUser');
-                    const user = userStr ? JSON.parse(userStr) : null;
-                    if (user && user.id) {
-                        const { data: myOrders } = await window.supabaseClient
-                            .from('orders')
-                            .select('wizard_name, status')
-                            .eq('user_id', user.id)
-                            .not('status', 'in', '("待支付","已取消")');
-                        if (myOrders) {
-                            myOrders.forEach(function(o) {
-                                if (o.wizard_name) window.orderedWizards.add(o.wizard_name);
-                            });
-                        }
-                    }
-                } catch(e) {
-                    console.warn('加载已下单记录失败:', e);
+                if (hallData && Array.isArray(hallData.orderedWizards)) {
+                    hallData.orderedWizards.forEach(function(name) { window.orderedWizards.add(name); });
+                }
+
+                // 同步收藏数据（如果 loadMyFavorites 还没执行完）
+                if (hallData && Array.isArray(hallData.favorites) && !myFavoritesLoaded) {
+                    myFavorites = hallData.favorites;
+                    myFavoritesMap = {};
+                    myFavorites.forEach(f => { if (f.wizard_name) myFavoritesMap[f.wizard_name] = f.id; });
+                    myFavoritesLoaded = true;
                 }
 
                 // 只展示已上架（在线）的服务

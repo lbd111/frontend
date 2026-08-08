@@ -2,14 +2,14 @@
 <html lang="zh-CN">
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src='../js/supabase-config.js?v=202608081548'></script>
-    <script src='../js/auth.js?v=202607301455'></script>
+<script src='../js/supabase-config.js?v=202608082359'></script>
+    <script src='../js/auth.js?v=202608082359'></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>我的订单 - BJ陪玩团</title>
-<link rel="stylesheet" href="../css/style.css?v=202607301455">
-<link rel="stylesheet" href="../css/profile.css">
-<link rel="stylesheet" href="../css/order.css">
+<link rel="stylesheet" href="../css/style.css?v=202608082359">
+<link rel="stylesheet" href="../css/profile.css?v=202608082359">
+<link rel="stylesheet" href="../css/order.css?v=202608082359">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 .my-orders-page { background: #f5f7fa; display: flex; flex-direction: column; min-height: 100vh; margin: 0; padding: 0; }
@@ -572,7 +572,7 @@
     </div>
 </footer>
 
-<script src="../js/main.js?v=202608081548"></script>
+<script src="../js/main.js?v=202608082359"></script>
 
 <div id="toastContainer"></div>
 
@@ -649,13 +649,43 @@ function switchTab(tab, btn) {
 var currentUserProfilePromise = null;
 function getCurrentUserProfile(userId) {
     if(!currentUserProfilePromise) {
-        currentUserProfilePromise = window.supabaseClient
-            .from("profiles")
-            .select("nickname, role, avatar_url")
-            .eq("id", userId)
-            .maybeSingle()
-            .then(function(res) { return res.data || {}; })
-            .catch(function() { return {}; });
+        currentUserProfilePromise = (async function() {
+            // 优先复用已加载的个人中心数据
+            if (window.__profileData && window.__profileData.profile) {
+                return window.__profileData.profile;
+            }
+            // 其次走后端代理 /api/profile-data
+            try {
+                const token = typeof window.getSupabaseToken === 'function' ? window.getSupabaseToken() : null;
+                if (token) {
+                    const res = await window.fetchWithTimeout(window.getApiBase() + '/api/profile-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                        body: JSON.stringify({})
+                    }, 10000);
+                    if (res.ok) {
+                        const result = await res.json();
+                        if (result.code === 1 && result.data && result.data.profile) {
+                            window.__profileData = result.data;
+                            return result.data.profile;
+                        }
+                    }
+                }
+            } catch (e) { console.warn('getCurrentUserProfile api failed:', e); }
+            // 兜底：本地缓存
+            try {
+                const userStr = localStorage.getItem('skyUser');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    return {
+                        nickname: user.nickname || user.username || '',
+                        role: user.role || '',
+                        avatar_url: user.avatar_url || ''
+                    };
+                }
+            } catch (e) {}
+            return {};
+        })();
     }
     return currentUserProfilePromise;
 }
@@ -705,35 +735,36 @@ async function loadOrders() {
         var profile = await getCurrentUserProfile(user.id);
         var nickname = profile.nickname || user.username || "";
 
-        // 并行查询各类订单：把「我派的单」和「我接的单」分开查，避免角色混淆
-        var [
-            boardOrdersRes,
-            wizardOrdersRes,
-            myRequestPostsRes,
-            myRequestAcceptsRes,
-            myDispatchPostsRes,
-            myDispatchAcceptsRes,
-            teamMemberRes
-        ] = await Promise.all([
-            window.supabaseClient.from("orders").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-            nickname ? window.supabaseClient.from("orders").select("*").eq("wizard_name", nickname).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
-            window.supabaseClient.from("order_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-            window.supabaseClient.from("order_requests").select("*").eq("accepted_by", user.id).order("created_at", { ascending: false }),
-            window.supabaseClient.from("dispatch_orders").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-            window.supabaseClient.from("dispatch_orders").select("*").eq("accepted_by", user.id).order("created_at", { ascending: false }),
-            window.supabaseClient.from("dispatch_team_members").select("dispatch_order_id").eq("user_id", user.id)
-        ]);
-
-        // 通过 dispatch_team_members 查找我加入的组队派单
-        var teamDispatchIds = (teamMemberRes.data || []).map(function(m) { return m.dispatch_order_id; }).filter(Boolean);
-        var teamDispatchRes = { data: [] };
-        if(teamDispatchIds.length > 0) {
-            teamDispatchRes = await window.supabaseClient
-                .from("dispatch_orders")
-                .select("*")
-                .in("id", teamDispatchIds)
-                .order("created_at", { ascending: false });
+        // 使用后端聚合数据，避免本地 file:// 打开时 Supabase REST 因 JWT iat future 401
+        var apiData = window.__profileData || null;
+        if (!apiData) {
+            try {
+                const token = typeof window.getSupabaseToken === 'function' ? window.getSupabaseToken() : null;
+                if (token) {
+                    const res = await window.fetchWithTimeout(window.getApiBase() + '/api/profile-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                        body: JSON.stringify({})
+                    }, 15000);
+                    if (res.ok) {
+                        const result = await res.json();
+                        if (result.code === 1 && result.data) {
+                            apiData = result.data;
+                            window.__profileData = apiData;
+                        }
+                    }
+                }
+            } catch (e) { console.warn('loadOrders api failed:', e); }
         }
+
+        var boardOrdersRes = { data: apiData ? apiData.orders : [] };
+        var wizardOrdersRes = { data: apiData ? apiData.wizardOrders : [] };
+        var myRequestPostsRes = { data: apiData ? apiData.myRequestPosts : [] };
+        var myRequestAcceptsRes = { data: apiData ? apiData.myRequestAccepts : [] };
+        var myDispatchPostsRes = { data: apiData ? apiData.myDispatchPosts : [] };
+        var myDispatchAcceptsRes = { data: apiData ? apiData.myDispatchAccepts : [] };
+        var teamDispatchRes = { data: apiData ? apiData.teamDispatchOrders : [] };
+        var teamMemberRes = { data: (teamDispatchRes.data || []).map(function(d) { return { dispatch_order_id: d.id }; }) };
 
         var orders2 = [];
         var seenSourceIds = {}; // 用原始表+原始id去重，避免 accepted_by 和 team_members 重复
@@ -937,29 +968,16 @@ async function loadOrders() {
         var names = Object.keys(nameSet);
         try {
             var avatarMap = {};
-            if(emails.length > 0) {
-                var emailProfRes = await window.supabaseClient
-                    .from("profiles")
-                    .select("email, avatar_url, nickname")
-                    .in("email", emails);
-                if(emailProfRes.data) {
-                    for(var p = 0; p < emailProfRes.data.length; p++) {
-                        var prof = emailProfRes.data[p];
-                        avatarMap[prof.email] = prof.avatar_url || "";
-                        if(prof.nickname) {
-                            avatarMap["name:" + prof.email] = prof.nickname;
-                        }
-                    }
-                }
-            }
-            if(names.length > 0) {
-                var nameProfRes = await window.supabaseClient
-                    .from("profiles")
-                    .select("nickname, avatar_url")
-                    .in("nickname", names);
-                if(nameProfRes.data) {
-                    for(var p = 0; p < nameProfRes.data.length; p++) {
-                        avatarMap[nameProfRes.data[p].nickname] = nameProfRes.data[p].avatar_url || "";
+            if(emails.length > 0 || names.length > 0) {
+                var avatarRes = await window.fetchWithTimeout(window.getApiBase() + '/api/avatars', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emails: emails, names: names })
+                }, 10000);
+                if(avatarRes.ok) {
+                    var avatarResult = await avatarRes.json();
+                    if(avatarResult.code === 1 && avatarResult.data) {
+                        avatarMap = Object.assign({}, avatarResult.data.emailMap || {}, avatarResult.data.nameMap || {});
                     }
                 }
             }

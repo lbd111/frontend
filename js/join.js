@@ -150,26 +150,33 @@ function setFieldLocked(el, value) {
     }
 }
 
+// 统一从后端代理获取加入团队页面数据
+async function loadJoinData() {
+    try {
+        const token = typeof window.getSupabaseToken === 'function' ? window.getSupabaseToken() : null;
+        if (!token) return null;
+        const res = await window.fetchWithTimeout(window.getApiBase() + '/api/join-data', {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + token }
+        }, 10000);
+        if (!res.ok) return null;
+        const result = await res.json();
+        if (result.code === 1 && result.data) return result.data;
+    } catch (e) {
+        console.warn('loadJoinData failed:', e);
+    }
+    return null;
+}
+
 async function loadProfileAndPrefill() {
     try {
-        var sessionRes = await window.supabaseClient.auth.getSession();
-        var currentUser = sessionRes.data && sessionRes.data.session ? sessionRes.data.session.user : null;
-        if (!currentUser || !currentUser.id) {
-            return;
-        }
+        var userStr = localStorage.getItem('skyUser');
+        if (!userStr) return;
+        var user = JSON.parse(userStr);
+        if (!user || !user.id) return;
 
-        // 加载用户资料
-        var { data: profiles, error: profileError } = await window.supabaseClient
-            .from('profiles')
-            .select('sky_id, wangzhe_id, server, wz_server')
-            .eq('id', currentUser.id)
-            .maybeSingle();
-
-        if (profileError) {
-            console.warn('加载用户资料失败:', profileError);
-        }
-
-        var profile = profiles || {};
+        var joinData = await loadJoinData();
+        var profile = (joinData && joinData.profile) ? joinData.profile : {};
 
         // 预填光遇资料
         var skyGameIdEl = document.getElementById('skyGameId');
@@ -184,24 +191,18 @@ async function loadProfileAndPrefill() {
         setFieldLocked(wzServerEl, profile.wz_server);
 
         // 检查已有申请状态
-        await checkApplicationStatus(currentUser.id);
+        await checkApplicationStatus(user.id, joinData && joinData.applications ? joinData.applications : null);
     } catch (err) {
         console.error('初始化申请页失败:', err);
     }
 }
 
-async function checkApplicationStatus(userId) {
+async function checkApplicationStatus(userId, applications) {
     try {
-        var { data: applications, error } = await window.supabaseClient
-            .from('applications')
-            .select('status, created_at')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-        if (error) {
-            console.warn('查询申请状态失败:', error);
-            return;
+        var apps = applications;
+        if (!apps) {
+            var joinData = await loadJoinData();
+            apps = (joinData && joinData.applications) ? joinData.applications : [];
         }
 
         var banner = document.getElementById('applicationStatusBanner');
@@ -209,7 +210,7 @@ async function checkApplicationStatus(userId) {
         var skySubmit = document.querySelector('#joinForm button[type="submit"]');
         var wzSubmit = document.querySelector('#wangzheJoinForm button[type="submit"]');
 
-        var latest = applications && applications.length > 0 ? applications[0] : null;
+        var latest = apps && apps.length > 0 ? apps[0] : null;
         if (latest && latest.status !== 'approved') {
             var statusText = {
                 'pending': '待审核',
@@ -281,18 +282,11 @@ async function submitApplication(gameType, form, fileInputId, agreeCheckboxId) {
 
     // 检查是否已有未审核/被拒绝的申请，避免重复提交
     try {
-        var { data: existingApps, error: checkError } = await window.supabaseClient
-            .from('applications')
-            .select('status')
-            .eq('user_id', userId)
-            .neq('status', 'approved')
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-        if (checkError) {
-            console.warn('检查历史申请失败:', checkError);
-        } else if (existingApps && existingApps.length > 0) {
-            var latestStatus = existingApps[0].status;
+        var joinData = await loadJoinData();
+        var existingApps = (joinData && joinData.applications) ? joinData.applications : [];
+        var nonApproved = existingApps.filter(function(a) { return a.status !== 'approved'; });
+        if (nonApproved && nonApproved.length > 0) {
+            var latestStatus = nonApproved[0].status;
             var statusText = {
                 'pending': '待审核',
                 'rejected': '已拒绝'

@@ -161,34 +161,55 @@ async function loadApprovedMembers() {
     }
 
     try {
-        if (!window.supabaseClient) {
-            throw new Error('Supabase 客户端未初始化');
+        let apps = [];
+        let profiles = [];
+
+        // 优先走后端代理，避免本地 file:// 打开时 Supabase REST 因 JWT iat future 401
+        try {
+            const res = await window.fetchWithTimeout(window.getApiBase() + '/api/members-data', {
+                method: 'GET'
+            }, 15000);
+            if (res.ok) {
+                const result = await res.json();
+                if (result.code === 1 && result.data) {
+                    apps = result.data.applications || [];
+                    profiles = result.data.profiles || [];
+                }
+            }
+        } catch (apiErr) {
+            console.warn('members loadApprovedMembers api fallback:', apiErr);
         }
 
-        const { data, error } = await window.supabaseClient
-            .from('applications')
-            .select('id, username, gyname, game_id, server, wechat, skills, game_type, bio, screenshot, apply_time, user_id, wz_name, wz_game_id, wz_server, wz_wechat, wz_rank, wz_bio, wz_skills')
-            .eq('status', 'approved')
-            .order('apply_time', { ascending: false });
-
-        if (error) throw error;
-
-        const apps = data || [];
-
-        // 批量查询头像和评分
-        const userIds = apps.map(a => a.user_id).filter(Boolean);
-        const profileMap = {};
-        if (userIds.length > 0) {
+        // 后端失败则回退 Supabase 直连（保留原有逻辑作为兜底）
+        if (apps.length === 0 && window.supabaseClient) {
             try {
-                const { data: profs } = await window.supabaseClient
-                    .from('profiles')
-                    .select('id, avatar_url, rating')
-                    .in('id', userIds);
-                (profs || []).forEach(p => { profileMap[p.id] = p; });
+                const { data, error } = await window.supabaseClient
+                    .from('applications')
+                    .select('id, username, gyname, game_id, server, wechat, skills, game_type, bio, screenshot, apply_time, user_id, wz_name, wz_game_id, wz_server, wz_wechat, wz_rank, wz_bio, wz_skills')
+                    .eq('status', 'approved')
+                    .order('apply_time', { ascending: false });
+                if (!error) apps = data || [];
             } catch (e) {
-                console.warn('获取头像失败:', e);
+                console.warn('members supabase fallback failed:', e);
+            }
+            if (apps.length > 0) {
+                const userIds = apps.map(a => a.user_id).filter(Boolean);
+                if (userIds.length > 0) {
+                    try {
+                        const { data: profs } = await window.supabaseClient
+                            .from('profiles')
+                            .select('id, avatar_url, rating')
+                            .in('id', userIds);
+                        profiles = profs || [];
+                    } catch (e) {
+                        console.warn('members supabase profiles fallback failed:', e);
+                    }
+                }
             }
         }
+
+        const profileMap = {};
+        (profiles || []).forEach(p => { profileMap[p.id] = p; });
 
         approvedMembers = apps.map(app => {
             const p = profileMap[app.user_id] || {};

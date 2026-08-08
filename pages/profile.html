@@ -12,11 +12,11 @@
 
 <title>个人中心 - BJ陪玩团</title>
 
-    <link rel="stylesheet" href="../css/style.css?v=202607312023">
+    <link rel="stylesheet" href="../css/style.css?v=202608082359">
 
-    <link rel="stylesheet" href="../css/profile.css">
+    <link rel="stylesheet" href="../css/profile.css?v=202608082359">
 
-    <link rel="stylesheet" href="../css/order.css">
+    <link rel="stylesheet" href="../css/order.css?v=202608082359">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -375,9 +375,9 @@
         </div>
     </footer>
 
-    <script src="../js/supabase-config.js?v=202608081548"></script>
-    <script src="../js/main.js?v=202608081548"></script>
-    <script src="../js/profile.js?v=202608081548"></script>
+    <script src="../js/supabase-config.js?v=202608082359"></script>
+    <script src="../js/main.js?v=202608082359"></script>
+    <script src="../js/profile.js?v=202608082359"></script>
     <script>
         // Profile page avatar upload
         document.addEventListener('DOMContentLoaded', function() {
@@ -404,17 +404,20 @@
                         user.avatar = e.target.result;
                         localStorage.setItem('skyUser', JSON.stringify(user));
                     } catch(ex) {}
-                    // Save to database
-                    if (window.supabaseClient) {
-                        window.supabaseClient.auth.getSession().then(function(session) {
-                            if (session.data.session) {
-                                window.supabaseClient.from('profiles').update({ avatar_url: e.target.result }).eq('id', session.data.session.user.id).then(function(res) {
-                                    if (res.error) console.error('保存头像到数据库失败:', res.error);
-                                    else console.log('头像保存到数据库成功');
-                                });
-                            }
-                        });
-                    }
+                    // Save to database（后端代理，绕过前端 JWT iat 时钟偏差导致的 401）
+                    try {
+                        var token = (typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null;
+                        if (token) {
+                            window.fetchWithTimeout(window.getApiBase() + '/api/profile-update', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                                body: JSON.stringify({ avatar_url: e.target.result })
+                            }).then(function(r){ return r.json(); }).then(function(j){
+                                if (j.code !== 1) console.error('保存头像到数据库失败:', j.error);
+                                else console.log('头像保存到数据库成功');
+                            }).catch(function(err){ console.error('保存头像失败:', err); });
+                        }
+                    } catch(ex) {}
                     // Update nav
                     if (typeof updateNavUser === 'function') updateNavUser();
                 };
@@ -919,18 +922,21 @@
             const names = Object.keys(nameSet);
             const avatarMap = {};
             try {
-                if(window.supabaseClient && emails.length > 0) {
-                    var emailProfRes = await window.supabaseClient.from('profiles').select('email, avatar_url, nickname').in('email', emails);
-                    (emailProfRes.data || []).forEach(function(p) {
-                        avatarMap[p.email] = p.avatar_url || '';
-                        if(p.nickname) {
-                            avatarMap['name:' + p.email] = p.nickname;
-                        }
+                if (emails.length > 0 || names.length > 0) {
+                    var token = (typeof window.getSupabaseToken === 'function') ? window.getSupabaseToken() : null;
+                    var avHeaders = { 'Content-Type': 'application/json' };
+                    if (token) avHeaders['Authorization'] = 'Bearer ' + token;
+                    var avRes = await window.fetchWithTimeout(window.getApiBase() + '/api/avatars', {
+                        method: 'POST',
+                        headers: avHeaders,
+                        body: JSON.stringify({ emails: emails, names: names })
                     });
-                }
-                if(window.supabaseClient && names.length > 0) {
-                    var nameProfRes = await window.supabaseClient.from('profiles').select('nickname, avatar_url').in('nickname', names);
-                    (nameProfRes.data || []).forEach(function(p) { avatarMap[p.nickname] = p.avatar_url || ''; });
+                    var avJson = await avRes.json();
+                    var avData = (avJson && avJson.data) || {};
+                    var emailMap = avData.emailMap || {};
+                    var nameMap = avData.nameMap || {};
+                    Object.keys(emailMap).forEach(function(k) { avatarMap[k] = emailMap[k]; });
+                    Object.keys(nameMap).forEach(function(k) { avatarMap[k] = nameMap[k]; });
                 }
             } catch(e) {
                 console.warn('[loadRecentOrders] 头像查询失败（静默）:', e);

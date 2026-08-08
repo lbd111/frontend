@@ -102,11 +102,35 @@ async function loadMemberStatus() {
         if (!userStr) return;
         const user = JSON.parse(userStr);
 
-        const { data: profile, error } = await window.supabaseClient
-            .from('profiles')
-            .select('level, vip_expire_at, balance')
-            .eq('id', user.id)
-            .single();
+        // 优先走后端代理，避免本地 file:// 打开时 Supabase REST 因 JWT iat future 401
+        let profile = null;
+        try {
+            const token = typeof window.getSupabaseToken === 'function' ? window.getSupabaseToken() : null;
+            if (token) {
+                const res = await window.fetchWithTimeout(window.getApiBase() + '/api/profile-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({})
+                }, 10000);
+                if (res.ok) {
+                    const result = await res.json();
+                    if (result.code === 1 && result.data && result.data.profile) {
+                        profile = result.data.profile;
+                    }
+                }
+            }
+        } catch (apiErr) {
+            console.warn('vip loadMemberStatus api fallback:', apiErr);
+        }
+
+        // 后端失败则用本地缓存兜底
+        if (!profile && user) {
+            profile = {
+                level: user.level,
+                vip_expire_at: user.vip_expire_at,
+                balance: user.balance
+            };
+        }
 
         const levelEl = document.getElementById('memberLevel');
         const statusInfo = document.querySelector('.status-info');
