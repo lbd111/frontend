@@ -516,7 +516,7 @@ async function loadProfileDataFromApi() {
                 'Authorization': 'Bearer ' + token
             },
             body: JSON.stringify({})
-        }, 10000);
+        }, 25000);
 
         if (res.status === 204) {
             console.warn('[loadProfileDataFromApi] 后端返回 204 No Content，可能 Nginx/Cloudflare 拦截');

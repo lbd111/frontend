@@ -2390,7 +2390,7 @@ async function loadFavorites() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                     body: JSON.stringify({})
-                }, 10000);
+                }, 25000);
                 if (res.ok) {
                     const result = await res.json();
                     if (result.code === 1 && result.data && Array.isArray(result.data.favorites)) {
@@ -2676,7 +2676,7 @@ async function syncBalanceFromDB() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                     body: JSON.stringify({})
-                }, 8000);
+                }, 25000);
                 if (res.ok) {
                     var result = await res.json();
                     if (result.code === 1 && result.data && result.data.profile) {
