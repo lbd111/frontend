@@ -1466,17 +1466,21 @@ app.post('/api/account-delete', authMiddleware, async (req, res) => {
 });
 
 /* ============================================================================
- * Supabase PostgREST 透明代理： /api/sb/rest/v1/*  →  <SUPABASE_URL>/rest/v1/*
+ * Supabase 透明代理： /api/sb/rest/v1/*  →  <SUPABASE_URL>/rest/v1/*
+ *                    /api/sb/auth/v1/*   →  <SUPABASE_URL>/auth/v1/*
  * ----------------------------------------------------------------------------
- * 前端 supabase-js 的所有 REST 调用改指向这里，本服务端负责把浏览器持有的
- * access_token 换成 PostgREST 能接受的等价 token（见 mintRestToken 注释）。
+ * 前端 supabase-js 的所有调用改指向这里。
+ * · /rest/v1：把浏览器持有的 access_token 换成 PostgREST 能接受的等价 token
+ *   （见 mintRestToken 注释），解决 Supabase PostgREST 时钟落后 17h 导致的 401。
+ * · /auth/v1：原样透传，解决部分网络环境下浏览器直连 Supabase Auth 被拦截
+ *   或出现 "Failed to fetch" 的问题。
  * 除 Authorization 外，请求与响应均原样透传，因此：
  *   · RLS 策略、auth.uid()、归属权判断等业务语义 100% 不变
- *   · 前端已有的 100+ 处 .from(...) 调用一行都不用改
+ *   · 前端已有的 100+ 处 .from(...) / .auth 调用一行都不用改
  * ========================================================================== */
 const SB_PROXY_PREFIX = '/api/sb';
 
-// 转发给 PostgREST 的请求头白名单（Authorization / apikey 由本服务重新设置）
+// 转发给上游 Supabase 的请求头白名单（Authorization / apikey 由本服务重新设置）
 const SB_FORWARD_REQ_HEADERS = [
   'content-type', 'prefer', 'accept', 'accept-profile', 'content-profile',
   'range', 'range-unit', 'x-client-info', 'x-supabase-api-version',
@@ -1493,18 +1497,26 @@ app.all(SB_PROXY_PREFIX + '/*', async (req, res) => {
   setCorsHeaders(req, res);
   try {
     const suffix = req.originalUrl.slice(SB_PROXY_PREFIX.length); // 含 query string
-    // 只允许代理 REST 接口，杜绝被当作任意 URL 的开放代理
-    if (!/^\/rest\/v1\//.test(suffix.split('?')[0])) {
-      return res.status(403).json({ code: 0, error: '仅允许代理 /rest/v1 路径' });
+    const pathOnly = suffix.split('?')[0];
+    const isRest = /^\/rest\/v1\//.test(pathOnly);
+    const isAuth = /^\/auth\/v1\//.test(pathOnly);
+
+    // 只允许代理 REST 与 Auth 接口，杜绝被当作任意 URL 的开放代理
+    if (!isRest && !isAuth) {
+      return res.status(403).json({ code: 0, error: '仅允许代理 /rest/v1 与 /auth/v1 路径' });
     }
 
     const incoming = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
     let outgoingAuth;
 
     if (!incoming || incoming === SUPABASE_ANON_KEY) {
-      // 未登录：anon key 的 iat 早已是过去时间，PostgREST 可直接接受
+      // 未登录或 anon key：直接转发 anon key
       outgoingAuth = SUPABASE_ANON_KEY;
+    } else if (isAuth) {
+      // /auth/v1 原样透传浏览器 token（如 refresh/logout/user 等请求需要）
+      outgoingAuth = incoming;
     } else {
+      // /rest/v1：重签 token 以补偿 PostgREST 时钟偏差
       let payload;
       try {
         payload = verifySupabaseToken(incoming);
@@ -1534,13 +1546,28 @@ app.all(SB_PROXY_PREFIX + '/*', async (req, res) => {
         body: hasBody ? req.body : undefined
       }),
       15000,
-      'sb-proxy ' + req.method + ' ' + suffix.split('?')[0]
+      'sb-proxy ' + req.method + ' ' + pathOnly
     );
 
     for (const h of SB_FORWARD_RES_HEADERS) {
       const v = upstream.headers.get(h);
       if (v) res.setHeader(h, v);
     }
+
+    // auth 接口可能返回 Set-Cookie，需要透传给浏览器（SameSite 等属性由上游决定）
+    if (isAuth) {
+      let setCookie = [];
+      if (typeof upstream.headers.getSetCookie === 'function') {
+        setCookie = upstream.headers.getSetCookie();
+      } else {
+        const cookieHeader = upstream.headers.get('set-cookie');
+        if (cookieHeader) setCookie = cookieHeader.split(/,\s*(?=[^;]+;\s*)/);
+      }
+      if (setCookie.length) {
+        res.setHeader('Set-Cookie', setCookie);
+      }
+    }
+
     res.status(upstream.status);
     const buf = Buffer.from(await upstream.arrayBuffer());
     return res.send(buf);

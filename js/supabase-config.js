@@ -36,14 +36,17 @@ window.SUPABASE_REST_PROXY = (typeof window.API_BASE !== 'undefined'
 
 (function () {
     var REST_ORIGIN = window.SUPABASE_URL + '/rest/v1';
+    var AUTH_ORIGIN = window.SUPABASE_URL + '/auth/v1';
 
     function rewrite(url) {
-        return (typeof url === 'string' && url.indexOf(REST_ORIGIN) === 0)
-            ? window.SUPABASE_REST_PROXY + url.slice(window.SUPABASE_URL.length)
-            : null;
+        if (typeof url !== 'string') return null;
+        if (url.indexOf(REST_ORIGIN) === 0 || url.indexOf(AUTH_ORIGIN) === 0) {
+            return window.SUPABASE_REST_PROXY + url.slice(window.SUPABASE_URL.length);
+        }
+        return null;
     }
 
-    // 包装 fetch：仅改写 REST 流量，其余（auth/storage）原样直连
+    // 包装 fetch：改写 REST 与 Auth 流量，其余（storage/realtime）原样直连
     window.supabaseProxyFetch = function (input, init) {
         try {
             if (typeof input === 'string') {
